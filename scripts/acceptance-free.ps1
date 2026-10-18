@@ -6,7 +6,7 @@ $tokenFile = Join-Path $Base 'config\automation-token.txt'
 $token = if (Test-Path $tokenFile) { (Get-Content $tokenFile -Raw).Trim() } else { $null }
 $settingsF = Join-Path $Base 'data\settings\app_settings.json'
 $port = if (Test-Path $settingsF) { (Get-Content $settingsF -Raw | ConvertFrom-Json).api_port } else { 10109 }
-$H = @{ Authorization = "Bearer $token" }
+$AuthH = @{ Authorization = "Bearer $token" }
 $pass = 0; $fail = 0
 function Check([string]$Name, [bool]$Ok, [string]$Detail) {
   if ($Ok) { $script:pass++; Write-Output "PASS  $Name  $Detail" }
@@ -24,7 +24,7 @@ Check 'process-name-donutfree' ($mainProcs.Count -gt 0) "names=$(($procs | ForEa
 $B = "http://127.0.0.1:$port"
 $code = (& curl.exe -s -o NUL -w '%{http_code}' "$B/v1/health") -join ''
 Check 'health-requires-auth' ($code -eq '401') "no-token status=$code"
-$h = Invoke-RestMethod "$B/v1/health" -Headers $H -TimeoutSec 5
+$h = Invoke-RestMethod "$B/v1/health" -Headers $AuthH -TimeoutSec 5
 Check 'health-ok' ($h.status -eq 'ok') "v$($h.version) build=$($h.build)"
 Check 'build-flavour-free' ($h.build -eq 'free') "build=$($h.build)"
 
@@ -34,31 +34,29 @@ Check 'e2e-mcp-404' ($code -eq '404') "status=$code"
 $code2 = (& curl.exe -s -o NUL -w '%{http_code}' -H "Authorization: Bearer $token" "$B/v1/e2e/status") -join ''
 Check 'e2e-status-404' ($code2 -eq '404') "status=$code2"
 
-# 4. Local MCP endpoint (initialize must set the standard mcp-session-id header)
+# 4. Local MCP endpoint (initialize must set the standard mcp-session-id header;
+#    PS5.1 IWR is fine for 200 responses - it only hid ERROR statuses)
 $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"acceptance","version":"0"}}}'
-$respFile = Join-Path $env:TEMP 'donut-acc-mcp.json'
-$hdrFile = Join-Path $env:TEMP 'donut-acc-mcp.hdr'
-$null = & curl.exe -s -D $hdrFile -o $respFile -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d $initBody "$B/v1/mcp"
-$initOk = $false; $sid = $null; $serverName = ''
-if ((Test-Path $respFile) -and (Test-Path $hdrFile)) {
-  $m = [regex]::Match((Get-Content $hdrFile -Raw), '(?im)^mcp-session-id:\s*(\S+)')
-  if ($m.Success) { $sid = $m.Groups[1].Value }
-  $json = Get-Content $respFile -Raw | ConvertFrom-Json
-  $serverName = $json.body.result.serverInfo.name
-  $initOk = ($serverName -eq 'donut-browser') -and [bool]$sid
-}
-Check 'mcp-initialize' $initOk "server=$serverName header-session=$([bool]$sid)"
-$toolsOk = $false; $toolsLen = 0
+$r = $null; $iwrErr = ''
+try { $r = Invoke-WebRequest "$B/v1/mcp" -Method Post -Headers $AuthH -ContentType 'application/json' -Body $initBody -TimeoutSec 10 -UseBasicParsing } catch { $iwrErr = $_.Exception.Message }
+if (-not $r) { Write-Output "MCP-IWR-ERROR: $iwrErr | body=[$initBody] | url=[$B/v1/mcp] | toklen=$($token.Length)" }
+$sid = @($r.Headers['mcp-session-id'])[0]
+$initOk = ($r.StatusCode -eq 200) -and [bool]$sid -and ($r.Content -match 'donut-browser')
+Check 'mcp-initialize' $initOk "status=$($r.StatusCode) header-session=$([bool]$sid)"
 if ($sid) {
-  $null = & curl.exe -s -o $respFile -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H "mcp-session-id: $sid" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' "$B/v1/mcp"
-  if (Test-Path $respFile) { $toolsLen = (Get-Item $respFile).Length }
-  $toolsOk = ($toolsLen -gt 100)
+  $toolsBody = '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+  $tr = Invoke-WebRequest "$B/v1/mcp" -Method Post -Headers ($AuthH + @{ 'mcp-session-id' = $sid }) -ContentType 'application/json' -Body $toolsBody -TimeoutSec 10 -UseBasicParsing
+  Check 'mcp-tools-list' ($tr.StatusCode -eq 200 -and $tr.Content.Length -gt 100) "bytes=$($tr.Content.Length)"
+} else {
+  Check 'mcp-tools-list' $false 'no session'
 }
-Check 'mcp-tools-list' $toolsOk "bytes=$toolsLen"
 
-# 5. Engine/binaries present (proactive downloads work; CDN allowed)
-$engines = @(Get-ChildItem "$Base\data" -Recurse -Include 'wayfern*.zip','wayfern*.exe','xray*.exe','*.mmdb' | Select-Object -First 6)
-Check 'engine-present' ($engines.Count -gt 0) "files=$(($engines | ForEach-Object { $_.Name }) -join ',')"
+# 5. Engine present and unpacked (the downloader unpacks chrome.* files under
+#    data/binaries/wayfern/<version>/ and removes the zip; judge by content size)
+$engineFiles = @(Get-ChildItem "$Base\data\binaries" -Recurse -File)
+$engineMB = [math]::Round((($engineFiles | Measure-Object Length -Sum).Sum) / 1MB, 0)
+$hasChrome = [bool]($engineFiles | Where-Object { $_.Name -eq 'chrome.dll' -or $_.Name -eq 'chrome.exe' })
+Check 'engine-unpacked' ($engineMB -gt 100 -and $hasChrome) "binaries=$($engineMB)MB chrome=$hasChrome"
 
 # 6. Network surface of our processes (manual review; CDN engine downloads are expected)
 Write-Output '--- outbound connections (review) ---'
