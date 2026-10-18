@@ -121,6 +121,16 @@ impl AutoUpdater {
   }
 
   pub async fn check_for_updates_with_progress(&self, app_handle: &tauri::AppHandle) {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: browser engine auto-update is OFF. Engines stay
+      // pinned to what is installed on disk; adopting a new engine is a
+      // deliberate local action, never a background migration that rewrites
+      // profile versions and deletes the binaries they run on.
+      log::info!("Browser auto-update skipped (free build: engines pinned)");
+      let _ = app_handle;
+      return;
+    }
     // Browser auto-updates are always enabled — the disable_auto_updates setting
     // only controls app self-updates, not browser version updates.
 

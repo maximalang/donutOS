@@ -111,6 +111,11 @@ impl VersionUpdater {
   }
 
   fn should_run_background_update() -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: no background engine version refresh either.
+      return false;
+    }
     let state = Self::load_background_update_state();
     let current_time = Self::get_current_timestamp();
     let elapsed_secs = current_time.saturating_sub(state.last_update_time);
