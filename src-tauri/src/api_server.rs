@@ -1160,10 +1160,19 @@ async fn free_mcp_message(headers: HeaderMap, body: axum::body::Bytes) -> Respon
     .handle_message_with(session, &body, None)
     .await
   {
-    McpOutcome::Body {
-      body,
-      new_session_id,
-    } => Json(serde_json::json!({ "session_id": new_session_id, "body": body })).into_response(),
+    // Standard streamable-HTTP MCP puts new sessions in the `mcp-session-id`
+    // response header; keep the session_id in the JSON body as well so
+    // body-only clients (the upstream e2e shape) keep working.
+    McpOutcome::Body { body, new_session_id } => {
+      let mut response = Json(serde_json::json!({ "session_id": new_session_id, "body": body }))
+        .into_response();
+      if let Some(session_id) = new_session_id {
+        if let Ok(value) = axum::http::HeaderValue::from_str(&session_id) {
+          response.headers_mut().insert("mcp-session-id", value);
+        }
+      }
+      response
+    }
     McpOutcome::Accepted => StatusCode::ACCEPTED.into_response(),
     McpOutcome::UnknownSession => StatusCode::NOT_FOUND.into_response(),
     McpOutcome::BadRequest => StatusCode::BAD_REQUEST.into_response(),
