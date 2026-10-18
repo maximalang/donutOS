@@ -43,17 +43,43 @@ switch ($Action) {
     if (@(Get-Procs).Count) { "already running"; break }
     if (-not (Test-Path $exe)) { "ERROR: $exe not found"; break }
     $env:DONUT_AUTOMATION_TOKEN = $token
-    Start-Process -FilePath $exe -WorkingDirectory $Base
-    if (Wait-Port 60) { $h = Api '/v1/health'; "STARTED  http://127.0.0.1:$port  v$($h.version) build=$($h.build)" }
+    $proc = Start-Process -FilePath $exe -WorkingDirectory $Base -PassThru
+    if (Wait-Port 60) {
+      # Guard against the single-instance race: a just-killed sibling may
+      # still answer health while the spawned child self-exits silently.
+      Start-Sleep 2
+      $proc.Refresh()
+      $alive = ($proc -and -not $proc.HasExited)
+      $n = @(Get-Procs).Count
+      if ($alive -and $n -eq 1) { $h = Api '/v1/health'; "STARTED  http://127.0.0.1:$port  v$($h.version) build=$($h.build) (pid $($proc.Id))" }
+      else { "FAILED: spawned child not healthy (alive=$alive procs=$n) - single-instance race or early exit"; break }
+    }
     else { "WARN: process started but /v1/health not ready in 60s (first-run engine download can take minutes)" }
   }
   'stop' {
     $p = @(Get-Procs)
     if (-not $p.Count) { "not running"; break }
     $p | Stop-Process -Force
-    "STOPPED $($p.Count) process(es)"
+    # Wait until the processes are really gone AND the port is released,
+    # so a dying instance cannot answer the next start's health probe.
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline -and @(Get-Procs).Count) { Start-Sleep -Milliseconds 300 }
+    $deadline = (Get-Date).AddSeconds(10)
+    while ((Get-Date) -lt $deadline) {
+      $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+      if (-not $conn) { break }
+      Start-Sleep -Milliseconds 300
+    }
+    $left = @(Get-Procs).Count
+    $warn = if ($left) { " WARN: $left still alive" } else { '' }
+    "STOPPED $($p.Count) process(es)$warn"
   }
-  'restart' { & $PSCommandPath stop $Base; Start-Sleep 2; & $PSCommandPath start $Base }
+  'restart' {
+    # Re-invoking $PSCommandPath in-process proved silent under -File on this host;
+    # use an explicit child powershell so stop/start run their full logic.
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PSCommandPath" stop -Base $Base
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PSCommandPath" start -Base $Base
+  }
   'token' {
     if ($token) { "port: $port`ntoken: $token`nheader: Authorization: Bearer $token" }
     else { "no token file at $tokenFile" }
@@ -72,16 +98,16 @@ switch ($Action) {
     "disk C    : $([math]::Round($d.Free/1GB,1)) GB free"
   }
   'backup' {
-    if (-not $BackupDir) { $BackupDir = Join-Path $Base ('backups\' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+    if (-not $BackupDir) { $BackupDir = Join-Path $Base ('backups' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
     New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
     if (Test-Path "$Base\data") { Copy-Item -Recurse -Force "$Base\data" "$BackupDir\data" }
-    if (Test-Path $tokenFile)   { Copy-Item -Force $tokenFile "$BackupDir\" }
+    if (Test-Path $tokenFile)   { Copy-Item -Force $tokenFile "$BackupDir" }
     "BACKUP_OK -> $BackupDir"
   }
   'restore' {
     if (-not $BackupDir) { "usage: restore -BackupDir <path>"; break }
     if (-not (Test-Path "$BackupDir\data")) { "ERROR: no data in $BackupDir"; break }
-    & $PSCommandPath stop $Base
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PSCommandPath" stop -Base $Base
     Copy-Item -Recurse -Force "$BackupDir\data" "$Base\data"
     if (Test-Path "$BackupDir\automation-token.txt") { New-Item -ItemType Directory -Force -Path (Split-Path $tokenFile) | Out-Null; Copy-Item -Force "$BackupDir\automation-token.txt" $tokenFile }
     "RESTORE_OK from $BackupDir"
