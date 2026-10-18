@@ -6,13 +6,14 @@ set "SRC=D:\ZDownloads\donut-free-target\release"
 set "DST=%~1"
 if "%DST%"=="" set "DST=C:\Users\max\Desktop\Donut-Free"
 
-if not exist "%SRC%\DonutFree.exe" (
-  echo ERROR: %SRC%\DonutFree.exe not found - build first.
+if not exist "%SRC%\donutbrowser.exe" (
+  echo ERROR: %SRC%\donutbrowser.exe not found - build first.
   exit /b 1
 )
 
 mkdir "%DST%" 2>nul
-copy /y "%SRC%\DonutFree.exe" "%DST%\" >nul || goto :fail
+rem Raw tauri output keeps the cargo package name; ship it as DonutFree.exe.
+copy /y "%SRC%\donutbrowser.exe" "%DST%\DonutFree.exe" >nul || goto :fail
 for %%F in (donut-proxy.exe xray.exe donut-xray.exe) do (
   if exist "%SRC%\%%F" copy /y "%SRC%\%%F" "%DST%\" >nul
 )
