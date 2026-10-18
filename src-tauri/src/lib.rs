@@ -72,6 +72,13 @@ fn e2e_automation_profile_dir() -> Option<std::path::PathBuf> {
     .flatten()
 }
 
+/// Donut Free build marker for the frontend: true when compiled with the
+/// `free` feature (local entitlements, local MCP route, local Wayfern token).
+#[tauri::command]
+fn free_build_enabled() -> bool {
+  cfg!(feature = "free")
+}
+
 mod api_client;
 mod api_server;
 mod app_auto_updater;
@@ -3647,6 +3654,7 @@ pub fn run_with_builder(
       cloud_auth::cloud_get_user,
       cloud_auth::cloud_refresh_profile,
       cloud_auth::cloud_logout,
+      free_build_enabled,
       cloud_auth::cloud_get_proxy_usage,
       cloud_auth::cloud_get_countries,
       cloud_auth::create_cloud_location_proxy,

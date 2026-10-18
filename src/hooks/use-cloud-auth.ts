@@ -3,6 +3,53 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
 import type { CloudAuthState, CloudUser } from "@/types";
 
+/**
+ * Donut Free build: the local entitlements user. When the desktop is compiled
+ * with the `free` feature it reports `free_build_enabled() = true`, and this
+ * account replaces the login upsell: local automation, cross-OS fingerprints
+ * and an effectively unlimited hourly budget; every cloud-served capability
+ * (cookie bot, remote sessions, team, scheduled automation) stays off.
+ * `profileLimit: 0` follows the project convention for "unlimited".
+ */
+const FREE_LOCAL_USER: CloudUser = {
+  id: "free-local",
+  email: "",
+  plan: "local",
+  planPeriod: null,
+  subscriptionStatus: "active",
+  profileLimit: 0,
+  cloudProfilesUsed: 0,
+  proxyBandwidthLimitMb: 0,
+  proxyBandwidthUsedMb: 0,
+  proxyBandwidthExtraMb: 0,
+  deviceOrdinal: 1,
+  deviceCount: 1,
+  isPrimaryDevice: true,
+  entitlements: {
+    active: true,
+    browserAutomation: true,
+    crossOsFingerprints: true,
+    cloudBackup: false,
+    teamCollaboration: false,
+    cookieBot: false,
+    remoteInteractive: false,
+    remoteControl: false,
+    scheduledAutomation: false,
+    profileLimit: 0,
+    requestsPerHour: 1_000_000,
+    remoteBrowserHours: 0,
+  },
+};
+
+/** Resolved once per app run; false in stock builds and on any failure. */
+let freeBuildPromise: Promise<boolean> | null = null;
+function isFreeBuild(): Promise<boolean> {
+  if (!freeBuildPromise) {
+    freeBuildPromise = invoke<boolean>("free_build_enabled").catch(() => false);
+  }
+  return freeBuildPromise;
+}
+
 interface UseCloudAuthReturn {
   user: CloudUser | null;
   /** When this desktop signed in, as the backend recorded it. */
@@ -21,7 +68,16 @@ export function useCloudAuth(): UseCloudAuthReturn {
   const loadUser = useCallback(async () => {
     try {
       const state = await invoke<CloudAuthState | null>("cloud_get_user");
-      setAuthState(state);
+      if (!state && (await isFreeBuild())) {
+        // Free local build with no cloud login: expose the local user so the
+        // UI unlocks local capabilities instead of showing the login upsell.
+        setAuthState({
+          user: FREE_LOCAL_USER,
+          logged_in_at: new Date().toISOString(),
+        });
+      } else {
+        setAuthState(state);
+      }
     } catch (error) {
       console.error("Failed to load cloud auth state:", error);
       setAuthState(null);
@@ -63,6 +119,10 @@ export function useCloudAuth(): UseCloudAuthReturn {
   );
 
   const logout = useCallback(async () => {
+    if (await isFreeBuild()) {
+      // Local build: nothing to sign out of; keep the local session.
+      return;
+    }
     await invoke("cloud_logout");
     setAuthState(null);
   }, []);

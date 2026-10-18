@@ -2033,7 +2033,16 @@ rm "{}"
 // Tauri commands
 
 #[tauri::command]
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn check_for_app_updates() -> Result<Option<AppUpdateInfo>, String> {
+  #[cfg(feature = "free")]
+  {
+    // Free local build: never ask their update server; updates arrive through
+    // our own update-from-upstream pipeline. Portable mode skips this too.
+    log::debug!("App update check skipped reason=free-local-build");
+    return Ok(None);
+  }
+
   #[cfg(feature = "e2e")]
   if crate::e2e_automation_enabled()
     && std::env::var_os("DONUT_E2E_DISABLE_STARTUP_NETWORK").is_some()
@@ -2094,7 +2103,15 @@ pub async fn restart_application() -> Result<(), String> {
 }
 
 #[tauri::command]
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn check_for_app_updates_manual() -> Result<Option<AppUpdateInfo>, String> {
+  #[cfg(feature = "free")]
+  {
+    // Free local build: manual check has nothing to consult either.
+    log::debug!("App update check skipped reason=free-local-build manual=true");
+    return Ok(None);
+  }
+
   #[cfg(feature = "e2e")]
   if crate::e2e_automation_enabled()
     && std::env::var_os("DONUT_E2E_DISABLE_STARTUP_NETWORK").is_some()

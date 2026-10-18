@@ -535,6 +535,16 @@ impl SettingsManager {
     &self,
     _app_handle: &tauri::AppHandle,
   ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    // Donut Free: optional pinned automation token (DONUT_AUTOMATION_TOKEN).
+    // Keeps fleet configs stable across data resets — no 401/regen dance.
+    #[cfg(feature = "free")]
+    if let Some(pinned) = std::env::var_os("DONUT_AUTOMATION_TOKEN")
+      .filter(|token| !token.is_empty())
+      .and_then(|token| token.into_string().ok())
+    {
+      return Ok(Some(pinned));
+    }
+
     Self::decrypt_from_file(&self.api_token_file(), b"DBAPI")
   }
 

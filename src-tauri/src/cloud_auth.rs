@@ -1308,7 +1308,14 @@ impl CloudAuthManager {
 
   /// Account is in a paid/active state. Used for the "any active plan" gates
   /// (sync token); per-feature access uses the capability helpers.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn has_active_paid_subscription(&self) -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: local session, no cloud plan to consult.
+      return true;
+    }
+
     #[cfg(feature = "e2e")]
     if crate::e2e_automation_enabled()
       && std::env::var_os("WAYFERN_TEST_TOKEN").is_some_and(|token| !token.is_empty())
@@ -1322,7 +1329,14 @@ impl CloudAuthManager {
   /// Reads the entitlement directly rather than going through
   /// `can_use_browser_automation`, whose e2e override would send the browser
   /// suite off to the live API for a token it already has as a test value.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn is_entitled_to_wayfern_token(&self) -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: the local token needs no entitlement check.
+      return true;
+    }
+
     self.entitlements().await.is_some_and(|e| e.active)
   }
 
@@ -1353,7 +1367,14 @@ impl CloudAuthManager {
       .unwrap_or(false)
   }
 
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn can_use_browser_automation(&self) -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: local automation is always allowed.
+      return true;
+    }
+
     #[cfg(feature = "e2e")]
     if crate::e2e_automation_enabled()
       && std::env::var_os("WAYFERN_TEST_TOKEN").is_some_and(|token| !token.is_empty())
@@ -1369,7 +1390,14 @@ impl CloudAuthManager {
   }
 
   /// Edit fingerprints / use a non-native OS fingerprint.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn can_use_cross_os_fingerprints(&self) -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: cross-OS fingerprints are local, always allowed.
+      return true;
+    }
+
     #[cfg(feature = "e2e")]
     if crate::e2e_automation_enabled()
       && std::env::var_os("WAYFERN_TEST_TOKEN").is_some_and(|token| !token.is_empty())
@@ -1407,7 +1435,15 @@ impl CloudAuthManager {
   /// Identity and positive per-hour cap for the shared REST/MCP automation
   /// limiter. No active automation entitlement means no limiter entry; the
   /// capability gates still reject paid operations independently.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn automation_rate_limit(&self) -> Option<(String, u64)> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: effectively unlimited shared-limiter budget; the
+      // capability gates above still refuse genuinely unsupported calls.
+      return Some(("free-local".to_string(), 10_000_000));
+    }
+
     #[cfg(feature = "e2e")]
     if crate::e2e_automation_enabled() {
       if let Ok(limit) = std::env::var("DONUT_E2E_REQUESTS_PER_HOUR") {
@@ -1650,7 +1686,15 @@ impl CloudAuthManager {
   /// they repeated was the wrong one. A plan without automation is not an error
   /// state here — it clears any stale token and reports success, because there
   /// is nothing to fetch and nothing wrong.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn request_wayfern_token(&self) -> Result<(), String> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: the engine token is the built-in local one; the
+      // cloud mint endpoint is never contacted.
+      return Ok(());
+    }
+
     if !self.is_entitled_to_wayfern_token().await {
       // Ok(()) here means callers log nothing, so a session that declined to
       // mint left no trace at all and looked identical to one that succeeded.
@@ -1736,7 +1780,15 @@ impl CloudAuthManager {
   }
 
   /// Get the current wayfern token, if any.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn get_wayfern_token(&self) -> Option<String> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: built-in local token ("local-e2e" is the value the
+      // engine accepts for local launches). No env, no cloud fetch.
+      return Some("local-e2e".to_string());
+    }
+
     #[cfg(feature = "e2e")]
     if crate::e2e_automation_enabled() {
       if let Some(token) = std::env::var_os("WAYFERN_TEST_TOKEN")

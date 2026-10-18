@@ -217,7 +217,8 @@ split-debuginfo = "unpacked"
 [profile.release]
 codegen-units = 1
 opt-level = 3
-lto = "thin"
+lto = "fat"
+strip = "symbols"
 # Split debuginfo on macOS for faster linking (ignored on other platforms)
 split-debuginfo = "unpacked"
 
@@ -234,3 +235,6 @@ default = ["custom-protocol"]
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
 e2e = []
+# Donut Free build: first-class local mode — local entitlements, local MCP
+# route, local Wayfern token, no cloud updater path. No test flags involved.
+free = []
