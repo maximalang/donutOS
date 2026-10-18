@@ -110,6 +110,7 @@ impl VersionUpdater {
       .as_secs()
   }
 
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   fn should_run_background_update() -> bool {
     #[cfg(feature = "free")]
     {

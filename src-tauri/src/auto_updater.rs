@@ -120,6 +120,7 @@ impl AutoUpdater {
     Ok(notifications)
   }
 
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn check_for_updates_with_progress(&self, app_handle: &tauri::AppHandle) {
     #[cfg(feature = "free")]
     {
