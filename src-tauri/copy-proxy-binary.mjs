@@ -33,18 +33,31 @@ const TARGET = getTarget();
 const HOST_TARGET = getHostTarget();
 const isWindows = TARGET.includes("windows");
 
-// Determine source directory
+// Determine source directory: honour CARGO_TARGET_DIR / workspace target dir
+// (the nested `cargo build` below inherits this process's environment, so
+// CARGO_TARGET_DIR is authoritative when set; falls back to cargo metadata,
+// then to the in-repo target/ dir).
+function getTargetDir() {
+  if (process.env.CARGO_TARGET_DIR) return process.env.CARGO_TARGET_DIR;
+  try {
+    const output = execSync("cargo metadata --format-version 1 --no-deps", {
+      encoding: "utf-8",
+      cwd: MANIFEST_DIR,
+    });
+    return JSON.parse(output).target_directory;
+  } catch {}
+  return join(MANIFEST_DIR, "target");
+}
+
 let srcDir;
 if (TARGET === HOST_TARGET || TARGET === "unknown") {
   srcDir = join(
-    MANIFEST_DIR,
-    "target",
+    getTargetDir(),
     PROFILE === "release" ? "release" : "debug",
   );
 } else {
   srcDir = join(
-    MANIFEST_DIR,
-    "target",
+    getTargetDir(),
     TARGET,
     PROFILE === "release" ? "release" : "debug",
   );
