@@ -2878,11 +2878,13 @@ mod tests {
     } else {
       "donut-proxy"
     };
-    let proxy_binary = project_root
-      .join("src-tauri")
-      .join("target")
-      .join("debug")
-      .join(proxy_binary_name);
+    // The nested `cargo build` below inherits this process's environment, so
+    // resolve the target dir the same way cargo does instead of assuming the
+    // in-repo `src-tauri/target` (breaks under a redirected CARGO_TARGET_DIR).
+    let target_dir = env::var_os("CARGO_TARGET_DIR")
+      .map(PathBuf::from)
+      .unwrap_or_else(|| project_root.join("src-tauri").join("target"));
+    let proxy_binary = target_dir.join("debug").join(proxy_binary_name);
 
     // Check if binary already exists
     if proxy_binary.exists() {
