@@ -763,6 +763,7 @@ struct ImportProxiesResponse {
 #[derive(OpenApi)]
 #[openapi(
   paths(
+    get_health,
     get_profiles,
     get_profile,
     get_profile_fingerprint_api,
@@ -859,6 +860,7 @@ struct ImportProxiesResponse {
     ApiGroupResponse,
     CreateGroupRequest,
     UpdateGroupRequest,
+    HealthResponse,
     ApiStatusResponse,
     StatusRequest,
     BulkEditRequest,
@@ -979,6 +981,7 @@ struct ImportProxiesResponse {
     (name = "remote-sessions", description = "Sessions running on the leased remote fleet"),
     (name = "cookie-bot", description = "Scheduled cookie-warming runs on the remote fleet"),
     (name = "agent", description = "Native page perception, locators, extraction and humanized input for a running profile"),
+    (name = "system", description = "Health and build information"),
   ),
   modifiers(&SecurityAddon),
 )]
@@ -1180,6 +1183,7 @@ async fn free_mcp_message(headers: HeaderMap, body: axum::body::Bytes) -> Respon
 /// `openapi_spec_covers_registered_routes` exists.
 fn build_v1_router() -> Router<ApiServerState> {
   let (routes, _) = OpenApiRouter::new()
+    .routes(routes!(get_health))
     .routes(routes!(get_profiles, create_profile))
     .routes(routes!(get_profile, update_profile, delete_profile))
     .routes(routes!(get_profile_fingerprint_api))
@@ -1626,6 +1630,39 @@ fn group_profile_counts() -> std::collections::HashMap<String, usize> {
     }
   }
   counts
+}
+
+#[derive(serde::Serialize, utoipa::ToSchema)]
+pub struct HealthResponse {
+  pub status: String,
+  pub version: String,
+  pub build: String,
+  pub profiles_total: usize,
+}
+
+#[utoipa::path(
+  get,
+  path = "/v1/health",
+  responses(
+    (status = 200, description = "Liveness and build info for monitors", body = HealthResponse),
+    (status = 401, description = "Unauthorized")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "system"
+)]
+async fn get_health() -> Json<HealthResponse> {
+  let profiles_total = ProfileManager::instance()
+    .list_profiles()
+    .map(|profiles| profiles.len())
+    .unwrap_or(0);
+  Json(HealthResponse {
+    status: "ok".to_string(),
+    version: env!("CARGO_PKG_VERSION").to_string(),
+    build: if cfg!(feature = "free") { "free" } else { "stock" }.to_string(),
+    profiles_total,
+  })
 }
 
 #[utoipa::path(
