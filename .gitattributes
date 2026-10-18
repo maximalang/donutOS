@@ -1,0 +1,9 @@
+# Self-parsing Rust tests (include_str! + "\n" patterns) require LF sources;
+# Windows checkouts with autocrlf=true break them. Pin LF for text sources.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.exe binary
+*.zip binary
+*.woff binary
+*.woff2 binary
