@@ -264,6 +264,15 @@ impl DownloadedBrowsersRegistry {
     active_profiles: &[(String, String)], // (browser, version) pairs
     running_profiles: &[(String, String)], // (browser, version) pairs for running profiles
   ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: never delete engine binaries in the background.
+      // Engines are large local assets installed deliberately; removal is a
+      // manual action (delete via API/UI), not a startup side effect.
+      let _ = (active_profiles, running_profiles);
+      log::debug!("Binary cleanup skipped (free build: engines kept)");
+      return Ok(Vec::new());
+    }
     let active_set: std::collections::HashSet<(String, String)> =
       active_profiles.iter().cloned().collect();
     let running_set: std::collections::HashSet<(String, String)> =
@@ -788,6 +797,14 @@ impl DownloadedBrowsersRegistry {
     &self,
     app_handle: &tauri::AppHandle,
   ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: profile engine versions are never consolidated or
+      // rewritten automatically — each profile keeps the version it pins.
+      let _ = app_handle;
+      log::debug!("Version consolidation skipped (free build: engines pinned)");
+      return Ok(Vec::new());
+    }
     let profiles = self
       .profile_manager
       .list_profiles()
@@ -980,12 +997,21 @@ impl DownloadedBrowsersRegistry {
   }
 
   /// Update all profiles using a specific browser to a new version
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   async fn update_profiles_to_version(
     &self,
     app_handle: &tauri::AppHandle,
     browser: &str,
     version: &str,
   ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: never move profiles to another engine version
+      // automatically (see auto_update_profile_versions).
+      let _ = (app_handle, browser, version);
+      log::debug!("Profile version move skipped (free build: engines pinned)");
+      return Ok(Vec::new());
+    }
     let profiles = self
       .profile_manager
       .list_profiles()

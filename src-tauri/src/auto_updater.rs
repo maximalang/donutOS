@@ -295,12 +295,22 @@ impl AutoUpdater {
   }
 
   /// Automatically update all affected profile versions after browser download
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn auto_update_profile_versions(
     &self,
     app_handle: &tauri::AppHandle,
     browser: &str,
     new_version: &str,
   ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: a downloaded engine NEVER rewrites existing
+      // profiles. Which engine a profile runs on is a deliberate local
+      // decision (update_profile / create with explicit version).
+      let _ = (app_handle, browser, new_version);
+      log::info!("Profile auto-migration skipped (free build: engines pinned)");
+      return Ok(Vec::new());
+    }
     let profiles = self
       .profile_manager
       .list_profiles()
