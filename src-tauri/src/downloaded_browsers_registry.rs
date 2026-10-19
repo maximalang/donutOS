@@ -259,6 +259,7 @@ impl DownloadedBrowsersRegistry {
   }
 
   /// Find and remove unused browser binaries that are not referenced by any active profiles
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   fn cleanup_unused_binaries_internal(
     &self,
     active_profiles: &[(String, String)], // (browser, version) pairs
@@ -793,6 +794,7 @@ impl DownloadedBrowsersRegistry {
   }
 
   /// Consolidate browser versions - keep only the latest version per browser
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub fn consolidate_browser_versions(
     &self,
     app_handle: &tauri::AppHandle,
