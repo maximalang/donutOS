@@ -520,11 +520,19 @@ impl AutoUpdater {
 
   /// Update a single profile to the latest installed version for its browser.
   /// Used when a browser closes to ensure it's on the latest version.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub fn update_profile_to_latest_installed(
     &self,
     app_handle: &tauri::AppHandle,
     profile: &crate::profile::BrowserProfile,
   ) -> Option<crate::profile::BrowserProfile> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: profiles never drift to the latest installed
+      // engine on their own — pinned means pinned.
+      let _ = (app_handle, profile);
+      return None;
+    }
     let latest = self.get_latest_installed_version(&profile.browser)?;
 
     if !self.is_version_newer(&latest, &profile.version) {
@@ -557,10 +565,19 @@ impl AutoUpdater {
 
   /// Update all non-running profiles to the latest installed version for each browser.
   /// Handles the case where a newer version was downloaded but profiles weren't updated.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub fn update_profiles_to_latest_installed(
     &self,
     app_handle: &tauri::AppHandle,
   ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: startup must not align profiles to the newest
+      // installed engine — each profile keeps its pinned version.
+      let _ = app_handle;
+      log::debug!("Startup profile alignment skipped (free build: engines pinned)");
+      return Ok(Vec::new());
+    }
     let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
     let profiles = self
       .profile_manager
