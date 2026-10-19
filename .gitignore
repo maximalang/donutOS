@@ -70,3 +70,4 @@ HANDOFF.md
 .claude/quota-blocked.json
 session-recover.yaml
 # Claude Code session-recovery state
+scripts/donut-sync/.env

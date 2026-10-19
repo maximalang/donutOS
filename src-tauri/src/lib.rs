@@ -716,6 +716,12 @@ struct IntegrationDiagnostic {
   checked_at: u64,
 }
 
+/// Free local build marker for the frontend: cloud-only UI is hidden.
+#[tauri::command]
+fn is_free_build() -> bool {
+  cfg!(feature = "free")
+}
+
 /// A read-only authenticated probe. Never returns credentials or response bodies.
 #[tauri::command]
 async fn check_integration_connection(
@@ -3558,6 +3564,7 @@ pub fn run_with_builder(
       assign_extension_group_to_profile,
       get_extension_group_for_profile,
       is_geoip_database_available,
+      is_free_build,
       download_geoip_database,
       start_api_server,
       stop_api_server,

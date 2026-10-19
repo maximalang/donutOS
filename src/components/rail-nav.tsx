@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import { FaDownload } from "react-icons/fa";
 import { FiWifi } from "react-icons/fi";
 import { GoGear, GoKebabHorizontal } from "react-icons/go";
@@ -249,6 +250,9 @@ function ActiveIndicator() {
   );
 }
 
+// Cloud-only pages: hidden in the free local build (no vendor account).
+const FREE_HIDDEN_PAGES = new Set<AppPage>(["cookieBot", "agent", "account"]);
+
 interface RailItem {
   page: AppPage;
   Icon: React.ComponentType<{ className?: string }>;
@@ -305,6 +309,13 @@ export function RailNav({
 }: RailNavProps) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [freeBuild, setFreeBuild] = useState<boolean>(isFreeBuildSync());
+  useEffect(() => {
+    void detectFreeBuild().then(setFreeBuild);
+  }, []);
+  const railItems = freeBuild
+    ? TOP_ITEMS.filter(({ page }) => !FREE_HIDDEN_PAGES.has(page))
+    : TOP_ITEMS;
   const {
     logoRef,
     isPressed,
@@ -381,7 +392,7 @@ export function RailNav({
       <div className="my-1 h-px w-5 shrink-0 bg-border" />
 
       <div className="flex min-h-0 w-full scrollbar-none flex-col items-center gap-1 overflow-y-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {TOP_ITEMS.map(({ page, Icon, labelKey }) => {
+        {railItems.map(({ page, Icon, labelKey }) => {
           const active = currentPage === page;
           const waiting = page === "agent" ? agentRequests : 0;
           const label =

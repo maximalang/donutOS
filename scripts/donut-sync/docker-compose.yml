@@ -1,0 +1,47 @@
+services:
+  donut-sync:
+    image: donutbrowser/donut-sync:latest
+    container_name: donut-sync
+    ports:
+      - "3929:3929"
+    environment:
+      # Long random secret; Donut Browser sends it as the sync bearer token.
+      SYNC_TOKEN: ${DONUT_SYNC_TOKEN}
+      PORT: "3929"
+      S3_ENDPOINT: http://s3:9000
+      # Address the browser uses for profile file transfers (this host).
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: donut-free-sync
+      S3_SECRET_ACCESS_KEY: ${DONUT_S3_SECRET}
+      S3_BUCKET: donut-sync
+      S3_FORCE_PATH_STYLE: "true"
+    depends_on:
+      s3:
+        condition: service_healthy
+    restart: unless-stopped
+
+  s3:
+    image: rclone/rclone:latest
+    container_name: donut-sync-s3
+    command:
+      - serve
+      - s3
+      - /data
+      - --addr
+      - :9000
+      - --auth-key
+      - donut-free-sync,${DONUT_S3_SECRET}
+      - --force-path-style
+      - --vfs-cache-mode
+      - writes
+    ports:
+      - "9000:9000"
+    volumes:
+      - D:/ProgramData/donut-sync/s3data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "9000"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped

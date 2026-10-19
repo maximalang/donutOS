@@ -535,17 +535,58 @@ impl SettingsManager {
     &self,
     _app_handle: &tauri::AppHandle,
   ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    // Donut Free: optional pinned automation token (DONUT_AUTOMATION_TOKEN).
-    // Keeps fleet configs stable across data resets — no 401/regen dance.
+    // Donut Free: stable automation token. Resolution order:
+    //   1. DONUT_AUTOMATION_TOKEN env (fleet ctl keeps working as before)
+    //   2. config/automation-token.txt next to the executable (portable
+    //      layout) — makes a manual double-click launch fully functional
+    //      with the same token the fleet uses
+    //   3. self-provision: generate once, write that file, reuse forever
     #[cfg(feature = "free")]
-    if let Some(pinned) = std::env::var_os("DONUT_AUTOMATION_TOKEN")
-      .filter(|token| !token.is_empty())
-      .and_then(|token| token.into_string().ok())
     {
-      return Ok(Some(pinned));
+      if let Some(pinned) = std::env::var_os("DONUT_AUTOMATION_TOKEN")
+        .filter(|token| !token.is_empty())
+        .and_then(|token| token.into_string().ok())
+      {
+        return Ok(Some(pinned));
+      }
+      if let Some(token_file) = Self::free_portable_token_path() {
+        if let Ok(existing) = std::fs::read_to_string(&token_file) {
+          let existing = existing.trim();
+          if !existing.is_empty() {
+            return Ok(Some(existing.to_string()));
+          }
+        }
+        // Self-provision a stable token so API/MCP work out of the box.
+        let generated = format!(
+          "{}{}",
+          uuid::Uuid::new_v4().simple(),
+          uuid::Uuid::new_v4().simple()
+        );
+        let _ = std::fs::create_dir_all(
+          token_file.parent().unwrap_or(std::path::Path::new(".")),
+        );
+        if std::fs::write(&token_file, &generated).is_ok() {
+          log::info!("Automation token self-provisioned path={}", token_file.display());
+          return Ok(Some(generated));
+        }
+      }
     }
 
     Self::decrypt_from_file(&self.api_token_file(), b"DBAPI")
+  }
+
+  /// Donut Free: `config/automation-token.txt` beside the running
+  /// executable (portable deploy layout).
+  #[cfg(feature = "free")]
+  fn free_portable_token_path() -> Option<std::path::PathBuf> {
+    std::env::current_exe()
+      .ok()
+      .and_then(|exe| exe.parent().map(|dir| dir.join("config").join("automation-token.txt")))
+  }
+
+  #[cfg(not(feature = "free"))]
+  fn free_portable_token_path() -> Option<std::path::PathBuf> {
+    None
   }
 
   pub async fn remove_api_token(
