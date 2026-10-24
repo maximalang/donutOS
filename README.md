@@ -131,6 +131,17 @@ The Snap leaves the microphone, the camera and the keyring (used by profile impo
 nix run github:donutbrowser/donutbrowser#release-start
 ```
 
+## Download — Donut Free portable
+
+This repository also builds **DonutFree**, the free local edition of Donut Browser: every local feature — unlimited profiles, fingerprints, proxies/VPN, Xray, automation REST and a local MCP route — with no account and no cloud. It is built by the [Free Portable Build](https://github.com/maximalang/donutOS/actions/workflows/free-portable.yml) workflow and published as a portable zip.
+
+- **[Download the latest portable build (Windows x64)](https://github.com/maximalang/donutOS/releases/latest)** — unzip anywhere and run `donut-freectl.cmd start` (or launch `DonutFree.exe`). No installer, no admin rights.
+- The zip carries the app itself: `DonutFree.exe`, the `donut-proxy` and `Xray-core` sidecars, resources, the `.portable` marker and pre-seeded settings. The Wayfern browser engine is **not** bundled — free builds keep proactive download enabled, so the engine and GeoIP data are fetched from the vendor CDN on first start.
+- Local automation API: `http://127.0.0.1:10109` (`GET /v1/health`), auth token at `config\automation-token.txt` — print it with `donut-freectl.cmd token`; replace the file to rotate (it is read at start).
+- Runs side by side with the original Donut Browser: own identifier `com.donutbrowser.free`, own local API port (10109; the original uses 10108), and all data stays inside the folder because of `.portable`.
+- Every release carries a `SHA256SUMS.txt`; verify with `certutil -hashfile <zip> SHA256`.
+- Source code: this repository (AGPL-3.0). Internal build and control notes: [README-FREE.md](README-FREE.md).
+
 ## Self-Hosting Sync
 
 Run your own sync server to sync profiles, proxies, and groups across devices for free. See the [Self-Hosting Donut Sync guide](https://donutbrowser.com/docs/self-hosting) for Docker-based setup instructions.

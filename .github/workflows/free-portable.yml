@@ -1,0 +1,86 @@
+name: Free Portable Build
+
+# Free-edition CI: builds DonutFree (cargo feature `free`) on Windows and
+# publishes the portable zip. Every run uploads the zip as an artifact; a
+# tag push (v<version>-free*) also publishes a GitHub release with the zip
+# and its checksum. No secrets are used: free builds are unsigned by design.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*-free*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Serialize per ref: overlapping runs would race on the same Rust target
+# cache and, on tag builds, on the release assets.
+concurrency:
+  group: free-portable-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Windows x64 portable
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 #v6.1.0
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 #v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: "pnpm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f #master
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 #v2.9.2
+        with:
+          workdir: ./src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # beforeBuildCommand ("copy-proxy-binary:release && pnpm build") builds
+      # donut-proxy, downloads the checksum-pinned Xray-core sidecar and
+      # builds the frontend before cargo compiles the app itself.
+      - name: Build DonutFree (free feature)
+        run: pnpm tauri build -- --features free
+
+      - name: Package portable zip
+        shell: pwsh
+        env:
+          FREE_PORTABLE_REF: ${{ github.ref }}
+        run: ./scripts/ci-package-free-portable.ps1
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+        with:
+          name: free-portable-windows-x64
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$env:GITHUB_REF_NAME" --title "DonutFree $env:GITHUB_REF_NAME (portable)" --notes-file dist/RELEASE-NOTES.md dist/DonutFree-*-portable.zip dist/SHA256SUMS.txt
