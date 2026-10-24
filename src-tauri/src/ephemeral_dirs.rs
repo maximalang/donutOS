@@ -128,6 +128,24 @@ fn get_ephemeral_base_dir() -> Result<(PathBuf, EphemeralBacking), String> {
     let base = disk_fallback_base();
     std::fs::create_dir_all(&base)
       .map_err(|e| format!("Failed to create ephemeral base dir: {e}"))?;
+    // Free builds target stock Windows machines where the third-party imdisk
+    // driver is simply not installed: the disk fallback is the normal path
+    // there, not a degradation. Logging it at error on every ephemeral launch
+    // spams DonutBrowser.log and buries real errors, so the free build records
+    // it once per process at info. Full builds keep the error: there the RAM
+    // disk promise is part of the product.
+    #[cfg(feature = "free")]
+    {
+      static DISK_FALLBACK_LOGGED: std::sync::atomic::AtomicBool =
+        std::sync::atomic::AtomicBool::new(false);
+      if !DISK_FALLBACK_LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        log::info!(
+          "No RAM disk; ephemeral profiles go to disk and are erased on teardown (normal without imdisk on free builds) path={} err=\"{ramdisk_error}\"",
+          base.display()
+        );
+      }
+    }
+    #[cfg(not(feature = "free"))]
     log::error!(
       "No RAM disk; ephemeral profiles go to disk and are erased on teardown path={} err=\"{ramdisk_error}\"",
       base.display()
