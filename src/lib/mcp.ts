@@ -24,6 +24,7 @@ export type AgentCategory = "desktop-app" | "cli" | "editor" | "editor-ext";
 export const OPTIONAL_TOOLSETS = [
   "organize",
   "network",
+  "traffic",
   "fingerprint",
   "extensions",
   "cookies",
@@ -38,6 +39,9 @@ export interface McpAgentInfo {
   display_name: string;
   category: AgentCategory;
   connected: boolean;
+  /** The entry presents the stored key; a connected client that is not
+   * current holds an older one. */
+  current: boolean;
   detected: boolean;
 }
 

@@ -7,6 +7,7 @@ import {
   createWriteStream,
   existsSync,
   readFileSync,
+  rmSync,
   statSync,
 } from "node:fs";
 import {
@@ -27,7 +28,7 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { ensureRclone, serveS3Args } from "../scripts/rclone.mjs";
 import { createSafeDiagnostics } from "./lib/diagnostics.mjs";
-import { extensionCrx3 } from "./lib/fixtures.mjs";
+import { extensionCrx3, mcpFormsPage } from "./lib/fixtures.mjs";
 import { DRIVER_COMMAND_TIMEOUT_SECONDS } from "./lib/limits.mjs";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -314,6 +315,30 @@ function syncHarnessLockfile() {
   log("seeded e2e/app/Cargo.lock from src-tauri/Cargo.lock");
 }
 
+// Tauri starts a sidecar from next to the running executable only. Copy the
+// sidecars this build made there, so a copy left by an older harness never
+// fails every launch on its version check. The old file is removed first:
+// macOS kills an executable that was overwritten in place.
+function installSidecars() {
+  const target = hostRustTarget();
+  for (const name of ["donut-proxy", "xray"]) {
+    const destination = path.join(
+      path.dirname(appBinary),
+      `${name}${executableSuffix}`,
+    );
+    rmSync(destination, { force: true });
+    copyFileSync(
+      path.join(
+        projectRoot,
+        "src-tauri",
+        "binaries",
+        `${name}-${target}${executableSuffix}`,
+      ),
+      destination,
+    );
+  }
+}
+
 function buildAll() {
   run("pnpm", ["build"], projectRoot);
   run("pnpm", ["copy-proxy-binary"], projectRoot);
@@ -381,6 +406,14 @@ function startFixtureServer(geoIpFixture, geoIpAsnFixture) {
         "cache-control": "no-store",
       });
       response.end(body);
+      return;
+    }
+    if (url.pathname === "/mcp-forms") {
+      response.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      });
+      response.end(mcpFormsPage());
       return;
     }
     if (url.pathname === "/geoip.mmdb" && geoIpFixture) {
@@ -929,6 +962,7 @@ async function main() {
         "--no-build requested but the E2E app or driver binary is missing",
       );
     }
+    installSidecars();
 
     const driverPort = await freePort();
     const driver = startProcess(

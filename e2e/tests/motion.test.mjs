@@ -4,7 +4,6 @@ import path from "node:path";
 import test from "node:test";
 import Color from "color";
 import en from "../../src/i18n/locales/en.json" with { type: "json" };
-import { THEMES } from "../../src/lib/themes.ts";
 import { withApp } from "../lib/app.mjs";
 import { extensionZipBase64 } from "../lib/fixtures.mjs";
 
@@ -224,26 +223,24 @@ test("first-run profile cutaway is interactive, isolated, and readable at both w
     async (app) => {
       await app.waitForText(en.welcome.title);
       await resize(app, 1080, 900);
-      await exerciseIsolation(app);
-      await app.capture("onboarding-isolation-wide");
-      await resize(app, 640, 480);
-      await assertContained(app, '[role="dialog"]');
-      await app.clickSelector(`${slot("welcome-features")} summary`);
-      await app.waitFor(
-        () =>
-          app.execute(
-            `return document.querySelector('[data-slot="welcome-features"]')?.open === true;`,
-          ),
-        {
-          description:
-            "welcome feature disclosure to open from a real pointer click",
-        },
-      );
+      // The intro lists what the app does under its drawing.
       assert.equal(
         await app.visibleTextIncludes(en.welcome.features.items.cookies),
         true,
       );
-      await app.clickSelector(`${slot("welcome-features")} summary`);
+      assert.equal(
+        await app.execute(
+          `return document.querySelector('[data-slot="welcome-scene-panel"] [data-slot="welcome-scene"]')?.dataset.scene;`,
+        ),
+        "intro",
+      );
+      await app.capture("onboarding-intro-wide");
+      await app.clickText(en.welcome.next, { roles: ["button"] });
+      await app.waitForText(en.isolationDemo.title);
+      await exerciseIsolation(app);
+      await app.capture("onboarding-isolation-wide");
+      await resize(app, 640, 480);
+      await assertContained(app, '[role="dialog"]');
       await app.capture("onboarding-isolation-narrow");
       await app.clickText(en.welcome.next, { roles: ["button"] });
       await app.waitForText(en.welcome.license.title);
@@ -256,17 +253,6 @@ test("first-run profile cutaway is interactive, isolated, and readable at both w
     { onboardingCompleted: false },
   );
 });
-
-async function openReplay(app) {
-  await app.clickSelector(`[aria-label="${en.rail.more.label}"]`);
-  await waitForSelector(app, '[role="menu"]');
-  await app.clickText(en.rail.more.about, {
-    exact: false,
-    roles: ["menuitem"],
-  });
-  await app.clickSelector(slot("isolation-demo-replay"));
-  await waitForSelector(app, slot("profile-isolation-demo"));
-}
 
 async function assertPopupReadable(app, selector) {
   await app.waitFor(
@@ -294,16 +280,19 @@ test("paused CSS animations cannot retain dismissed selects or dropdowns", async
       await resize(app, 1100, 760);
       await createProfile(app, "Motion popup Alpha");
       await createProfile(app, "Motion popup Beta");
-      await app.clickSelector(`[aria-label="${en.rail.settings}"]`);
+      await app.clickSelector(`[aria-label="${en.rail.network}"]`);
+      await app.clickSelector(
+        `[aria-label="${en.proxies.management.newProxy}"]`,
+      );
       await app.waitFor(
         () =>
           app.execute(`
-            const trigger = document.querySelector('#theme-select');
+            const trigger = document.querySelector('#proxy-type');
             if (!trigger || trigger.matches(':disabled')) return false;
             trigger.focus();
             return document.activeElement === trigger;
           `),
-        { description: "enabled theme select" },
+        { description: "enabled proxy type select" },
       );
       await app.pressShortcut({ key: "\uE007" });
       await assertPopupReadable(app, slot("select-content"));
@@ -324,7 +313,7 @@ test("paused CSS animations cannot retain dismissed selects or dropdowns", async
           ),
           "paused",
         );
-        await app.clickText(en.common.labels.custom, { roles: ["option"] });
+        await app.clickText(en.proxies.types.socks5, { roles: ["option"] });
         await app.waitFor(
           () =>
             app.execute(
@@ -339,27 +328,19 @@ test("paused CSS animations cannot retain dismissed selects or dropdowns", async
 
         // The next popup also opens under the paused clock: both its content
         // and its pointer targets must be available at the initial frame.
-        await app.clickSelector("#theme-preset-select");
+        await app.clickSelector("#proxy-type");
         await assertPopupReadable(app, slot("select-content"));
-        await app.capture("paused-css-preset-select");
-        const preset = THEMES.find((theme) => theme.id === "dracula");
-        assert.ok(preset);
-        await app.clickText(preset.name, { roles: ["option"] });
+        await app.capture("paused-css-proxy-type-select");
+        await app.clickText(en.proxies.types.http, { roles: ["option"] });
         await waitForSelector(app, slot("select-content"), false);
         assert.equal(
           await app.execute(
-            `return document.querySelector("#theme-preset-select")?.textContent.trim();`,
+            `return document.querySelector("#proxy-type")?.textContent.trim();`,
           ),
-          preset.name,
+          en.proxies.types.http,
         );
-        await app.clickText(en.common.buttons.saveSettings, {
-          roles: ["button"],
-        });
-        await app.waitFor(
-          () => app.visibleTextIncludes(en.common.buttons.saved),
-          { description: "saved settings feedback" },
-        );
-        await waitForSelector(app, "#theme-select", true);
+        await app.pressShortcut({ key: "\uE00C" });
+        await waitForSelector(app, "#proxy-type", false);
         await app.clickSelector(`[aria-label="${en.rail.profiles}"]`);
 
         const openSort = () =>
@@ -394,9 +375,8 @@ test("paused CSS animations cannot retain dismissed selects or dropdowns", async
           roles: ["menuitem"],
         });
         await waitForSelector(app, '[role="menu"]', false);
-        await app.clickSelector(slot("isolation-demo-replay"));
-        await waitForSelector(app, slot("profile-isolation-demo"));
-        await app.capture("paused-css-about-replay");
+        await assertPopupReadable(app, slot("about-diagnostics"));
+        await app.capture("paused-css-about");
       } finally {
         await app.execute(`
           document.getElementById("donut-motion-paused-css")?.remove();
@@ -832,25 +812,10 @@ async function resumeAnimations(app) {
   `);
 }
 
-test("profile replay, inspector, group gestures, and remote handoff preserve context", async () => {
+test("profile inspector, group gestures, and remote handoff preserve context", async () => {
   await withApp(
     "motion-workspace",
     async (app) => {
-      await resize(app, 1480, 900);
-      await openReplay(app);
-      await exerciseIsolation(app);
-      await app.capture("isolation-replay-wide");
-      await resize(app, 640, 480);
-      await assertContained(app, '[role="dialog"]');
-      await app.capture("isolation-replay-narrow");
-      await app.clickText(en.common.buttons.back, { roles: ["button"] });
-      await waitForSelector(app, slot("isolation-demo-replay"));
-      assert.equal(
-        await app.execute(`return document.activeElement?.dataset.slot;`),
-        "isolation-demo-replay",
-      );
-      await app.pressShortcut({ key: "Escape" });
-      await waitForSelector(app, '[role="dialog"]', false);
       await resize(app, 1480, 900);
 
       const group = await app.invoke("create_profile_group", {
@@ -1184,6 +1149,9 @@ test("profile replay, inspector, group gestures, and remote handoff preserve con
       await resize(app, 720, 600);
       await waitForSelector(app, slot("profile-inspector"), false);
       await app.pressShortcut({ key: "Escape" });
+      // The unsaved launch hook asks before the panel closes.
+      await waitForSelector(app, slot("leave-prompt-discard"));
+      await app.clickSelector(slot("leave-prompt-discard"));
       await waitForSelector(app, slot("profile-info-content"), false);
       await app.pressShortcut({ key: "k", ...modifier });
       await waitForSelector(app, "[cmdk-input]");
@@ -1344,12 +1312,21 @@ test("settings save a RAM-only edit, preserve location, and expose review and di
     const initial = await app.invoke("get_app_settings");
     const selector = "#keep-decrypted-profiles-in-ram";
     await app.clickSelector(selector);
-    await app.clickSelector(`${slot("settings-feedback")} summary`);
-    assert.equal(
-      await app.visibleTextIncludes(en.settings.keepDecryptedProfilesInRam),
-      true,
+    await app.clickSelector(slot("settings-review"));
+    await app.waitFor(
+      () =>
+        app.execute(
+          `return document.querySelector(arguments[0])?.textContent.includes(arguments[1]);`,
+          [
+            slot("settings-review-list"),
+            en.settings.keepDecryptedProfilesInRam,
+          ],
+        ),
+      { description: "the review list names the RAM change" },
     );
     await app.capture("review-ram-change");
+    await app.pressShortcut({ key: "\uE00C" });
+    await waitForSelector(app, slot("settings-review-list"), false);
     await app.clickSelector(slot("settings-discard"));
     assert.equal(
       await app.execute(
@@ -1392,7 +1369,56 @@ test("settings save a RAM-only edit, preserve location, and expose review and di
     await app.fillSelector(slot("shortcuts-search"), en.shortcuts.goProfiles);
     assert.equal(await app.visibleTextIncludes(en.shortcuts.goProfiles), true);
     assert.equal(await app.visibleTextIncludes(en.shortcuts.goGroups), false);
+    assert.equal(
+      await app.execute(
+        `return document.querySelectorAll('[data-shortcut-row="goProfiles"] mark').length > 0;`,
+      ),
+      true,
+      "the matched words are marked",
+    );
     await app.capture("shortcuts-search");
+
+    // Held modifiers press their keycaps and fade the rows that do not use
+    // them; letting go brings every row back.
+    await app.clickSelector(slot("shortcuts-search"));
+    await app.pressShortcut({ key: "Escape" });
+    await app.execute("document.activeElement?.blur();");
+    await waitForSelector(app, '[data-shortcut-row="goGroups"]');
+    const modKey = process.platform === "darwin" ? "\uE03D" : "\uE009";
+    await app.session.command("POST", "/actions", {
+      actions: [
+        {
+          type: "key",
+          id: "keyboard",
+          actions: [
+            { type: "keyDown", value: modKey },
+            { type: "keyDown", value: "\uE008" },
+          ],
+        },
+      ],
+    });
+    try {
+      await app.waitFor(
+        () =>
+          app.execute(`
+            const row = (id) => document.querySelector('[data-shortcut-row="' + id + '"]');
+            return row("goProfiles")?.dataset.dimmed === "true" &&
+              !row("goTrash")?.dataset.dimmed &&
+              row("goTrash").querySelectorAll('[data-slot="kbd"][data-pressed="true"]').length === 2;
+          `),
+        { description: "held modifiers fade the rows without them" },
+      );
+      await app.capture("shortcuts-held-modifiers");
+    } finally {
+      await app.session.command("DELETE", "/actions");
+    }
+    await app.waitFor(
+      () =>
+        app.execute(
+          `return !document.querySelector('[data-shortcut-row][data-dimmed]');`,
+        ),
+      { description: "released modifiers bring every row back" },
+    );
   });
 });
 
@@ -1607,6 +1633,17 @@ test("schedule displays every timezone and slot, and skipped run details work by
       ]),
       schedule(other, "Asia/Yerevan", [{ days_mask: 127, run_at_minute: 120 }]),
     ];
+    // The last check of each profile's exit from this computer.
+    schedules[0].exit_check = {
+      checked_at: 1_788_000_000,
+      ok: true,
+      alive: true,
+    };
+    schedules[1].exit_check = {
+      checked_at: 1_788_000_000,
+      ok: false,
+      alive: true,
+    };
     await app.execute(
       `
       const schedules = arguments[0], id = arguments[1];
@@ -1631,6 +1668,37 @@ test("schedule displays every timezone and slot, and skipped run details work by
     // start that fetch reached the backend before the stubs were in place.
     await installSynchronizerFixture(app);
     await app.pressShortcut({ ...modifier, key: "b" });
+    await waitForSelector(app, slot("cookie-bot-usage-chart"));
+    assert.equal(
+      await app.visibleTextIncludes(en.cookieBot.chart.machineTime),
+      true,
+    );
+    // Both start times of one profile show on its row, under the day cadence.
+    assert.equal(
+      await app.execute(
+        `return document.querySelector('[data-slot="cookie-bot-enrolled-row"][data-profile-id="' + arguments[0] + '"] [data-slot="cookie-bot-times"]')?.textContent ?? "";`,
+        [profile.id],
+      ),
+      "02:00 · 12:00",
+    );
+    assert.equal(
+      await app.visibleTextIncludes(en.cookieBot.enrol.cadenceNightly),
+      true,
+    );
+    // A passed check is a quiet line; a failed one warns on its row.
+    const [passedRow, failedRow] = await app.execute(
+      `const row = (id) => document.querySelector('[data-slot="cookie-bot-enrolled-row"][data-profile-id="' + id + '"]')?.innerText ?? "";
+       return [row(arguments[0]), row(arguments[1])];`,
+      [profile.id, other.id],
+    );
+    assert.ok(
+      passedRow.includes(en.cookieBot.exitCheck.passed.split("{{time}}")[0]),
+      passedRow,
+    );
+    assert.ok(
+      failedRow.includes(en.cookieBot.exitCheck.failed.split("{{time}}")[0]),
+      failedRow,
+    );
     await app.clickText(en.cookieBot.tabs.schedule, { roles: ["tab"] });
     await waitForSelector(app, slot("schedule-lane"));
     assert.deepEqual(
@@ -1640,7 +1708,7 @@ test("schedule displays every timezone and slot, and skipped run details work by
       [120, 120, 720],
     );
     assert.equal(await app.visibleTextIncludes("Asia/Yerevan"), true);
-    assert.equal(await app.visibleTextIncludes("199.8"), true);
+    await app.waitForText("199.8");
     await app.execute("window.__donutRemainingHours = 199.7;");
     await emit(app, "remote-session-snapshot", { sessions: [] });
     await app.waitForText("199.7");
@@ -1678,6 +1746,94 @@ test("schedule displays every timezone and slot, and skipped run details work by
   });
 });
 
+test("a new enrolment starts at a random time that the dice can change", async () => {
+  await withApp("motion-cookie-bot-random-time", async (app) => {
+    await resize(app, 1200, 800);
+    const created = await createProfile(app, "Fresh enrolment");
+    const profile = {
+      ...created,
+      sync_mode: "Regular",
+      host_os: "linux",
+      proxy_id: "motion-fixture-proxy",
+    };
+    await app.execute(
+      `
+      const profile = arguments[0];
+      const previous = window.fetch;
+      const response = value => Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json", "Tauri-Response": "ok" } }));
+      window.fetch = function(input, init) {
+        let command = "";
+        try { const url = new URL(typeof input === "string" ? input : input.url); if (url.hostname === "localhost" && url.protocol === "ipc:" || url.hostname === "ipc.localhost") command = decodeURIComponent(url.pathname.split("/").pop() || ""); } catch {}
+        if (command === "list_browser_profiles") return response([profile]);
+        if (command === "get_cookie_bot_schedules") return response({ schedules: [] });
+        if (command === "get_cookie_bot_runs") return response({ runs: [], next_before: null });
+        if (command === "get_remote_hours_quota") return response({ granted_hours: 200, remaining_hours: 200, used_hours: 0, seats: 1, per_seat_hours: 200, members: [] });
+        return previous.apply(window, arguments);
+      };
+    `,
+      [profile],
+    );
+    await emit(app, "profiles-changed", null);
+    await installSynchronizerFixture(app);
+    await app.pressShortcut({ ...modifier, key: "b" });
+    await app.clickText(en.cookieBot.empty.cta);
+    await app.clickSelector(`#cookie-bot-pick-${profile.id}`);
+    // A fixed draw makes the default time known without making it 02:00.
+    await app.execute(
+      "window.__donutRandom = Math.random; Math.random = () => 0.9;",
+    );
+    await app.clickText(
+      en.cookieBot.picker.continue_one.replace("{{count}}", "1"),
+    );
+    await waitForSelector(app, slot("cookie-bot-slot-time"));
+    const minutesOf = (value) => {
+      const [hours, minutes] = value.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+    const apart = (a, b) => {
+      const distance = Math.abs(a - b) % 1440;
+      return Math.min(distance, 1440 - distance);
+    };
+    const times = () =>
+      app.execute(
+        `return [...document.querySelectorAll('[data-slot="cookie-bot-slot-time"]')].map(input => input.value);`,
+      );
+    const [first] = await times();
+    assert.match(first, /^\d\d:\d\d$/);
+    const start = minutesOf(first);
+    assert.ok(start >= 0 && start < 1440, `default time ${first}`);
+    assert.notEqual(start, 120, "a new enrolment does not default to 02:00");
+    assert.ok(
+      (
+        await app.execute(
+          `return document.querySelector('[data-slot="cookie-bot-enrol-summary"]').textContent;`,
+        )
+      ).includes(first),
+      "the summary names the drawn time",
+    );
+    await app.execute("Math.random = window.__donutRandom;");
+
+    await app.clickSelector(slot("cookie-bot-shuffle-time"));
+    await app.waitFor(async () => (await times())[0] !== first, {
+      description: "the dice draw another time",
+    });
+    const [shuffled] = await times();
+    assert.ok(
+      apart(minutesOf(shuffled), start) >= 60,
+      `shuffled to ${shuffled}`,
+    );
+
+    await app.clickSelector(slot("cookie-bot-add-slot"));
+    await app.waitFor(async () => (await times()).length === 2, {
+      description: "a second start time",
+    });
+    const [one, two] = (await times()).map(minutesOf);
+    assert.ok(apart(one, two) >= 60, "an added time keeps an hour clear");
+    await app.capture("cookie-bot-random-time");
+    await restoreSynchronizerFixture(app);
+  });
+});
+
 test("connection diagnostics and extension impact expose real assigned profiles", async () => {
   await withApp("motion-connection-impact", async (app) => {
     await resize(app, 1120, 800);
@@ -1696,7 +1852,7 @@ test("connection diagnostics and extension impact expose real assigned profiles"
       profileId: profile.id,
       proxyId: proxy.id,
     });
-    await app.pressShortcut({ ...modifier, key: "n" });
+    await app.pressShortcut({ ...modifier, shift: true, key: "n" });
     await waitForSelector(app, slot("profile-usage"));
     await app.clickSelector(slot("profile-usage"));
     await app.waitForText(profile.name);
@@ -1786,18 +1942,39 @@ test("connection diagnostics and extension impact expose real assigned profiles"
 
     await app.pressShortcut({ ...modifier, key: "i" });
     await waitForSelector(app, slot("integration-diagnostics"));
+    const receipt = () =>
+      app.execute(
+        `const panel = document.querySelector('[data-slot="integration-diagnostics"]');
+         const flow = panel.querySelector('[data-slot="operation-flow"]');
+         return {
+           flow: flow ? [flow.dataset.variant, flow.dataset.state] : null,
+           status: panel.querySelector('[role="status"]')?.textContent ?? "",
+           problem: panel.querySelector('[data-slot="integration-diagnostics-problem"]')?.textContent ?? null,
+           text: panel.innerText,
+         };`,
+      );
+    const untested = await receipt();
+    assert.equal(untested.flow, null, "no stations before the first test");
+    assert.ok(!untested.text.includes(en.appFeedback.notVerified));
     await app.clickTextIn(
       slot("integration-diagnostics"),
       en.appFeedback.testConnection,
       { roles: ["button"] },
     );
     await app.waitFor(
-      () =>
-        app.execute(
-          `return document.querySelector('[data-slot="integration-diagnostics"] [role="status"]').textContent.includes(arguments[0]);`,
-          [en.proxyCheck.tooltipChecked.split("{{")[0]],
+      async () =>
+        (await receipt()).status.includes(
+          en.proxyCheck.tooltipChecked.split("{{")[0],
         ),
       { description: "real local API probe receipt" },
+    );
+    // One compact line of stations; a test that did not pass says why.
+    const tested = await receipt();
+    assert.equal(tested.flow[0], "compact");
+    assert.equal(
+      tested.flow[1] === "failed",
+      tested.problem !== null,
+      JSON.stringify(tested),
     );
     await app.capture("integration-connection-receipt");
   });
@@ -1922,8 +2099,8 @@ test("partial import receipts survive retry without duplicating successful profi
   );
 });
 
-test("About hides a snack drawer that responds to bites and resets on close", async () => {
-  await withApp("motion-donut-snack", async (app) => {
+test("About shows diagnostics and hides a donut lab that takes bites inside the dialog", async () => {
+  await withApp("motion-donut-lab", async (app) => {
     await resize(app, 760, 620);
     const openAbout = async () => {
       await app.clickSelector(`[aria-label="${en.rail.more.label}"]`);
@@ -1933,49 +2110,160 @@ test("About hides a snack drawer that responds to bites and resets on close", as
       });
       await waitForSelector(app, slot("about-logo"));
     };
-    await openAbout();
-    await app.clickSelector(slot("about-logo"));
-    await waitForSelector(app, slot("donut-snack"), false);
-    await app.execute(
-      `document.querySelector('[data-slot="about-logo"]').focus();`,
-    );
-    await app.pressShortcut({ key: "\uE006", shift: true });
-    await waitForSelector(app, slot("donut-snack"));
-    const biteCount = () =>
-      app.execute(
-        `return Number(document.querySelector('[data-slot="donut-snack"]').dataset.bites);`,
+    const openLab = () =>
+      app.execute(`
+        const logo = document.querySelector('[data-slot="about-logo"]');
+        logo.click();
+        logo.click();
+        logo.click();
+      `);
+    const lab = () =>
+      app.execute(`
+        const node = document.querySelector('[data-slot="donut-lab"]');
+        return node ? { bites: Number(node.dataset.bites), state: node.dataset.state } : null;
+      `);
+    // Captures show the finished donut, not the reveal out of the logo.
+    const labReady = () =>
+      app.waitFor(
+        () =>
+          app.execute(
+            `return document.querySelector('[data-slot="donut-lab"]')?.dataset.phase === "ready";`,
+          ),
+        { description: "the donut at rest after its reveal" },
       );
-    assert.equal(await biteCount(), 0);
-    await app.capture("secret-snack-drawer");
-    for (const count of [1, 2, 3]) {
-      await app.clickSelector(slot("donut-snack-bite"));
-      assert.equal(await biteCount(), count);
-      await assertContained(app, slot("donut-snack"));
-      if (count === 2) await app.capture("secret-snack-two-bites");
-    }
-    await app.waitForText(en.about.snack.finished);
-    await app.capture("secret-snack-crumbs");
-    await app.clickSelector(slot("donut-snack-bite"));
-    assert.equal(await biteCount(), 0);
-    await activateFocusedByKeyboard(app);
-    assert.equal(await biteCount(), 1);
+
+    await openAbout();
+    const system = await app.invoke("get_system_info");
+    await app.waitFor(
+      () =>
+        app.execute(
+          `return document.querySelector('[data-slot="about-build"]')?.textContent.includes(arguments[0]);`,
+          [`${system.os} ${system.arch}`],
+        ),
+      { description: "the build line" },
+    );
+    const updateState = await app.waitFor(
+      () =>
+        app.execute(`
+          const state = document.querySelector('[data-slot="about-update-status"]')?.dataset.state;
+          return state && state !== "loading" && state !== "checking" ? state : null;
+        `),
+      { description: "a settled update status" },
+    );
+    assert.ok(
+      ["development", "current", "failed", "available"].includes(updateState),
+      updateState,
+    );
+    await assertContained(app, '[role="dialog"]');
+    await app.capture("about-wide");
+
+    // Copy details gives a plain block for a bug report, with nothing private.
+    await app.execute(`
+      window.__copied = [];
+      navigator.clipboard.writeText = async (text) => { window.__copied.push(text); };
+    `);
+    await app.clickSelector(slot("about-copy-details"));
+    const [details] = await app.waitFor(
+      async () => {
+        const copied = await app.execute("return window.__copied;");
+        return copied.length === 1 ? copied : null;
+      },
+      { description: "copied details" },
+    );
+    assert.ok(details.startsWith(`Donut Browser ${system.app_version}\n`));
+    assert.ok(details.includes(`System: ${system.os} ${system.arch}`));
+    assert.ok(details.includes("Wayfern: "));
+    assert.doesNotMatch(details, /@|\/Users\/|\/home\/|\\Users\\/);
+    await app.waitFor(
+      () =>
+        app.execute(
+          `return document.querySelector('[data-slot="about-copy-details"]')?.textContent.includes(arguments[0]);`,
+          [en.common.buttons.copied],
+        ),
+      { description: "the copied state" },
+    );
+
+    // One click is only a press; three quick ones open the lab.
+    await app.clickSelector(slot("about-logo"));
+    await waitForSelector(app, slot("donut-lab"), false);
+    await openLab();
+    await waitForSelector(app, slot("donut-lab"));
+    assert.equal(
+      await app.execute(
+        `return Boolean(document.querySelector('[data-slot="dialog-content"] > [data-slot="donut-lab"] canvas[role="img"]'));`,
+      ),
+      true,
+      "the lab is drawn inside the dialog",
+    );
+    await assertContained(app, slot("donut-lab"));
+    assert.equal(
+      await app.execute(`
+        const box = document.querySelector('[data-slot="dialog-content"]').getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return Boolean(hit?.closest('[data-slot="donut-lab"]'));
+      `),
+      true,
+      "the lab covers the About content",
+    );
+    assert.deepEqual(await lab(), { bites: 0, state: "whole" });
+    await labReady();
+    await app.capture("donut-lab");
+
+    await app.clickSelector(`${slot("donut-lab")} canvas`);
+    await app.waitFor(async () => (await lab()).bites === 1, {
+      description: "a bite from a click on the middle",
+    });
+    await app.execute(
+      `document.querySelector('[data-slot="donut-lab"] canvas').focus();`,
+    );
+    await app.pressShortcut({ key: "\uE007" });
+    await app.waitFor(async () => (await lab()).bites === 2, {
+      description: "a bite from Enter",
+    });
     await freezeAnimations(app);
     try {
-      await app.clickSelector(slot("donut-snack-bite"));
-      assert.equal(await biteCount(), 2);
-      await assertPopupReadable(app, slot("donut-snack"));
+      await app.pressShortcut({ key: "\uE007" });
+      await app.waitFor(async () => (await lab()).bites === 3, {
+        description: "a bite under a frozen clock",
+      });
+      await assertPopupReadable(app, slot("donut-lab"));
     } finally {
       await resumeAnimations(app);
     }
+    await app.capture("donut-lab-bitten");
     assert.deepEqual(
       await app.invoke("list_browser_profiles"),
       [],
-      "the snack never touches profiles",
+      "the donut never touches profiles",
     );
+
+    // Escape puts the donut away and gives the focus back to the logo.
     await app.pressShortcut({ key: "Escape" });
-    await waitForSelector(app, slot("donut-snack"), false);
+    await waitForSelector(app, slot("donut-lab"), false);
+    await waitForSelector(app, slot("about-diagnostics"));
+    assert.equal(
+      await app.execute(`return document.activeElement?.dataset.slot;`),
+      "about-logo",
+    );
+
+    // Closing About bakes a fresh donut for next time.
+    await openLab();
+    await waitForSelector(app, slot("donut-lab"));
+    await app.pressShortcut({ key: "Escape" });
+    await waitForSelector(app, slot("donut-lab"), false);
+    await app.pressShortcut({ key: "Escape" });
+    await waitForSelector(app, '[role="dialog"]', false);
     await openAbout();
-    await waitForSelector(app, slot("donut-snack"), false);
+    await waitForSelector(app, slot("donut-lab"), false);
+    await openLab();
+    await waitForSelector(app, slot("donut-lab"));
+    assert.deepEqual(await lab(), { bites: 0, state: "whole" });
+
+    await resize(app, 640, 400);
+    await assertContained(app, '[role="dialog"]');
+    await assertContained(app, slot("donut-lab"));
+    await labReady();
+    await app.capture("donut-lab-small");
   });
 });
 
@@ -2014,7 +2302,19 @@ test("the Wayfern terms gate lifts when the backend announces acceptance", async
 test("the cheat code pays out sprinkles and never touches a profile", async () => {
   await withApp("motion-cheat-code", async (app) => {
     await resize(app, 1000, 700);
-    const code = ["", "", "", "", "", "", "", "", "b", "a"];
+    // Up, up, down, down, left, right, left, right (WebDriver key codes), b, a.
+    const code = [
+      "\uE013",
+      "\uE013",
+      "\uE015",
+      "\uE015",
+      "\uE012",
+      "\uE014",
+      "\uE012",
+      "\uE014",
+      "b",
+      "a",
+    ];
     const toastVisible = () =>
       app.execute(
         `return [...document.querySelectorAll('[data-sonner-toast]')].some(node => node.textContent.includes(arguments[0]));`,

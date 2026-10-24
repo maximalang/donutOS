@@ -26,9 +26,20 @@ export interface ShortcutDef {
   mod?: boolean;
   shift?: boolean;
   alt?: boolean;
+  /**
+   * Match with or without Shift. For a symbol that some layouts type with
+   * Shift: "/" is Shift+7 on a German keyboard.
+   */
+  anyShift?: boolean;
+  /** False for a key that only means something where it is pressed. */
+  palette?: boolean;
 }
 
 export type ShortcutId =
+  | "newProfile"
+  | "stopAllRunning"
+  | "focusSearch"
+  | "goBack"
   | "openPalette"
   | "openShortcuts"
   | "openTips"
@@ -47,6 +58,30 @@ export type ShortcutId =
   | "goTrash";
 
 export const SHORTCUTS: ShortcutDef[] = [
+  // Profiles
+  {
+    id: "newProfile",
+    labelKey: "shortcuts.newProfile",
+    group: "profiles",
+    key: "n",
+    mod: true,
+  },
+  {
+    // Mod+Shift+S, "stop". Plain Mod+S stays free for save.
+    id: "stopAllRunning",
+    labelKey: "shortcuts.stopAllRunning",
+    group: "profiles",
+    key: "s",
+    mod: true,
+    shift: true,
+  },
+  {
+    id: "focusSearch",
+    labelKey: "shortcuts.focusSearch",
+    group: "profiles",
+    key: "/",
+    anyShift: true,
+  },
   // Actions
   {
     id: "openPalette",
@@ -104,11 +139,13 @@ export const SHORTCUTS: ShortcutDef[] = [
     mod: true,
   },
   {
+    // Mod+Shift+N, "network". Plain Mod+N makes a new profile.
     id: "goProxies",
     labelKey: "shortcuts.goProxies",
     group: "navigation",
     key: "n",
     mod: true,
+    shift: true,
   },
   {
     id: "goExtensions",
@@ -176,6 +213,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     mod: true,
     shift: true,
   },
+  {
+    // Leaves a page for Profiles when nothing on the page takes Escape.
+    id: "goBack",
+    labelKey: "shortcuts.goBack",
+    group: "navigation",
+    key: "Escape",
+    palette: false,
+  },
 ];
 
 /**
@@ -191,33 +236,96 @@ export function matchesGroupDigit(e: KeyboardEvent): number | null {
   return Number(e.key);
 }
 
-/**
- * Build display tokens for a Mod+digit group shortcut. Mirrors `formatShortcut`.
- */
-export function formatGroupShortcut(digit: number): string[] {
-  const mac = isMac();
-  return [mac ? "⌘" : "Ctrl", String(digit)];
+/** The keys of the Mod+digit shortcut for a group. Mirrors `shortcutKeys`. */
+export function groupShortcutKeys(digit: number): KeyToken[] {
+  return [keyToken("mod"), { glyph: String(digit), name: null }];
 }
 
 function isMac(): boolean {
   return isMacOS();
 }
 
+/** A key with its own name, drawn as a glyph on macOS. */
+export type KeyName =
+  | "mod"
+  | "shift"
+  | "alt"
+  | "enter"
+  | "escape"
+  | "backspace"
+  | "up"
+  | "down";
+
+/** One key of a chord: what the keycap shows, and its name when it has one. */
+export interface KeyToken {
+  glyph: string;
+  name: KeyName | null;
+}
+
+const MAC_GLYPHS: Record<KeyName, string> = {
+  mod: "⌘",
+  shift: "⇧",
+  alt: "⌥",
+  enter: "↵",
+  escape: "esc",
+  backspace: "⌫",
+  up: "↑",
+  down: "↓",
+};
+
+const OTHER_GLYPHS: Record<KeyName, string> = {
+  mod: "Ctrl",
+  shift: "Shift",
+  alt: "Alt",
+  enter: "Enter",
+  escape: "Esc",
+  backspace: "Backspace",
+  up: "↑",
+  down: "↓",
+};
+
+export function keyToken(name: KeyName): KeyToken {
+  return { glyph: (isMac() ? MAC_GLYPHS : OTHER_GLYPHS)[name], name };
+}
+
 /**
- * Render a shortcut as the platform-correct token list. The shortcuts page and
- * the command palette both consume this so the glyphs stay in sync.
+ * The platform-correct keys of a shortcut, modifiers first. The shortcuts
+ * page and the command palette both draw these, so the glyphs stay in sync.
  *
- * On macOS: ["⌘", "⇧", "⌥", "K"]
- * Elsewhere: ["Ctrl", "Shift", "Alt", "K"]
+ * On macOS: ⌘ ⇧ ⌥ K
+ * Elsewhere: Ctrl Shift Alt K
  */
+export function shortcutKeys(s: ShortcutDef): KeyToken[] {
+  const keys: KeyToken[] = [];
+  if (s.mod) keys.push(keyToken("mod"));
+  if (s.shift) keys.push(keyToken("shift"));
+  if (s.alt) keys.push(keyToken("alt"));
+  keys.push(
+    s.key === "Escape"
+      ? keyToken("escape")
+      : { glyph: prettyKey(s.key), name: null },
+  );
+  return keys;
+}
+
+/** `shortcutKeys` as plain strings, for search. */
 export function formatShortcut(s: ShortcutDef): string[] {
-  const mac = isMac();
-  const tokens: string[] = [];
-  if (s.mod) tokens.push(mac ? "⌘" : "Ctrl");
-  if (s.shift) tokens.push(mac ? "⇧" : "Shift");
-  if (s.alt) tokens.push(mac ? "⌥" : "Alt");
-  tokens.push(prettyKey(s.key));
-  return tokens;
+  return shortcutKeys(s).map((key) => key.glyph);
+}
+
+export interface HeldModifiers {
+  mod: boolean;
+  shift: boolean;
+  alt: boolean;
+}
+
+/** The modifiers a key event says are down, with Mod per platform. */
+export function heldModifiers(e: KeyboardEvent): HeldModifiers {
+  return {
+    mod: isMac() ? e.metaKey : e.ctrlKey,
+    shift: e.shiftKey,
+    alt: e.altKey,
+  };
 }
 
 function prettyKey(key: string): string {
@@ -239,7 +347,7 @@ export function matchesShortcut(s: ShortcutDef, e: KeyboardEvent): boolean {
   // Reject the wrong-platform modifier so Ctrl+K on macOS doesn't accidentally
   // trigger something that only expects ⌘+K.
   if (oppositeMod) return false;
-  if (Boolean(s.shift) !== e.shiftKey) return false;
+  if (!s.anyShift && Boolean(s.shift) !== e.shiftKey) return false;
   if (Boolean(s.alt) !== e.altKey) return false;
   return true;
 }

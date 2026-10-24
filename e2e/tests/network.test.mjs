@@ -95,7 +95,7 @@ async function request(url, { method = "GET", token, body } = {}) {
 async function createGroupThroughUi(app) {
   await app.clickSelector('[aria-label="Groups"]');
   await app.waitForText("Profile groups");
-  await app.clickSelector('[aria-label="Create"]');
+  await app.clickSelector('[aria-label="New group"]');
   await app.waitForText("Create New Group");
   await app.fillSelector("#group-name", "Visible UI Group");
   await app.clickTextIn('[role="dialog"]', "Create", { roles: ["button"] });
@@ -210,16 +210,29 @@ async function createExtensionsThroughUi(app) {
   );
   assert.ok(editButton, "Extension group edit control was not visible");
   await app.session.click(editButton);
-  await app.waitForText("Edit Group");
-  const extensionPicker = await app.execute(`
-    const dialogs = [...document.querySelectorAll('[role="dialog"]')];
-    return dialogs.reverse().find(
-      (dialog) => (dialog.innerText || "").includes("Edit Group")
-    )?.querySelector('[role="combobox"]') ?? null;
-  `);
-  assert.ok(extensionPicker, "Extension picker was not visible");
-  await app.session.click(extensionPicker);
-  await app.clickText(extension.name, { roles: ["option"] });
+  await app.waitForText("Edit group");
+  const memberToggle = await app.execute(
+    `
+      const dialogs = [...document.querySelectorAll('[role="dialog"]')];
+      const dialog = dialogs.reverse().find(
+        (candidate) => (candidate.innerText || "").includes("Edit group")
+      );
+      const member = [
+        ...(dialog?.querySelectorAll('[data-slot="extension-group-members"] label') ?? []),
+      ].find((label) => (label.innerText || "").includes(arguments[0]));
+      return member?.querySelector('[role="checkbox"]') ?? null;
+    `,
+    [extension.name],
+  );
+  assert.ok(memberToggle, "Extension member checkbox was not visible");
+  assert.equal(
+    await app.execute(`return arguments[0].getAttribute("data-state");`, [
+      memberToggle,
+    ]),
+    "unchecked",
+    "a new group starts with no extensions ticked",
+  );
+  await app.session.click(memberToggle);
   await app.clickTextIn('[role="dialog"]', "Save", { roles: ["button"] });
   await app.waitFor(
     async () => {
@@ -240,7 +253,7 @@ async function createProfileThroughUi(app, groupName, proxy) {
   await app.clickSelector('[aria-label="Profiles"]');
   await app.clickText(groupName, { exact: false, roles: ["button"] });
   await app.clickText("New", { roles: ["button"] });
-  await app.waitForText("Create New Profile");
+  await app.waitForText("Create new profile");
   await app.fillSelector("#profile-name", "Visible Network Profile");
   await app.clickSelector("#profile-proxy");
   await app.clickText(proxy.name, { roles: ["option"] });
@@ -251,7 +264,7 @@ async function createProfileThroughUi(app, groupName, proxy) {
       !(await app.execute(`
         return [...document.querySelectorAll('[role="dialog"]')].some(
           (dialog) =>
-            (dialog.innerText || "").includes("Create New Profile")
+            (dialog.innerText || "").includes("Create new profile")
         );
       `)),
     { description: "profile creation dialog to unmount" },
@@ -328,7 +341,7 @@ const assignNetworkThroughUi = (app, profileName, newName) =>
   assignThroughUi(app, profileName, "Proxy / VPN", newName, "Network");
 
 const assignExtensionGroupThroughUi = (app, profileName, newName) =>
-  assignThroughUi(app, profileName, "EXT", newName, "Extension");
+  assignThroughUi(app, profileName, "Extensions", newName, "Extension");
 
 async function runProfile(_app, base, token, profileId, url) {
   const launched = await request(`${base}/v1/profiles/${profileId}/run`, {

@@ -150,6 +150,59 @@ const LOCATION_KEYS = new Set([
   "accuracy",
 ]);
 
+/**
+ * The MCP tools as an agent reaches them over the remote bridge, on one
+ * initialized session. `tool` fails on an error answer; `toolError` expects one
+ * and returns it.
+ */
+async function mcpClient(base, token, profileId) {
+  let rpcId = 0;
+  let session = null;
+  const post = async (method, params) => {
+    const response = await fetch(`${base}/v1/e2e/mcp`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        ...(session ? { "mcp-session-id": session } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const answer = await response.json();
+    session = answer.session_id ?? session;
+    return answer.body;
+  };
+  const mcp = async (method, params) => {
+    const body = await post(method, params);
+    assert.equal(body.error, undefined, JSON.stringify(body));
+    return body.result;
+  };
+  const call = (name, args) =>
+    post("tools/call", {
+      name,
+      arguments: { profile_id: profileId, ...args },
+    });
+  const tool = async (name, args = {}) => {
+    const body = await call(name, args);
+    assert.equal(body.error, undefined, JSON.stringify(body));
+    assert.notEqual(body.result.isError, true, JSON.stringify(body.result));
+    return body.result.content[0];
+  };
+  const toolJson = async (name, args) =>
+    JSON.parse((await tool(name, args)).text);
+  const toolError = async (name, args = {}) => {
+    const body = await call(name, args);
+    assert.ok(body.error, JSON.stringify(body));
+    return body.error;
+  };
+  await mcp("initialize", {
+    protocolVersion: "2025-06-18",
+    clientInfo: { name: "Donut E2E", version: "1" },
+  });
+  return { mcp, tool, toolJson, toolError };
+}
+
 /** `fingerprint` is the serialised fingerprint STRING, or null for a fresh one. */
 async function createRealProfile(app, version, name, fingerprint = null) {
   return app.invoke("create_browser_profile_new", {
@@ -503,6 +556,8 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
     assert.equal(typeof checks.consistency, "object");
     assert.equal(typeof checks.exit_probe_pending, "boolean");
     assert.equal(typeof checks.exit_measurement_unreliable, "boolean");
+    // A profile with no proxy or VPN has no route to check before launch.
+    assert.equal(checks.route_unreachable, null);
     // The third consistency state: what no probe can ever verify for this
     // profile. Reported so a launch that compared nothing is never rendered as
     // a launch that compared everything and agreed.
@@ -715,40 +770,59 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
       "/linked",
     );
 
+    // The browser's own index never carries `id`, so the page applies this
+    // locator; the node a resolution names is the element itself.
+    const byIdLocator = {
+      attributes: [{ name: "id", value: "fixture-button" }],
+    };
+    const resolved = await request(
+      `${base}/v1/profiles/${profile.id}/agent/resolve-locator`,
+      {
+        method: "POST",
+        token: saved.api_token,
+        body: { locator: byIdLocator },
+      },
+    );
+    assert.equal(resolved.response.status, 200, JSON.stringify(resolved.value));
+    const resolvedNode = await cdp.command("DOM.describeNode", {
+      backendNodeId: resolved.value.backendNodeId,
+    });
+    assert.equal(resolvedNode.node.nodeName, "BUTTON");
+    assert.ok(
+      resolvedNode.node.attributes.includes("fixture-button"),
+      JSON.stringify(resolvedNode.node),
+    );
+    const byId = await agentClick(byIdLocator);
+    assert.equal(byId.navigated, false);
+    assert.equal(
+      await cdp.evaluate(
+        "document.querySelector('#fixture-button').dataset.clicked",
+      ),
+      "yes",
+    );
+
     // The MCP browser tools, through the engine an agent reaches over the
     // remote bridge. Each action says where the page is afterwards.
-    let rpcId = 0;
-    let mcpSession = null;
-    const mcp = async (method, params) => {
-      const response = await fetch(`${base}/v1/e2e/mcp`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${saved.api_token}`,
-          "content-type": "application/json",
-          ...(mcpSession ? { "mcp-session-id": mcpSession } : {}),
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
-      });
-      assert.equal(response.status, 200, await response.clone().text());
-      const answer = await response.json();
-      mcpSession = answer.session_id ?? mcpSession;
-      assert.equal(answer.body.error, undefined, JSON.stringify(answer.body));
-      return answer.body.result;
-    };
-    const tool = async (name, args = {}) => {
-      const result = await mcp("tools/call", {
-        name,
-        arguments: { profile_id: profile.id, ...args },
-      });
-      assert.notEqual(result.isError, true, JSON.stringify(result));
-      return result.content[0];
-    };
-    const toolJson = async (name, args) =>
-      JSON.parse((await tool(name, args)).text);
-    await mcp("initialize", {
-      protocolVersion: "2025-06-18",
-      clientInfo: { name: "Donut E2E", version: "1" },
-    });
+    const { mcp, tool, toolJson, toolError } = await mcpClient(
+      base,
+      saved.api_token,
+      profile.id,
+    );
+
+    // What a bug report attaches, as an agent reads it: the running profile
+    // by alias, never by id, inside the size the agent asked for.
+    const { diagnostics } = await toolJson("get_diagnostics", { max_kb: 16 });
+    assert.ok(
+      diagnostics.startsWith("===== facts =====\n"),
+      diagnostics.slice(0, 400),
+    );
+    assert.match(diagnostics, /^profile-\d+ browser=wayfern .*running=true/m);
+    assert.ok(!diagnostics.includes(profile.id));
+    assert.ok(Buffer.byteLength(diagnostics) <= 16 * 1024);
+    assert.match(
+      (await toolError("get_diagnostics", { max_kb: 1 })).message,
+      /max_kb/,
+    );
 
     // The device the profile presents, through each way it is read: the
     // fingerprint form, REST and MCP. An identity-backed profile stores no
@@ -840,6 +914,186 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
       "yes",
     );
 
+    // Form tools on a native select and a hidden file input added to the page.
+    await cdp.evaluate(`(() => {
+      const form = document.createElement('form');
+      form.innerHTML = '<label for="fixture-country">Country</label>'
+        + '<select id="fixture-country"><option value="">Pick one</option>'
+        + '<option value="de">Germany</option><option value="fr">France</option></select>'
+        + '<select id="fixture-langs" multiple><option value="en">English</option>'
+        + '<option value="de">German</option></select>'
+        + '<label id="fixture-upload-label">Attach'
+        + '<input id="fixture-file" type="file" style="display: none"></label>';
+      document.body.prepend(form);
+      const country = form.querySelector('#fixture-country');
+      country.addEventListener('change', () => { country.dataset.changed = country.value; });
+      form.querySelector('#fixture-file').addEventListener('change', (event) => {
+        event.target.dataset.trusted = String(event.isTrusted);
+      });
+      return true;
+    })()`);
+    const picked = await toolJson("select_option", {
+      selector: "#fixture-country",
+      option: "France",
+    });
+    assert.deepEqual(
+      picked.selected.map((option) => option.value),
+      ["fr"],
+      JSON.stringify(picked),
+    );
+    assert.equal(picked.changed, true);
+    assert.equal(
+      await cdp.evaluate(
+        "document.querySelector('#fixture-country').dataset.changed",
+      ),
+      "fr",
+    );
+    const byLocator = await toolJson("select_option", {
+      locator: { attributes: [{ name: "id", value: "fixture-country" }] },
+      option: "de",
+    });
+    assert.equal(byLocator.selected[0].label, "Germany");
+    const unchanged = await toolJson("select_option", {
+      selector: "#fixture-country",
+      option: "Germany",
+    });
+    assert.equal(unchanged.changed, false);
+    const both = await toolJson("select_option", {
+      selector: "#fixture-langs",
+      options: ["English", "de"],
+    });
+    assert.deepEqual(
+      both.selected.map((option) => option.value),
+      ["en", "de"],
+    );
+    const noSuchOption = await toolError("select_option", {
+      selector: "#fixture-country",
+      option: "Mars",
+    });
+    assert.match(noSuchOption.message, /No option matches.*Germany/s);
+    const notSelect = await toolError("select_option", {
+      selector: "#fixture-button",
+      option: "x",
+    });
+    assert.match(notSelect.message, /not a <select>/);
+
+    const uploaded = await toolJson("file_upload", {
+      selector: "#fixture-upload-label",
+      files: [{ name: "notes.txt", text: "Donut upload" }],
+    });
+    assert.deepEqual(uploaded.files, [{ name: "notes.txt", bytes: 12 }]);
+    assert.equal(
+      await cdp.evaluate(
+        "document.querySelector('#fixture-file').files[0].text()",
+      ),
+      "Donut upload",
+    );
+    assert.equal(
+      await cdp.evaluate(
+        "document.querySelector('#fixture-file').dataset.trusted",
+      ),
+      "true",
+      "the page sees the files arrive as a person's pick",
+    );
+    const replaced = await toolJson("file_upload", {
+      selector: "#fixture-file",
+      files: [
+        {
+          name: "bytes.bin",
+          content_base64: Buffer.from([0, 1, 2]).toString("base64"),
+        },
+      ],
+    });
+    assert.deepEqual(replaced.files, [{ name: "bytes.bin", bytes: 3 }]);
+    const stagedUploads = path.join(
+      app.dataRoot,
+      "cache",
+      "agent-uploads",
+      profile.id,
+    );
+    assert.equal(existsSync(stagedUploads), true);
+    const oneFileOnly = await toolError("file_upload", {
+      selector: "#fixture-file",
+      files: [
+        { name: "a.txt", text: "a" },
+        { name: "b.txt", text: "b" },
+      ],
+    });
+    assert.match(oneFileOnly.message, /takes one file/);
+
+    // Network capture: what the page fetches, with its bodies and without its
+    // credentials, and nothing while the person holds the profile.
+    const capture = await toolJson("start_network_capture");
+    assert.equal(capture.capturing, true, JSON.stringify(capture));
+    assert.ok(capture.tabs >= 1, JSON.stringify(capture));
+    assert.equal(
+      (await toolJson("start_network_capture")).already_running,
+      true,
+    );
+    const echoBody = JSON.stringify({ hello: "capture" });
+    await cdp.evaluate(
+      `fetch('/api/echo?capture=1', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer e2e-secret' }, body: ${JSON.stringify(echoBody)} }).then((response) => response.text())`,
+    );
+    const echoed = await app.waitFor(
+      async () => {
+        const listed = await toolJson("list_network_requests", {
+          url_contains: "/api/echo?capture=1",
+        });
+        const entry = listed.requests[0];
+        return entry?.body === "kept" ? entry : null;
+      },
+      { timeoutMs: 10_000, description: "the captured echo request" },
+    );
+    assert.equal(echoed.method, "POST");
+    assert.equal(echoed.status, 200);
+    assert.equal(echoed.type, "Fetch");
+    const captured = await toolJson("get_network_request", {
+      request_id: echoed.id,
+    });
+    assert.equal(captured.post_data, echoBody);
+    assert.equal(JSON.parse(captured.body.text).body, echoBody);
+    const header = (headers, name) =>
+      Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1];
+    assert.equal(
+      header(captured.request_headers, "authorization"),
+      "[redacted]",
+    );
+    const setCookie = header(captured.response_headers, "set-cookie");
+    assert.ok(setCookie === undefined || setCookie === "[redacted]", setCookie);
+    const byBody = await toolJson("list_network_requests", {
+      body_contains: "CAPTURE",
+      type: "fetch",
+    });
+    assert.ok(
+      byBody.requests.some((entry) => entry.id === echoed.id),
+      JSON.stringify(byBody),
+    );
+    await app.invoke("take_over_profile", {
+      profileId: profile.id,
+      note: null,
+    });
+    await cdp.evaluate(
+      "fetch('/api/echo?while-held=1').then((response) => response.text())",
+    );
+    // The capture reads the browser's events on its own task.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await app.invoke("hand_back_profile", {
+      profileId: profile.id,
+      note: null,
+    });
+    const whileHeld = await toolJson("list_network_requests", {
+      url_contains: "while-held",
+    });
+    assert.equal(whileHeld.requests.length, 0, JSON.stringify(whileHeld));
+    assert.ok(whileHeld.withheld >= 1, JSON.stringify(whileHeld));
+    assert.equal((await toolJson("stop_network_capture")).stopped, true);
+    assert.equal(
+      (await toolError("list_network_requests")).data.code,
+      "NETWORK_CAPTURE_NOT_RUNNING",
+    );
+    // Left running, so the browser's stop is what ends it.
+    await toolJson("start_network_capture");
+
     const shot = await tool("screenshot");
     assert.equal(shot.mimeType, "image/jpeg");
     const jpeg = Buffer.from(shot.data, "base64");
@@ -913,21 +1167,82 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
       );
     }
 
+    // The window's DevTools endpoint and network inspector reach the same
+    // browser the automation port does, and the capture the agent left
+    // running.
+    const endpoint = await app.invoke("get_profile_debug_endpoint", {
+      profileId: profile.id,
+    });
+    assert.equal(endpoint.port, launched.value.remote_debugging_port);
+    assert.match(
+      endpoint.ws_url,
+      /^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\//,
+    );
+    const windowCapture = await app.invoke("start_network_capture", {
+      profileId: profile.id,
+    });
+    assert.equal(windowCapture.capturing, true);
+    assert.equal(windowCapture.already_running, true);
+
     const opened = await request(`${base}/v1/profiles/${profile.id}/open-url`, {
       method: "POST",
       token: saved.api_token,
       body: { url: `${fixtureUrl}/opened-via-api` },
     });
     assert.equal(opened.response.status, 200);
-    await app.waitFor(
+    const openedTarget = await app.waitFor(
       async () => {
         const targets = await fetch(
           `http://127.0.0.1:${launched.value.remote_debugging_port}/json`,
         ).then((response) => response.json());
-        return targets.some((target) => target.url.includes("/opened-via-api"));
+        return (
+          targets.find(
+            (target) =>
+              target.type === "page" && target.url.includes("/opened-via-api"),
+          ) ?? false
+        );
       },
       { timeoutMs: 20_000, description: "API-opened Wayfern target" },
     );
+    // The tab's document request starts before the tab exists as a target, so
+    // the capture cannot see it; what the tab sends once it is open is
+    // captured, under the tab's own id.
+    const openedTab = await CdpClient.connect(
+      launched.value.remote_debugging_port,
+      { match: (target) => target.id === openedTarget.id },
+    );
+    try {
+      await openedTab.evaluate(
+        "fetch('/api/echo?from=opened-via-api').then((response) => response.text())",
+      );
+    } finally {
+      openedTab.close();
+    }
+    const capturedRequest = await app.waitFor(
+      async () => {
+        const listed = await app.invoke("list_network_requests", {
+          profileId: profile.id,
+        });
+        assert.equal(listed.capturing, true);
+        return (
+          listed.requests.find((item) =>
+            item.url.includes("/api/echo?from=opened-via-api"),
+          ) ?? false
+        );
+      },
+      { timeoutMs: 20_000, description: "captured API-opened request" },
+    );
+    assert.equal(
+      capturedRequest.tab,
+      openedTarget.id,
+      JSON.stringify(capturedRequest),
+    );
+    const capturedDetail = await app.invoke("get_network_request", {
+      profileId: profile.id,
+      requestId: capturedRequest.id,
+    });
+    assert.equal(capturedDetail.id, capturedRequest.id);
+    assert.equal(typeof capturedDetail.request_headers, "object");
 
     const killed = await request(`${base}/v1/profiles/${profile.id}/kill`, {
       method: "POST",
@@ -937,12 +1252,33 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
     cdp.close();
     cdp = null;
     await waitForProcessExit(app, browserPid);
+    assert.equal(
+      existsSync(stagedUploads),
+      false,
+      "an agent's uploads go with the browser",
+    );
+    assert.equal(
+      (await toolError("list_network_requests")).data.code,
+      "NETWORK_CAPTURE_NOT_RUNNING",
+    );
+    assert.deepEqual(
+      await app.invoke("list_network_requests", { profileId: profile.id }),
+      { capturing: false },
+    );
+    assert.deepEqual(
+      await app.invoke("stop_network_capture", { profileId: profile.id }),
+      { stopped: false },
+    );
     const stoppedProfile = (await app.invoke("list_browser_profiles")).find(
       (item) => item.id === profile.id,
     );
     assert.equal(
       await app.invoke("check_browser_status", { profile: stoppedProfile }),
       false,
+    );
+    assert.equal(
+      await app.invoke("get_profile_debug_endpoint", { profileId: profile.id }),
+      null,
     );
 
     const batchProfile = await createRealProfile(
@@ -963,6 +1299,8 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
         profile_ids: [batchProfile.id],
         url: `${fixtureUrl}/batch`,
         headless: true,
+        delay_ms: 0,
+        concurrency: 1,
       },
     });
     assert.equal(batchRun.response.status, 200);
@@ -1135,6 +1473,14 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
       temporaryPid,
       "the temporary profile must report the browser it started",
     );
+    // The browser runs from the profile's RAM directory, and the tools must
+    // find it there: they once looked only under the profiles dir.
+    const ephemeralPage = await mcp("tools/call", {
+      name: "get_page_info",
+      arguments: { profile_id: temporaryId },
+    });
+    assert.notEqual(ephemeralPage.isError, true, JSON.stringify(ephemeralPage));
+    assert.match(ephemeralPage.content[0].text, /temporary/);
     await request(`${base}/v1/profiles/${temporaryId}/kill`, {
       method: "POST",
       token: saved.api_token,
@@ -1176,6 +1522,258 @@ test("real Wayfern fingerprinting, terms, API automation, CDP, cookies, and proc
       realTermsBefore,
       "the browser suite modified the real Wayfern terms marker",
     );
+  }
+});
+
+// What MCP agents reported on real forms, on a local page that has each kind
+// of field: a locator by id finds a search input and a search textarea, a click
+// lands on what a person sees (a radio drawn by its label, a day cell, a
+// textarea beside a fixed banner, never the banner), a name that two fields
+// share settles on the exact one, and typing either leaves the text in the
+// field, through the input events a framework listens to, or fails and says so.
+test("MCP locators and typing act on the field a person sees", async () => {
+  assert.ok(process.env.WAYFERN_TEST_TOKEN, "WAYFERN_TEST_TOKEN is required");
+  const localWayfernVersion = cachedFixtureVersion(
+    process.env.DONUT_E2E_PROJECT_ROOT,
+  );
+  const app = appFromEnvironment("browser-mcp-forms", {
+    seedVersionCache: localWayfernVersion ?? false,
+    wayfernTermsAccepted: false,
+  });
+  let cdp;
+  let browserPid;
+  try {
+    const prepared = await prepareWayfern(
+      app,
+      process.env.DONUT_E2E_PROJECT_ROOT,
+    );
+    if (!app.session) await app.start();
+    if (!(await app.invoke("check_wayfern_terms_accepted"))) {
+      await app.invoke("accept_wayfern_terms");
+    }
+    const profile = await createRealProfile(app, prepared.version, "MCP Forms");
+    const settings = await app.invoke("get_app_settings");
+    const saved = await app.invoke("save_app_settings", {
+      settings: {
+        ...settings,
+        api_enabled: true,
+        api_port: 0,
+        api_token: null,
+        onboarding_completed: true,
+      },
+    });
+    const port = await app.invoke("start_api_server", { port: 0 });
+    const base = `http://127.0.0.1:${port}`;
+    const launched = await request(`${base}/v1/profiles/${profile.id}/run`, {
+      method: "POST",
+      token: saved.api_token,
+      body: { url: `${fixtureUrl}/mcp-forms`, headless: true },
+    });
+    assert.equal(launched.response.status, 200, JSON.stringify(launched.value));
+    browserPid = (await app.invoke("list_browser_profiles")).find(
+      (item) => item.id === profile.id,
+    )?.process_id;
+    cdp = await CdpClient.connect(launched.value.remote_debugging_port);
+    await cdp.waitFor("window.__formsReady === true", {
+      description: "the MCP forms fixture",
+    });
+    const { tool, toolJson, toolError } = await mcpClient(
+      base,
+      saved.api_token,
+      profile.id,
+    );
+    const valueOf = (selector) =>
+      cdp.evaluate(`document.querySelector(${JSON.stringify(selector)}).value`);
+    const byId = (id) => ({ attributes: [{ name: "id", value: id }] });
+
+    // An id the browser's own index does not carry: a search input and a
+    // search textarea.
+    const searched = await toolJson("type_locator", {
+      locator: byId("searchInput"),
+      text: "Donut Browser",
+    });
+    assert.equal(searched.typed, true, JSON.stringify(searched));
+    assert.equal(searched.verified, true, JSON.stringify(searched));
+    assert.equal(await valueOf("#searchInput"), "Donut Browser");
+    const asked = await toolJson("type_locator", {
+      locator: byId("sb_form_q"),
+      text: "weather today",
+    });
+    assert.equal(asked.verified, true, JSON.stringify(asked));
+    assert.equal(await valueOf("#sb_form_q"), "weather today");
+
+    // A controlled field keeps only what real input events gave it: a value
+    // assigned by a script is put back on the next render.
+    const controlled = await toolJson("type_locator", {
+      locator: { role: "textbox", name: "Full name" },
+      text: "Jane Doe",
+    });
+    assert.equal(controlled.verified, true, JSON.stringify(controlled));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(await valueOf("#react-name"), "Jane Doe");
+    assert.equal(
+      await cdp.evaluate("document.querySelector('#react-name').dataset.state"),
+      "Jane Doe",
+      "the page's own state took the text",
+    );
+    // Replaced, not appended, and still through input events.
+    assert.match(
+      (
+        await tool("type_text", {
+          selector: "#react-name",
+          text: "John Roe",
+        })
+      ).text,
+      /the field holds the text/,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(await valueOf("#react-name"), "John Roe");
+    assert.equal(
+      await cdp.evaluate("document.querySelector('#react-name').dataset.state"),
+      "John Roe",
+    );
+
+    // An autocomplete whose input is transparent and one pixel wide: the click
+    // goes to its control, and the text reaches the input.
+    const subject = await toolJson("type_locator", {
+      locator: byId("subjectsInput"),
+      text: "Mat",
+    });
+    assert.equal(subject.verified, true, JSON.stringify(subject));
+    assert.equal(await valueOf("#subjectsInput"), "Mat");
+    assert.match(
+      await cdp.evaluate(
+        "document.querySelector('#subjects-menu').textContent",
+      ),
+      /Maths/,
+    );
+    const batch = await toolJson("run_actions", {
+      actions: [
+        {
+          tool: "type_text",
+          arguments: { selector: "#subjectsInput", text: "Phy" },
+        },
+      ],
+    });
+    assert.equal(batch.completed, 1, JSON.stringify(batch));
+    assert.equal(await valueOf("#subjectsInput"), "Phy");
+
+    // Two names that differ by a suffix: the exact one is meant, and a
+    // locator that really is ambiguous says what it matched.
+    const first = await toolJson("type_locator", {
+      locator: { nameContains: "First Name" },
+      text: "Ada",
+    });
+    assert.equal(first.match.name, "First Name", JSON.stringify(first));
+    assert.equal(await valueOf("#first-name"), "Ada");
+    assert.equal(await valueOf("#first-name-optional"), "");
+    const ambiguous = await toolError("resolve_locator", {
+      locator: { role: "textbox", nameContains: "First" },
+    });
+    assert.equal(ambiguous.data.code, "LOCATOR_AMBIGUOUS");
+    assert.deepEqual(
+      ambiguous.data.candidates.map((candidate) => candidate.name).sort(),
+      ["First Name", "First Name (optional)"],
+    );
+    assert.match(ambiguous.message, /First Name \(optional\)/);
+
+    // Radios drawn by their labels: a text locator matches the label, a role
+    // and name locator matches the radio, and both click through the label.
+    const checked = () =>
+      cdp.evaluate("document.querySelector('input[name=gender]:checked')?.id");
+    const female = await toolJson("click_locator", {
+      locator: { text: "Female" },
+    });
+    assert.equal(female.clicked, true, JSON.stringify(female));
+    assert.equal(await checked(), "gender-radio-2");
+    await toolJson("click_locator", {
+      locator: { role: "radio", name: "Male" },
+    });
+    assert.equal(await checked(), "gender-radio-1");
+
+    // A day cell of a date grid.
+    await toolJson("click_locator", { locator: { text: "18" } });
+    assert.equal(
+      await cdp.evaluate("document.querySelector('#days').dataset.picked"),
+      "18",
+    );
+
+    // A field the page will not change: typing fails, and says what it holds.
+    const locked = await toolError("type_locator", {
+      locator: byId("locked"),
+      text: "nothing changes",
+    });
+    assert.equal(locked.data.code, "TYPE_NOT_APPLIED", JSON.stringify(locked));
+    assert.equal(locked.data.reason, "value");
+    assert.match(locked.message, /holds nothing/);
+
+    // A textarea at the bottom of the window, half under a fixed banner: the
+    // click and the typing land on the textarea, never on the banner.
+    const underBanner = `(() => {
+      const box = document.querySelector('#currentAddress').getBoundingClientRect();
+      window.scrollBy(0, box.top - (window.innerHeight - 140));
+      document.activeElement?.blur();
+      return true;
+    })()`;
+    await cdp.evaluate(underBanner);
+    await toolJson("click_locator", { locator: byId("currentAddress") });
+    assert.equal(
+      await cdp.evaluate("document.activeElement?.id"),
+      "currentAddress",
+    );
+    await cdp.evaluate(underBanner);
+    const address = await toolJson("type_locator", {
+      locator: { role: "textbox", name: "Current Address" },
+      text: "221B Baker Street",
+    });
+    assert.equal(address.verified, true, JSON.stringify(address));
+    assert.equal(await valueOf("#currentAddress"), "221B Baker Street");
+    assert.equal(
+      await cdp.evaluate("document.querySelector('#fixedban').dataset.clicks"),
+      undefined,
+      "nothing struck the banner",
+    );
+
+    // By index from a listing, with the same read-back.
+    const listing = (await tool("get_interactive_elements")).text;
+    const line = listing
+      .split("\n")
+      .find((entry) => entry.includes('id="sb_form_q"'));
+    const elementId = /^\[\d+ (e\d+)/.exec(line ?? "")?.[1];
+    assert.ok(elementId, listing);
+    assert.match(
+      (
+        await tool("type_by_index", {
+          element_id: elementId,
+          text: "by index",
+        })
+      ).text,
+      /the field holds the text/,
+    );
+    assert.equal(await valueOf("#sb_form_q"), "by index");
+
+    await request(`${base}/v1/profiles/${profile.id}/kill`, {
+      method: "POST",
+      token: saved.api_token,
+    });
+    if (browserPid) await waitForProcessExit(app, browserPid);
+    await app.invoke("stop_api_server");
+    await app.invoke("delete_profile", { profileId: profile.id });
+  } catch (error) {
+    await app.capture("failure");
+    throw error;
+  } finally {
+    cdp?.close();
+    if (app.session && browserPid && processExists(browserPid)) {
+      const running = (
+        await app.invoke("list_browser_profiles").catch(() => [])
+      ).find((item) => item.process_id === browserPid);
+      if (running)
+        await app
+          .invoke("kill_browser_profile", { profile: running })
+          .catch(() => {});
+    }
+    await app.close();
   }
 });
 

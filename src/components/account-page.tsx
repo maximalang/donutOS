@@ -123,7 +123,8 @@ export function AccountPage({
     ) {
       setActiveTab("account");
     }
-  }, [showTeamUsage, showTeamActivity, activeTab]);
+    if (isLoggedIn && activeTab === "self-hosted") setActiveTab("account");
+  }, [showTeamUsage, showTeamActivity, isLoggedIn, activeTab]);
 
   // Self-hosted server state. Loaded once when the dialog opens and persisted
   // via `save_sync_settings` so the rest of the app picks up the new URL/token
@@ -137,9 +138,9 @@ export function AccountPage({
     useState<ConnectionStatus>("unknown");
 
   const hasConfig = Boolean(serverUrl && token);
-  // Signed out, a server takes its shared token. Signed in, the account signs
-  // in to its own server instead (`AccountSyncServer`); the backend refuses a
-  // shared token then (`save_sync_settings`), so one device never syncs one
+  // A shared-token server is set up signed out. Signed in, the account card
+  // names where the account syncs (`AccountSyncServer`); the backend refuses a
+  // new shared token then (`save_sync_settings`), so one device never syncs one
   // profile to two places.
   const selfHostedDisabled = isCloudLoading;
 
@@ -149,7 +150,7 @@ export function AccountPage({
       await refreshProfile();
       showSuccessToast(t("account.refreshed"));
     } catch (e) {
-      showErrorToast(String(e));
+      showErrorToast(translateBackendError(t, e));
     } finally {
       setIsRefreshing(false);
     }
@@ -166,7 +167,7 @@ export function AccountPage({
       await loadSelfHostedSettings();
       showSuccessToast(t("account.loggedOut"));
     } catch (e) {
-      showErrorToast(String(e));
+      showErrorToast(translateBackendError(t, e));
     } finally {
       setIsLoggingOut(false);
     }
@@ -234,7 +235,7 @@ export function AccountPage({
       // Use the structured backend-error translator so the cloud-vs-self-
       // hosted mutex (`SELF_HOSTED_REQUIRES_LOGOUT`) shows a clear message
       // instead of the generic "save failed" toast.
-      showErrorToast(translateBackendError(t as never, error));
+      showErrorToast(translateBackendError(t, error));
     } finally {
       setIsSavingSelfHosted(false);
     }
@@ -258,7 +259,9 @@ export function AccountPage({
       showSuccessToast(t("sync.config.disconnected"));
     } catch (error) {
       console.error("Failed to disconnect:", error);
-      showErrorToast(t("sync.config.disconnectFailed"));
+      showErrorToast(t("sync.config.disconnectFailed"), {
+        description: translateBackendError(t, error),
+      });
     } finally {
       setIsSavingSelfHosted(false);
     }
@@ -355,12 +358,14 @@ export function AccountPage({
                     {t("account.tabs.teamAccess")}
                   </AnimatedTabsTrigger>
                 )}
-                <AnimatedTabsTrigger
-                  value="self-hosted"
-                  disabled={selfHostedDisabled}
-                >
-                  {t("account.tabs.selfHosted")}
-                </AnimatedTabsTrigger>
+                {!isLoggedIn && (
+                  <AnimatedTabsTrigger
+                    value="self-hosted"
+                    disabled={selfHostedDisabled}
+                  >
+                    {t("account.tabs.selfHosted")}
+                  </AnimatedTabsTrigger>
+                )}
               </AnimatedTabsList>
 
               <AnimatedTabsContent
@@ -466,7 +471,7 @@ export function AccountPage({
                           key={detail.id}
                           className="min-w-0 rounded-lg bg-foreground/4 px-3 py-2"
                         >
-                          <dt className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                          <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">
                             {detail.label}
                           </dt>
                           <dd className="mt-0.5 truncate font-medium">
@@ -496,6 +501,13 @@ export function AccountPage({
                         {t("account.automationActiveHere")}
                       </p>
                     )}
+
+                  {isLoggedIn && user && (
+                    <AccountSyncServer
+                      paid={getEntitlements(user).cloudBackup}
+                      teamSeat={Boolean(user.teamId)}
+                    />
+                  )}
                 </SettingsPanel>
 
                 {remoteHoursVisible && (
@@ -577,12 +589,7 @@ export function AccountPage({
                 value="self-hosted"
                 className="@container mt-4"
               >
-                {isLoggedIn && user ? (
-                  <AccountSyncServer
-                    paid={getEntitlements(user).cloudBackup}
-                    teamSeat={Boolean(user.teamId)}
-                  />
-                ) : selfHostedDisabled ? null : (
+                {isLoggedIn || selfHostedDisabled ? null : (
                   <SettingsPanel className="flex flex-col gap-4">
                     <div className="flex items-start gap-3">
                       <FeatureIcon active={connectionStatus === "connected"}>

@@ -375,22 +375,22 @@ importers:
   donut-sync:
     dependencies:
       '@aws-sdk/client-s3':
-        specifier: ^3.1151.0
+        specifier: ^3.1155.0
         version: 3.1155.0
       '@aws-sdk/s3-request-presigner':
-        specifier: ^3.1151.0
+        specifier: ^3.1155.0
         version: 3.1155.0
       '@nestjs/common':
-        specifier: ^12.1.3
+        specifier: ^12.2.0
         version: 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
       '@nestjs/config':
         specifier: ^12.0.1
         version: 12.0.1(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(rxjs@7.8.2)
       '@nestjs/core':
-        specifier: ^12.1.3
+        specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@12.2.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
-        specifier: ^12.1.3
+        specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0)(supports-color@8.1.1)
       jsonwebtoken:
         specifier: ^9.0.3
@@ -403,13 +403,13 @@ importers:
         version: 7.8.2
     devDependencies:
       '@nestjs/cli':
-        specifier: ^12.0.8
+        specifier: ^12.0.10
         version: 12.0.10(@types/node@26.6.5)(ts-loader@9.6.2(typescript@6.0.3)(webpack@5.112.0(lightningcss@1.32.0)(postcss@8.5.31)(sharp@0.35.5(@types/node@26.6.5))(uglify-js@3.19.3)))(webpack@5.112.0(lightningcss@1.32.0)(postcss@8.5.31)(sharp@0.35.5(@types/node@26.6.5))(uglify-js@3.19.3))
       '@nestjs/schematics':
-        specifier: ^12.0.7
+        specifier: ^12.0.10
         version: 12.0.10(chokidar@5.0.0)(typescript@6.0.3)
       '@nestjs/testing':
-        specifier: ^12.1.3
+        specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
       '@types/express':
         specifier: ^5.0.6
@@ -436,7 +436,7 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(supports-color@8.1.1)
       ts-jest:
-        specifier: ^29.4.14
+        specifier: ^29.4.15
         version: 29.4.15(@babel/core@7.29.7(supports-color@8.1.1))(@jest/transform@30.5.2(supports-color@8.1.1))(@jest/types@30.5.1)(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(jest-util@30.5.1)(jest@30.5.2(@types/node@26.6.5)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@26.6.5)(typescript@6.0.3)))(typescript@6.0.3)
       ts-loader:
         specifier: ^9.6.2
@@ -447,6 +447,9 @@ importers:
       tsconfig-paths:
         specifier: ^4.2.0
         version: 4.2.0
+      tsrs:
+        specifier: 0.18.0-ts7.1.0-dev.20260929
+        version: 0.18.0-ts7.1.0-dev.20260929
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
