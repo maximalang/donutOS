@@ -1,6 +1,6 @@
 services:
   donut-sync:
-    image: donutbrowser/donut-sync:latest
+    image: donutbrowser/donut-sync:v0.35.4
     container_name: donut-sync
     ports:
       - "3929:3929"

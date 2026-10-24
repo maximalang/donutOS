@@ -1,0 +1,9 @@
+# артефакты прогонов e2e (блобы, presigned URL с подписью, логи)
+out-*/
+evidence-*.log
+*.url
+blob.json
+downloaded.json
+req.json
+presign-*.json
+put.resp
