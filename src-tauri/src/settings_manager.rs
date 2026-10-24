@@ -587,7 +587,11 @@ impl SettingsManager {
     })
   }
 
+  // Non-free builds keep the variant only so the shared code compiles; the
+  // only caller sits in the `feature = "free"` branch above, hence the
+  // dead_code warning in feature-less test builds.
   #[cfg(not(feature = "free"))]
+  #[allow(dead_code)]
   fn free_portable_token_path() -> Option<std::path::PathBuf> {
     None
   }
