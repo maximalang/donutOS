@@ -1160,12 +1160,16 @@ async fn free_mcp_message(headers: HeaderMap, body: axum::body::Bytes) -> Respon
     .handle_message_with(session, &body, None)
     .await
   {
-    // Standard streamable-HTTP MCP puts new sessions in the `mcp-session-id`
-    // response header; keep the session_id in the JSON body as well so
-    // body-only clients (the upstream e2e shape) keep working.
-    McpOutcome::Body { body, new_session_id } => {
-      let mut response = Json(serde_json::json!({ "session_id": new_session_id, "body": body }))
-        .into_response();
+    // Standard streamable-HTTP MCP: the JSON-RPC response is the whole body
+    // and a new session id goes in the `mcp-session-id` response header only.
+    // (The body-wrapped {"session_id","body"} envelope is the upstream e2e
+    // shape; strict clients cannot parse it, so the free endpoint stays
+    // spec-clean.)
+    McpOutcome::Body {
+      body,
+      new_session_id,
+    } => {
+      let mut response = Json(body).into_response();
       if let Some(session_id) = new_session_id {
         if let Ok(value) = axum::http::HeaderValue::from_str(&session_id) {
           response.headers_mut().insert("mcp-session-id", value);
@@ -1669,7 +1673,12 @@ async fn get_health() -> Json<HealthResponse> {
   Json(HealthResponse {
     status: "ok".to_string(),
     version: env!("CARGO_PKG_VERSION").to_string(),
-    build: if cfg!(feature = "free") { "free" } else { "stock" }.to_string(),
+    build: if cfg!(feature = "free") {
+      "free"
+    } else {
+      "stock"
+    }
+    .to_string(),
     profiles_total,
   })
 }
