@@ -1067,7 +1067,12 @@ impl ApiServer {
     #[cfg(feature = "e2e")]
     let v1_routes = v1_routes.route("/v1/e2e/mcp", axum::routing::post(e2e_mcp_message));
     #[cfg(feature = "free")]
-    let v1_routes = v1_routes.route("/v1/mcp", axum::routing::post(free_mcp_message));
+    let v1_routes = v1_routes.route(
+      "/v1/mcp",
+      axum::routing::post(free_mcp_message)
+        .head(free_mcp_head)
+        .delete(free_mcp_delete),
+    );
 
     let api = ApiDoc::openapi();
 
@@ -1181,6 +1186,37 @@ async fn free_mcp_message(headers: HeaderMap, body: axum::body::Bytes) -> Respon
     McpOutcome::UnknownSession => StatusCode::NOT_FOUND.into_response(),
     McpOutcome::BadRequest => StatusCode::BAD_REQUEST.into_response(),
     McpOutcome::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS.into_response(),
+  }
+}
+
+/// HEAD probe on the free MCP endpoint.
+///
+/// Streamable-HTTP clients and gateway health checks HEAD the endpoint before
+/// opening a stream; a POST-only route answers 405, which strict clients read
+/// as "no MCP server here". An empty 200 says the endpoint exists without
+/// spending a session.
+#[cfg(feature = "free")]
+async fn free_mcp_head() -> Response {
+  StatusCode::OK.into_response()
+}
+
+/// DELETE on the free MCP endpoint is the streamable-HTTP session teardown.
+///
+/// `end_session` is idempotent — an unknown id is not an error — so any named
+/// session tears down with a 200. A DELETE without a session header names
+/// nothing and is a 400.
+#[cfg(feature = "free")]
+async fn free_mcp_delete(headers: HeaderMap) -> Response {
+  use crate::mcp_server::McpServer;
+  match headers
+    .get("mcp-session-id")
+    .and_then(|value| value.to_str().ok())
+  {
+    Some(session) => {
+      McpServer::instance().end_session(session).await;
+      StatusCode::OK.into_response()
+    }
+    None => StatusCode::BAD_REQUEST.into_response(),
   }
 }
 
@@ -6320,6 +6356,78 @@ mod tests {
   #[test]
   fn every_v1_route_can_be_registered_together() {
     let _router: Router<ApiServerState> = build_v1_router();
+  }
+
+  // The free MCP endpoint must stay spec-clean for strict streamable-HTTP
+  // clients: the JSON-RPC response is the whole body (no {"session_id","body"}
+  // envelope — that is the upstream e2e shape strict clients cannot parse).
+  // This pins the wire format so an upstream merge cannot reintroduce the
+  // envelope silently.
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn free_mcp_wire_stays_spec_clean() {
+    let initialize = serde_json::json!({
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-03-26",
+        "capabilities": {},
+        "clientInfo": {"name": "wire-test", "version": "0"}
+      }
+    });
+    let response = free_mcp_message(
+      HeaderMap::new(),
+      axum::body::Bytes::from(serde_json::to_vec(&initialize).expect("serialize")),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+      .await
+      .expect("body");
+    let value: serde_json::Value = serde_json::from_slice(&bytes).expect("json");
+    assert!(value.get("body").is_none(), "envelope key leaked: {value}");
+    assert_eq!(value["jsonrpc"], "2.0");
+    assert_eq!(value["id"], 1);
+  }
+
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn free_mcp_rejects_garbage_as_400_not_500() {
+    let response = free_mcp_message(
+      HeaderMap::new(),
+      axum::body::Bytes::from_static(b"not json"),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+  }
+
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn free_mcp_head_probes_are_200() {
+    let response = free_mcp_head().await;
+    assert_eq!(response.status(), StatusCode::OK);
+  }
+
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn free_mcp_delete_without_session_header_is_400() {
+    let response = free_mcp_delete(HeaderMap::new()).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+  }
+
+  // `end_session` documents unknown ids as a no-op, so a client tearing down a
+  // session it already lost gets a 200, not a 404 it would have to swallow.
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn free_mcp_delete_of_an_unknown_session_is_an_idempotent_200() {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+      "mcp-session-id",
+      "wire-test-unknown".parse().expect("header"),
+    );
+    let response = free_mcp_delete(headers).await;
+    assert_eq!(response.status(), StatusCode::OK);
   }
 
   // `""` is the only way a REST client can detach a proxy or VPN (an omitted
