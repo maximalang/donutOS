@@ -51,10 +51,7 @@ function getTargetDir() {
 
 let srcDir;
 if (TARGET === HOST_TARGET || TARGET === "unknown") {
-  srcDir = join(
-    getTargetDir(),
-    PROFILE === "release" ? "release" : "debug",
-  );
+  srcDir = join(getTargetDir(), PROFILE === "release" ? "release" : "debug");
 } else {
   srcDir = join(
     getTargetDir(),
