@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Donut Browser Logo" width="150">
-  <h1>Donut Browser</h1>
-  <strong>Open Source Anti-Detect Browser</strong>
+  <img src="assets/logo.png" alt="donutOS Logo" width="150">
+  <h1>donutOS</h1>
+  <strong>Local-first anti-detect browser — no vendor cloud, full agent integration</strong>
   <br>
-  <a href="https://donutbrowser.com">donutbrowser.com</a>
+  <a href="https://github.com/maximalang/donutOS">github.com/maximalang/donutOS</a>
 </div>
 <br>
 
@@ -51,7 +51,7 @@ The fingerprints come from [Wayfern](https://wayfern.com), a privacy-focused Chr
 
 <img alt="Start a profile from the local REST API and connect Playwright to it over CDP, or let your AI agent work with profiles over remote MCP." src="assets/readme/automation.svg" width="100%">
 
-Start any profile from the local REST API on `127.0.0.1:10108`, then connect Playwright, Puppeteer or Selenium to it over CDP. Or connect Claude, Cursor, Codex or another MCP client over remote MCP, and watch what each agent does. Browser automation and remote MCP come with the paid plans. See the [quickstart](https://donutbrowser.com/docs/quickstart), [Playwright with Wayfern](https://donutbrowser.com/docs/wayfern) and [MCP](https://donutbrowser.com/docs/mcp) guides.
+Start any profile from the local REST API on `127.0.0.1:10108`, then connect Playwright, Puppeteer or Selenium to it over CDP. Or connect Claude, Cursor, Codex or another MCP client over remote MCP, and watch what each agent does. **No vendor cloud needed.** See the [quickstart](#quick-start), [Server Mode](docs/product/SERVER_MODE.md), and [Feature Matrix](docs/product/feature-matrix.md).
 
 ## Features
 
@@ -69,22 +69,30 @@ Start any profile from the local REST API on `127.0.0.1:10108`, then connect Pla
 - E2E encryption: optional end-to-end encrypted sync with a password only you know
 - Zero telemetry: no tracking or device fingerprinting
 
-## Install
+## Quick Start
 
-<!-- install-links-start -->
-### macOS
-
-[Download DMG (Apple Silicon)](https://github.com/donutbrowser/donutbrowser/releases/download/v0.34.0/Donut_0.34.0_aarch64.dmg)
-
-Or install via Homebrew:
+### Build from source (recommended)
 
 ```bash
-brew install --cask donut
+git clone https://github.com/maximalang/donutOS
+cd donutOS
+pnpm install
+pnpm tauri build --features free
 ```
+
+Portable binary will be in `src-tauri/target/release/bundle/nsis/` (Windows).
+
+### Download Release
+
+[Windows Portable (x64)](https://github.com/maximalang/donutOS/releases)
+
+## Install
 
 ### Windows
 
-[Download Windows Installer (x64)](https://github.com/donutbrowser/donutbrowser/releases/download/v0.34.0/Donut_0.34.0_x64-setup.exe) · [Portable (x64)](https://github.com/donutbrowser/donutbrowser/releases/download/v0.34.0/Donut_0.34.0_x64-portable.zip)
+Windows x64 releases are built and published automatically via GitHub Actions. Download the latest portable .zip from [Releases](https://github.com/maximalang/donutOS/releases).
+
+Upstream original:
 
 ### Linux
 
@@ -131,9 +139,20 @@ The Snap leaves the microphone, the camera and the keyring (used by profile impo
 nix run github:donutbrowser/donutbrowser#release-start
 ```
 
-## Self-Hosting Sync
+## Self-Hosted Server Mode
 
-Run your own sync server to sync profiles, proxies, and groups across devices for free. See the [Self-Hosting Donut Sync guide](https://donutbrowser.com/docs/self-hosting) for Docker-based setup instructions.
+Run **donutOS** as a local or LAN MCP server for agent automation. See [Server Mode Configuration](docs/product/SERVER_MODE.md) for:
+- Local `localhost:3000` MCP endpoint (no auth)
+- LAN/remote with token auth and optional TLS
+- Self-hosted sync integration
+- Hermes agent integration
+
+## Feature Inventory
+
+See [Feature Matrix](docs/product/feature-matrix.md) for full upstream vs free comparison:
+- ~70 features, vendor-cloud status mapped
+- Local replacements planned for cookie-bot, agents, recipes
+- Self-hosted sync compatible with v0.35.4+
 
 ## Contributing
 
@@ -168,6 +187,14 @@ Donut Browser is built by the people who use it, and plenty of the most useful h
 
 For urgent questions or security vulnerability reports, email [contact@donutbrowser.com](mailto:contact@donutbrowser.com).
 
+## Attribution
+
+**donutOS** is a local-first fork of [Donut Browser](https://github.com/zhom/donutbrowser) — the original anti-detect browser by @zhom and contributors.
+
+- Upstream project: [zhom/donutbrowser](https://github.com/zhom/donutbrowser)
+- Original license: AGPL-3.0
+- donutOS additions: Server-mode, local automation, agent-native API
+
 ## License
 
-This project is licensed under the AGPL-3.0 License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the AGPL-3.0 License, with attribution to the original Donut Browser project. See the [LICENSE](LICENSE) file for details.

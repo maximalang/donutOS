@@ -1,0 +1,104 @@
+name: Free Release (Windows)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/free-release.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: free-release
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TARGET_DIR: D:\cargo-target-free
+
+jobs:
+  build-free:
+    name: Build Free x64
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - run: npm install -g pnpm@12.8.1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm copy-proxy-binary:release
+
+      - run: pnpm tauri build --features free
+        env:
+          PROFILE: release
+
+      - name: Create portable bundle
+        shell: pwsh
+        run: |
+          $src = "src-tauri\target\x86_64-pc-windows-msvc\release"
+          $dst = "DonutFree-portable"
+          mkdir $dst -Force | Out-Null
+
+          Copy-Item "$src\donutbrowser.exe" "$dst\DonutFree.exe" -Force
+          Copy-Item "$src\donut-proxy.exe" "$dst\" -ErrorAction SilentlyContinue
+          Copy-Item "$src\xray.exe" "$dst\" -ErrorAction SilentlyContinue
+
+          if (Test-Path "$src\resources") {
+            Copy-Item "$src\resources" "$dst\" -Recurse -Force
+          }
+
+          New-Item "$dst\.portable" -Force | Out-Null
+          mkdir "$dst\config" -Force | Out-Null
+          ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')) | Set-Content "$dst\config\automation-token.txt"
+
+          Compress-Archive -Path $dst -DestinationPath "DonutFree-portable-x64.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: donut-free-portable
+          path: DonutFree-portable-x64.zip
+          retention-days: 7
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: DonutFree-portable-x64.zip
+          tag_name: "free-${{ github.run_number }}"
+          name: "DonutFree Build ${{ github.run_number }}"
+          body: |
+            Automated free-build from main.
+            
+            **Includes:**
+            - Portable Windows x64 executable
+            - Proxy and xray binaries
+            - No vendor cloud integration (local only)
+            - Automation-ready config with bearer token
+            
+            **Quick start:**
+            1. Extract zip
+            2. Run `DonutFree.exe`
+            3. MCP: `http://localhost:10109/v1/mcp`
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
