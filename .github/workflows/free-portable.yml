@@ -10,6 +10,9 @@ on:
       - main
     tags:
       - "v*-free*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 # Serialize per ref: overlapping runs would race on the same Rust target
