@@ -234,6 +234,72 @@ fn explain_engine_refusal(mut error: McpError, device_refusal: Option<String>) -
   error
 }
 
+/// Why a running browser refuses automation on an account whose plan includes
+/// it, when no device refusal explains it.
+///
+/// A browser keeps the plan token it was launched with for its whole life.
+/// That token expires, and a launch while the token service did not answer
+/// gets none, so only a new launch gives the browser a token that works.
+pub(crate) async fn stale_plan_token_refusal(profile_id: Option<&str>) -> Option<String> {
+  if CLOUD_AUTH.wayfern_device_refusal().is_some() || !CLOUD_AUTH.can_use_browser_automation().await
+  {
+    return None;
+  }
+  let running_for = profile_id
+    .and_then(|id| {
+      crate::profile::ProfileManager::instance()
+        .find_profile(id)
+        .ok()
+    })
+    .and_then(|profile| profile.process_id)
+    .and_then(crate::proxy_storage::process_start_time)
+    .and_then(|start| {
+      let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+      Some(now.saturating_sub(start))
+    });
+  Some(stale_plan_token_message(running_for))
+}
+
+fn stale_plan_token_message(running_for: Option<u64>) -> String {
+  let age = running_for
+    .map(|secs| format!(" This browser has run for {} h.", secs / 3600))
+    .unwrap_or_default();
+  format!(
+    "This browser cannot confirm the plan, although the account includes browser automation: \
+     a browser keeps the plan token it was launched with, and that token has expired, or the \
+     token service did not answer when the browser started.{age} Restart the profile to \
+     automate it: call kill_profile, then run_profile."
+  )
+}
+
+/// The create_profile result. A setting that failed after the profile was
+/// created is named as not applied, so the agent never takes it as set.
+fn created_profile_result(
+  name: &str,
+  id: &str,
+  not_applied: &[(&str, String)],
+) -> serde_json::Value {
+  let mut text = format!("Profile '{name}' created (id: {id})");
+  if !not_applied.is_empty() {
+    let failures: Vec<String> = not_applied
+      .iter()
+      .map(|(field, err)| format!("{field} ({err})"))
+      .collect();
+    text.push_str(&format!(
+      "\nNot applied: {}. Set them again with update_profile.",
+      failures.join("; ")
+    ));
+  }
+  let fields: Vec<&str> = not_applied.iter().map(|(field, _)| *field).collect();
+  serde_json::json!({
+    "content": [{ "type": "text", "text": text }],
+    "structuredContent": { "id": id, "not_applied": fields },
+  })
+}
+
 /// The proxy types the proxy tools accept. The last four are Xray share links
 /// passed in `vless_uri`.
 const MCP_PROXY_TYPES: [&str; 9] = [
@@ -674,6 +740,15 @@ pub(crate) enum AgentError {
     seconds: f64,
     limit: f64,
   },
+  /// The field does not hold the typed text: it never took the focus
+  /// (`reason` "not_focused"), or the page kept or reset another value
+  /// ("value").
+  TypeNotApplied {
+    reason: &'static str,
+    /// What the field holds; withheld for a password or card field.
+    value: Option<String>,
+    message: String,
+  },
   /// The browser refused the request as malformed (`-32602`), or the page
   /// threw at it: what was asked for does not exist or cannot be done.
   BadRequest(String),
@@ -699,6 +774,7 @@ impl AgentError {
       Self::PickerTimedOut { .. } => "PICKER_TIMEOUT",
       Self::PickerCancelled { .. } => "PICKER_CANCELLED",
       Self::TypingTooLong { .. } => "TYPING_TOO_LONG",
+      Self::TypeNotApplied { .. } => "TYPE_NOT_APPLIED",
       Self::BadRequest(_) => "BAD_REQUEST",
       Self::Browser(_) => "BROWSER_ERROR",
       Self::Cdp(_) => "CDP_ERROR",
@@ -719,7 +795,9 @@ impl AgentError {
       Self::RequiresWayfern152 { version } => format!(
         "This tool requires Wayfern 152 or newer; the profile runs {version}. Update the profile's browser, or use the selector and index tools."
       ),
-      Self::AmbiguousLocator { message, .. } | Self::NoMatch { message } => message.clone(),
+      Self::AmbiguousLocator { message, .. }
+      | Self::NoMatch { message }
+      | Self::TypeNotApplied { message, .. } => message.clone(),
       Self::PickerTimedOut { timeout_ms } => {
         format!("No element was picked within {timeout_ms} ms; the picker has been disarmed")
       }
@@ -759,6 +837,12 @@ impl AgentError {
       Self::TypingTooLong { seconds, limit } => {
         detail["seconds"] = serde_json::Value::from(*seconds);
         detail["limit"] = serde_json::Value::from(*limit);
+      }
+      Self::TypeNotApplied { reason, value, .. } => {
+        detail["reason"] = serde_json::Value::from(*reason);
+        if let Some(value) = value {
+          detail["value"] = serde_json::Value::from(value.as_str());
+        }
       }
       _ => {}
     }
@@ -827,6 +911,7 @@ impl From<WayfernError> for AgentError {
       WayfernError::NoMatch { message } => Self::NoMatch { message },
       WayfernError::PickerTimedOut { timeout_ms } => Self::PickerTimedOut { timeout_ms },
       WayfernError::PickerCancelled { reason } => Self::PickerCancelled { reason },
+      WayfernError::NotVisible(m) => Self::BadRequest(m),
       WayfernError::Malformed(m) => Self::Malformed(m),
     }
   }
@@ -947,6 +1032,10 @@ pub(crate) struct AgentTyping {
   pub engine: Engine,
   #[serde(rename = "match")]
   pub matched: LocatorCandidate,
+  /// The field was read back and holds the text. False only for a field whose
+  /// value is not the typed text (a date or colour picker): a field that does
+  /// not hold the text is refused with `TYPE_NOT_APPLIED`.
+  pub verified: bool,
 }
 
 /// The body of `pick_element`.
@@ -1116,16 +1205,22 @@ async fn evaluate_json_script(
   parse_json_script_result(&result)
 }
 
+/// What a page script threw, as a [`AgentError::BadRequest`].
+fn script_exception(result: &serde_json::Value) -> Option<AgentError> {
+  let exception = result.get("exceptionDetails")?;
+  let message = exception
+    .get("exception")
+    .and_then(|e| e.get("description"))
+    .or_else(|| exception.get("text"))
+    .and_then(|v| v.as_str())
+    .unwrap_or("the page script failed");
+  Some(AgentError::BadRequest(message.to_string()))
+}
+
 /// The same reader for a script evaluated on an existing session.
 fn parse_json_script_result(result: &serde_json::Value) -> Result<serde_json::Value, AgentError> {
-  if let Some(exception) = result.get("exceptionDetails") {
-    let message = exception
-      .get("exception")
-      .and_then(|e| e.get("description"))
-      .or_else(|| exception.get("text"))
-      .and_then(|v| v.as_str())
-      .unwrap_or("the page script failed");
-    return Err(AgentError::BadRequest(message.to_string()));
+  if let Some(thrown) = script_exception(result) {
+    return Err(thrown);
   }
   let text = result
     .get("result")
@@ -1136,22 +1231,71 @@ fn parse_json_script_result(result: &serde_json::Value) -> Result<serde_json::Va
     .map_err(|e| AgentError::Malformed(format!("the page script returned invalid JSON: {e}")))
 }
 
-/// The pre-152 stand-in for the browser's perception and locator domains.
+/// A page function that reads an element's rendered text as `innerText` does,
+/// but over the flat tree: into open shadow roots and the nodes a slot shows.
+/// `innerText` stops at both, so the text of a web component (a profile's
+/// stats, a nav link that slots its label) reads as nothing.
+const FLAT_TEXT_JS: &str = r#"(root) => {
+  if (root.nodeType === 1 && !root.getClientRects().length && getComputedStyle(root).display !== 'contents') return root.textContent;
+  const SKIP = new Set(['script', 'style', 'noscript', 'template', 'head', 'meta', 'link', 'title']);
+  const out = [];
+  const last = () => (out.length ? out[out.length - 1] : '\n');
+  const brk = () => { if (!/\n$/.test(last())) out.push('\n'); };
+  const kids = (n) => { if (n.shadowRoot) return n.shadowRoot.childNodes; if (n.localName === 'slot') { const shown = n.assignedNodes(); if (shown.length) return shown; } return n.childNodes; };
+  const walk = (n, pre, shown) => {
+    if (n.nodeType === 3) {
+      if (!shown) return;
+      let t = pre ? n.nodeValue : n.nodeValue.replace(/[ \t\n\r\f]+/g, ' ');
+      if (!pre && t[0] === ' ' && /[ \t\n]$/.test(last())) t = t.slice(1);
+      if (t) out.push(t);
+      return;
+    }
+    if (n.nodeType !== 1 || SKIP.has(n.localName)) return;
+    if (n.localName === 'br') { if (shown) out.push('\n'); return; }
+    const s = getComputedStyle(n);
+    if (s.display === 'none') return;
+    const block = !/^(inline|contents|table-cell|ruby)/.test(s.display);
+    if (block) brk();
+    for (const c of kids(n)) walk(c, /^pre/.test(s.whiteSpace), s.visibility === 'visible');
+    if (block) brk(); else if (s.display === 'table-cell') out.push('\t');
+  };
+  walk(root, false, true);
+  return out.join('').replace(/ +\n/g, '\n').trim();
+}"#;
+
+/// A page expression for the rendered text of the element `element` names:
+/// its `innerText`, or the flat-tree reading of [`FLAT_TEXT_JS`] when it or
+/// anything inside it holds an open shadow root.
+fn rendered_text_js(element: &str) -> String {
+  format!(
+    "((el) => {{ if (!el) return null; const flat = {FLAT_TEXT_JS}; if (el.shadowRoot) return flat(el); for (const n of el.querySelectorAll('*')) {{ if (n.shadowRoot) return flat(el); }} return el.innerText; }})({element})"
+  )
+}
+
+/// The pre-152 stand-in for the browser's perception and locator domains, and
+/// the page side of the 152 locator path.
 ///
-/// One script, two modes. `perceive` walks the visible DOM and describes it
-/// in the SAME node shape `Wayfern.capturePagePerception` answers with, so an
-/// agent written against 152 reads both. `resolve` applies a locator with the
-/// browser's own semantics (role token, exact or substring name and text, every
-/// attribute pair) and refuses ambiguity the same way; with `act` it also
-/// scrolls to, or focuses and prepares, the one match, because the element
-/// reference cannot leave the page and a second script could resolve a
-/// different node. `__OPTS__` is substituted with a JSON object at call time.
+/// One script, three modes, over the light DOM and every open shadow root.
+/// `perceive` walks the visible DOM and describes it in the SAME node shape
+/// `Wayfern.capturePagePerception` answers with, so an agent written against
+/// 152 reads both. `resolve` applies a locator with the browser's own semantics
+/// (role token, exact or substring name and text, every attribute pair) and
+/// refuses ambiguity the same way; with `act` it also scrolls to, or focuses
+/// and prepares, the one match, because the element reference cannot leave the
+/// page and a second script could resolve a different node. `pin` finds the
+/// element behind a match the browser described, by its attributes, role and
+/// text. With `returnElement`, `resolve` and `pin` answer `[report, element]`
+/// for a caller that reads the element by reference. `__OPTS__` is substituted
+/// with a JSON object at call time.
 const AGENT_FALLBACK_JS: &str = r#"(() => {
   const opts = __OPTS__;
   const now = () => (window.performance && performance.now) ? performance.now() : Date.now();
   const started = now();
   const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
   const roleKey = (r) => norm(r).toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Blink refines a button with aria-haspopup or aria-pressed into its own
+  // role; a locator naming either spelling means the same control.
+  const roleMatchKey = (r) => { const k = roleKey(r); return k === 'popupbutton' || k === 'togglebutton' ? 'button' : k; };
   // Blink's own AX role tokens, which is what Wayfern 152 answers with, so an
   // agent reads one vocabulary whichever engine answered.
   const INPUT_ROLES = { button: 'button', submit: 'button', reset: 'button', image: 'button', file: 'button', color: 'button', checkbox: 'checkBox', radio: 'radioButton', range: 'slider', number: 'spinButton', search: 'searchBox', hidden: 'none' };
@@ -1160,10 +1304,14 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
   const ATTRS = ['id', 'name', 'type', 'role', 'href', 'src', 'placeholder', 'aria-label', 'title', 'alt', 'data-testid', 'data-test', 'data-id', 'for', 'value'];
   const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'META', 'LINK', 'TITLE', 'BR', 'WBR']);
   const vw = window.innerWidth, vh = window.innerHeight;
-  const sx = window.scrollX || 0, sy = window.scrollY || 0;
   const fnv = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return ('00000000' + h.toString(16)).slice(-8); };
   const tagOf = (el) => String(el.tagName || '').toLowerCase();
-  const pathOf = (el) => { const parts = []; let n = el; while (n && n.nodeType === 1 && n !== document.documentElement) { let i = 1, s = n; while ((s = s.previousElementSibling)) { if (s.tagName === n.tagName) i++; } parts.push(tagOf(n) + ':' + i); n = n.parentElement; } return parts.reverse().join('>'); };
+  // Parents and containment cross shadow boundaries: the browser's accessibility
+  // tree is built over the flattened tree, so a button inside a web component is
+  // a child of its host here too.
+  const parentOf = (el) => el.parentElement || (el.parentNode && el.parentNode.host) || null;
+  const containsDeep = (outer, inner) => { for (let n = inner; n; n = n.parentNode || n.host) { if (n === outer) return true; } return false; };
+  const pathOf = (el) => { const parts = []; let n = el; while (n && n.nodeType === 1 && n !== document.documentElement) { let i = 1, s = n; while ((s = s.previousElementSibling)) { if (s.tagName === n.tagName) i++; } parts.push(tagOf(n) + ':' + i); n = parentOf(n); } return parts.reverse().join('>'); };
   const roleOf = (el) => {
     const explicit = el.getAttribute('role');
     if (explicit && norm(explicit)) return norm(explicit).split(' ')[0];
@@ -1174,10 +1322,15 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
     return TAG_ROLES[tag] || 'genericContainer';
   };
   const isProtected = (el) => tagOf(el) === 'input' && ((el.getAttribute('type') || '').toLowerCase() === 'password' || /(^|\s)(cc-|password|one-time-code)/i.test(el.getAttribute('autocomplete') || ''));
-  const contentText = (el) => norm(el.innerText != null ? el.innerText : el.textContent);
+  // innerText misses what a shadow root or a slot shows.
+  const flatText = __FLAT_TEXT__;
+  const contentText = (el) => norm(el.shadowRoot || el.getElementsByTagName('slot').length ? flatText(el) : el.innerText != null ? el.innerText : el.textContent);
+  // The browser's name from content also reads image alt text, which
+  // innerText leaves out ("User Avatar Expand user menu").
+  const altText = (el) => { const parts = []; const walk = (n) => { for (const c of n.childNodes) { if (c.nodeType === 3) parts.push(c.nodeValue); else if (c.nodeType === 1 && !SKIP.has(String(c.tagName).toUpperCase()) && c.getAttribute('aria-hidden') !== 'true') { const t = tagOf(c); if (t === 'img' || t === 'area' || t === 'svg') { const a = c.getAttribute('aria-label') || c.getAttribute('alt'); if (a) parts.push(a); } else walk(c); } } }; walk(el); return norm(parts.join(' ')).slice(0, 300); };
   const nameOf = (el, role) => {
     const ids = el.getAttribute('aria-labelledby');
-    if (ids) { const t = norm(ids.split(/\s+/).map((id) => { const n = document.getElementById(id); return n ? (n.innerText != null ? n.innerText : n.textContent) : ''; }).join(' ')); if (t) return t.slice(0, 300); }
+    if (ids) { const scope = el.getRootNode && el.getRootNode().getElementById ? el.getRootNode() : document; const t = norm(ids.split(/\s+/).map((id) => { const n = scope.getElementById(id); return n ? (n.innerText != null ? n.innerText : n.textContent) : ''; }).join(' ')); if (t) return t.slice(0, 300); }
     const aria = el.getAttribute('aria-label'); if (aria && norm(aria)) return norm(aria).slice(0, 300);
     if (el.labels && el.labels.length) { const t = norm(Array.from(el.labels).map((l) => l.innerText != null ? l.innerText : l.textContent).join(' ')); if (t) return t.slice(0, 300); }
     const tag = tagOf(el);
@@ -1188,34 +1341,65 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
     if (NAMED_FROM_CONTENT.has(roleKey(role)) || tag === 'summary') return contentText(el).slice(0, 300);
     return '';
   };
+  const namesOf = (el, role) => { const name = nameOf(el, role); if (!NAMED_FROM_CONTENT.has(roleKey(role)) || el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby')) return [name]; const alt = altText(el); return alt && alt !== name ? [name, alt] : [name]; };
   const liveValue = (el) => { const tag = tagOf(el); if (tag === 'input' || tag === 'textarea') return String(el.value); if (tag === 'select') { const o = el.options[el.selectedIndex]; return o ? norm(o.text) : ''; } return null; };
   const attrsOf = (el) => { const out = []; for (const a of ATTRS) { if (a === 'value') { if (isProtected(el)) continue; const v = liveValue(el); if (v !== null) { if (norm(v)) out.push({ name: a, value: norm(v).slice(0, 200) }); continue; } } const v = el.getAttribute(a); if (v != null && norm(v)) out.push({ name: a, value: norm(v).slice(0, 200) }); } return out; };
   const attrValue = (el, name) => { if (name === 'value') { if (isProtected(el)) return null; const v = liveValue(el); if (v !== null) return v; } const v = el.getAttribute(name); return v == null ? null : v; };
   const urlOf = (el) => { const tag = tagOf(el); if (tag === 'a' || tag === 'area') return el.href || undefined; if (tag === 'img') return el.currentSrc || el.src || undefined; return undefined; };
   const visibleRect = (el) => { if (SKIP.has(String(el.tagName).toUpperCase())) return null; const style = window.getComputedStyle(el); if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return null; const r = el.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0)) return null; return r; };
+  // A form control the page draws itself (a styled radio, an autocomplete's
+  // input) is often transparent or too small to aim at. It is still the control
+  // a person uses, through its label when it has one; `hit` is what to act on.
+  // A transparent one hidden from assistive technology is a trap for bots.
+  const CONTROLS = new Set(['input', 'select', 'textarea']);
+  const presentRect = (el) => { if (SKIP.has(String(el.tagName).toUpperCase())) return null; const style = window.getComputedStyle(el); if (style.display === 'none' || style.visibility === 'hidden') return null; if (style.opacity === '0' && (!CONTROLS.has(tagOf(el)) || el.closest('[aria-hidden="true"]'))) return null; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r : null; };
+  const shownOf = (el) => { const r = presentRect(el); const control = CONTROLS.has(tagOf(el)); if (r && !(control && (r.width < 4 || r.height < 4))) return { r, hit: el }; if (control && el.labels) { for (const l of el.labels) { const lr = visibleRect(l); if (lr) return { r: lr, hit: l }; } } return r ? { r, hit: el } : null; };
+  const signatureOf = (el) => { const role = roleOf(el); return 'js-' + fnv(tagOf(el) + '|' + role + '|' + nameOf(el, role) + '|' + pathOf(el)); };
   const describe = (el, r) => {
     const role = roleOf(el); const name = nameOf(el, role);
-    const out = { role, name, text: contentText(el).slice(0, 2000), signature: 'js-' + fnv(tagOf(el) + '|' + role + '|' + name + '|' + pathOf(el)), attributes: attrsOf(el), bounds: { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height } };
+    const out = { role, name, text: contentText(el).slice(0, 2000), signature: signatureOf(el), attributes: attrsOf(el), bounds: { x: r.left, y: r.top, width: r.width, height: r.height } };
     if (!isProtected(el)) { const v = liveValue(el); if (v !== null) out.value = v; }
     const u = urlOf(el); if (u) out.url = u;
     return out;
   };
   const clampCenter = (r) => { const left = Math.max(r.left, 0), top = Math.max(r.top, 0), right = Math.min(r.right, vw), bottom = Math.min(r.bottom, vh); if (right <= left || bottom <= top) return { x: r.left + r.width / 2, y: r.top + r.height / 2, width: r.width, height: r.height, visible: false }; return { x: left + (right - left) / 2, y: top + (bottom - top) / 2, width: right - left, height: bottom - top, visible: true }; };
-  const all = document.querySelectorAll('*');
+  // Document order, with each open shadow tree right after its host.
+  const collect = (root, out) => { for (const el of root.querySelectorAll('*')) { out.push(el); if (el.shadowRoot) collect(el.shadowRoot, out); } return out; };
+  const all = collect(document, []);
+  const answer = (report, el) => opts.returnElement ? [JSON.stringify(report), el || null] : JSON.stringify(report);
+
+  if (opts.mode === 'pin') {
+    const want = opts.match || {};
+    const skip = new Set((opts.skipAttributes || []).map((n) => String(n).toLowerCase()));
+    const bagOf = (pairs) => pairs.filter((a) => !skip.has(String(a.name).toLowerCase())).map((a) => String(a.name).toLowerCase() + '=' + a.value).sort().join('\n');
+    const wanted = bagOf(Array.isArray(want.attributes) ? want.attributes : []);
+    const squash = (s) => norm(s).replace(/ /g, '');
+    let found = [];
+    for (const el of all) { if (bagOf(Array.from(el.attributes)) !== wanted) continue; const shown = shownOf(el); if (shown) found.push({ el, hit: shown.hit }); }
+    // Each step narrows only when something survives it: the role and text the
+    // browser computed can differ from this script's in spacing or token.
+    const narrow = (keep) => { if (found.length > 1) { const kept = found.filter((m) => keep(m.el)); if (kept.length) found = kept; } };
+    if (want.role) narrow((el) => roleMatchKey(roleOf(el)) === roleMatchKey(want.role));
+    if (want.text) narrow((el) => squash(contentText(el)) === squash(want.text));
+    if (want.name) narrow((el) => namesOf(el, roleOf(el)).includes(norm(want.name)));
+    narrow((el) => !found.some((o) => o.el !== el && containsDeep(el, o.el)));
+    return answer({ matchCount: found.length }, found.length === 1 ? found[0].hit : null);
+  }
 
   if (opts.mode === 'resolve') {
     const L = opts.locator || {};
-    const roleWanted = L.role != null ? roleKey(L.role) : null;
+    const roleWanted = L.role != null ? roleMatchKey(L.role) : null;
     const attrs = Array.isArray(L.attributes) ? L.attributes : [];
     const matches = [];
+    let hidden = 0;
     for (const el of all) {
-      const r = visibleRect(el); if (!r) continue;
+      if (SKIP.has(String(el.tagName).toUpperCase())) continue;
       const role = roleOf(el);
-      if (roleWanted !== null && roleKey(role) !== roleWanted) continue;
+      if (roleWanted !== null && roleMatchKey(role) !== roleWanted) continue;
       if (L.name != null || L.nameContains != null) {
-        const name = nameOf(el, role);
-        if (L.name != null && name !== norm(L.name)) continue;
-        if (L.nameContains != null && !name.includes(norm(L.nameContains))) continue;
+        const names = namesOf(el, role);
+        if (L.name != null && !names.includes(norm(L.name))) continue;
+        if (L.nameContains != null && !names.some((name) => name.includes(norm(L.nameContains)))) continue;
       }
       if (L.text != null || L.textContains != null) {
         const text = contentText(el);
@@ -1225,34 +1409,27 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
       let ok = true;
       for (const a of attrs) { if (!a || typeof a.name !== 'string' || attrValue(el, a.name) !== String(a.value)) { ok = false; break; } }
       if (!ok) continue;
-      matches.push({ el, r });
+      const shown = shownOf(el);
+      if (shown) matches.push({ el, r: shown.r, hit: shown.hit }); else hidden++;
     }
+    // A label and the control it stands in for are one match: the control.
+    const merged = matches.filter((m) => !(m.el === m.hit && matches.some((o) => o !== m && o.hit === m.el)));
     // A wrapper matches a text locator only because its child does; the
     // innermost of nested matches is the element the caller meant.
-    const kept = matches.filter((m) => !matches.some((o) => o !== m && m.el !== o.el && m.el.contains(o.el)));
+    let kept = merged.filter((m) => !merged.some((o) => o !== m && m.el !== o.el && containsDeep(m.el, o.el)));
+    if (opts.pick) { const chosen = kept.filter((m) => signatureOf(m.el) === opts.pick); if (chosen.length === 1) kept = chosen; }
     const limit = Math.max(1, Math.min(100, Number(opts.candidateLimit) || 10));
-    const result = { matchCount: kept.length, candidates: kept.slice(0, limit).map((m) => describe(m.el, m.r)) };
+    const result = { matchCount: kept.length, hiddenCount: hidden, candidates: kept.slice(0, limit).map((m) => describe(m.el, m.r)) };
     if (kept.length === 1) {
-      const el = kept[0].el;
-      if (opts.act === 'scroll' || opts.act === 'focus') {
-        try { el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); } catch (e) { el.scrollIntoView(); }
+      const { el, hit } = kept[0];
+      if (opts.act === 'scroll') {
+        try { hit.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); } catch (e) { hit.scrollIntoView(); }
       }
-      if (opts.act === 'focus') {
-        el.focus();
-        const editable = !!el.isContentEditable; const tag = tagOf(el);
-        if (opts.clearFirst) {
-          if (editable) { el.textContent = ''; } else if (tag === 'input' || tag === 'textarea') { el.value = ''; }
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        } else if (editable) {
-          const sel = window.getSelection(); if (sel) { sel.selectAllChildren(el); sel.collapseToEnd(); }
-        } else if (typeof el.setSelectionRange === 'function') {
-          try { const n = String(el.value || '').length; el.setSelectionRange(n, n); } catch (e) {}
-        }
-      }
-      result.match = describe(el, el.getBoundingClientRect());
-      result.center = clampCenter(el.getBoundingClientRect());
+      const box = hit.getBoundingClientRect();
+      result.match = describe(el, box);
+      result.center = clampCenter(box);
     }
-    return JSON.stringify(result);
+    return answer(result, kept.length === 1 ? kept[0].hit : null);
   }
 
   const maxNodes = Number(opts.maxNodes) > 0 ? Number(opts.maxNodes) : 100000;
@@ -1275,9 +1452,9 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
     if (nodes.length >= maxNodes) { truncated = true; break; }
     const id = 'n' + nodes.length;
     ids.set(el, id);
-    const node = { id, frameId: 'f0', role, x: r.left + sx, y: r.top + sy, width: r.width, height: r.height, inViewport, visible: true, focused: document.activeElement === el, disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true' };
-    for (let p = el.parentElement; p; p = p.parentElement) { const pid = ids.get(p); if (pid) { node.parentId = pid; if (scrollables.has(pid)) node.scrollContainerId = pid; break; } }
-    if (!node.scrollContainerId) { for (let p = el.parentElement; p; p = p.parentElement) { const pid = ids.get(p); if (pid && scrollables.has(pid)) { node.scrollContainerId = pid; break; } } }
+    const node = { id, frameId: 'f0', role, x: r.left, y: r.top, width: r.width, height: r.height, inViewport, visible: true, focused: document.activeElement === el, disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true' };
+    for (let p = parentOf(el); p; p = parentOf(p)) { const pid = ids.get(p); if (pid) { node.parentId = pid; if (scrollables.has(pid)) node.scrollContainerId = pid; break; } }
+    if (!node.scrollContainerId) { for (let p = parentOf(el); p; p = parentOf(p)) { const pid = ids.get(p); if (pid && scrollables.has(pid)) { node.scrollContainerId = pid; break; } } }
     const name = nameOf(el, role); if (name) node.name = name;
     if (own && includeText) node.text = own.slice(0, 2000);
     if (!isProtected(el)) { const v = liveValue(el); if (v !== null && v !== '') node.value = v.slice(0, 500); }
@@ -1290,7 +1467,11 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
     if (((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) || ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1)) { node.scrollable = true; scrollables.add(id); }
     nodes.push(node);
   }
-  let text = includeText ? norm(document.body ? document.body.innerText : '') : '';
+  // The browser's text covers exactly the nodes it returns: for a window, or
+  // a capture cut at maxNodes, that is theirs, not the whole page's.
+  const body = document.body;
+  const pageText = () => (opts.viewportOnly || truncated ? nodes.map((n) => n.text || '').join(' ') : all.some((el) => el.shadowRoot) ? flatText(body) : body.innerText);
+  let text = includeText && body ? norm(pageText()) : '';
   let bytes = JSON.stringify(nodes).length + text.length;
   if (bytes > maxBytes) {
     truncated = true;
@@ -1306,7 +1487,9 @@ const AGENT_FALLBACK_JS: &str = r#"(() => {
 
 /// The fallback script with its options substituted.
 fn fallback_script(opts: &serde_json::Value) -> String {
-  AGENT_FALLBACK_JS.replace("__OPTS__", &opts.to_string())
+  AGENT_FALLBACK_JS
+    .replace("__FLAT_TEXT__", FLAT_TEXT_JS)
+    .replace("__OPTS__", &opts.to_string())
 }
 
 /// What the fallback perception script answers with, before it is wrapped.
@@ -1334,11 +1517,141 @@ struct FallbackCenter {
 #[serde(rename_all = "camelCase")]
 struct FallbackResolution {
   match_count: u64,
+  /// Elements that match but have no box on screen.
+  #[serde(default)]
+  hidden_count: u64,
   #[serde(default)]
   candidates: Vec<serde_json::Value>,
   #[serde(rename = "match")]
   matched: Option<LocatorCandidate>,
   center: Option<FallbackCenter>,
+}
+
+impl FallbackResolution {
+  fn from_report(report: serde_json::Value) -> Result<Self, AgentError> {
+    serde_json::from_value(report)
+      .map_err(|e| AgentError::Malformed(format!("fallback resolver: {e}")))
+  }
+
+  /// The signature of the candidate an ambiguous resolution prefers.
+  fn preferred_signature(&self, locator: &LocatorDescription) -> Option<String> {
+    let index = preferred_candidate(locator, self.match_count, &self.candidates)?;
+    self.candidates[index]["signature"]
+      .as_str()
+      .map(str::to_string)
+  }
+}
+
+/// How many candidates a resolver is asked for, so that an ambiguity can be
+/// ranked over all of them. The caller's own limit applies to the error.
+const RANKED_CANDIDATES: u64 = 100;
+
+/// Collapsed whitespace, the way both resolvers compare names and text.
+fn collapsed(text: &str) -> String {
+  text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Roles of the words that name a control rather than the control: a label,
+/// and the text inside one.
+const LABEL_ROLES: [&str; 5] = ["labeltext", "label", "statictext", "inlinetextbox", "text"];
+
+/// The one candidate of an ambiguous match that stands out, if one does.
+///
+/// Only a complete list is ranked: a candidate left out of it could be the
+/// better one. A visible candidate comes first; then, for a substring locator,
+/// the one whose name or text is exactly the substring (case first, then any
+/// case); then a control over the label, or the label's text, that names it;
+/// then the innermost, whose box no other candidate's box lies within. Each
+/// step narrows only when something survives it.
+fn preferred_candidate(
+  locator: &LocatorDescription,
+  match_count: u64,
+  candidates: &[serde_json::Value],
+) -> Option<usize> {
+  if candidates.len() < 2 || candidates.len() as u64 != match_count {
+    return None;
+  }
+  let narrow = |kept: &mut Vec<usize>, keep: &dyn Fn(usize) -> bool| {
+    let next: Vec<usize> = kept.iter().copied().filter(|&i| keep(i)).collect();
+    if !next.is_empty() {
+      *kept = next;
+    }
+  };
+  let bounds = |i: usize| {
+    let side = |key: &str| candidates[i]["bounds"][key].as_f64().unwrap_or(0.0);
+    (side("x"), side("y"), side("width"), side("height"))
+  };
+  let mut kept: Vec<usize> = (0..candidates.len()).collect();
+  narrow(&mut kept, &|i| {
+    let (_, _, width, height) = bounds(i);
+    width > 0.0 && height > 0.0
+  });
+  for (key, wanted) in [
+    ("name", locator.name_contains.as_deref()),
+    ("text", locator.text_contains.as_deref()),
+  ] {
+    let Some(wanted) = wanted.map(collapsed) else {
+      continue;
+    };
+    let field = |i: usize| collapsed(candidates[i][key].as_str().unwrap_or_default());
+    narrow(&mut kept, &|i| field(i) == wanted);
+    narrow(&mut kept, &|i| {
+      field(i).to_lowercase() == wanted.to_lowercase()
+    });
+  }
+  narrow(&mut kept, &|i| {
+    let role: String = candidates[i]["role"]
+      .as_str()
+      .unwrap_or_default()
+      .chars()
+      .filter(char::is_ascii_alphanumeric)
+      .collect::<String>()
+      .to_ascii_lowercase();
+    !LABEL_ROLES.contains(&role.as_str())
+  });
+  // Innermost, as the page's resolver keeps it: no box around another match.
+  let around = |outer: usize, inner: usize| {
+    let (left, top, width, height) = bounds(outer);
+    let (in_left, in_top, in_width, in_height) = bounds(inner);
+    width * height > in_width * in_height
+      && left <= in_left
+      && top <= in_top
+      && left + width >= in_left + in_width
+      && top + height >= in_top + in_height
+  };
+  let before = kept.clone();
+  narrow(&mut kept, &|i| {
+    !before.iter().any(|&other| other != i && around(i, other))
+  });
+  (kept.len() == 1).then(|| kept[0])
+}
+
+/// A candidate from the browser's ambiguity reply as a match. That reply lists
+/// no box, and the box is read again once the node is confirmed.
+fn ambiguity_candidate(candidate: &serde_json::Value) -> Option<wayfern_cdp::LocatorCandidate> {
+  let mut candidate = candidate.clone();
+  let fields = candidate.as_object_mut()?;
+  fields
+    .entry("bounds")
+    .or_insert_with(|| serde_json::json!({ "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0 }));
+  serde_json::from_value(candidate).ok()
+}
+
+/// The ambiguity refusal, listing at most `limit` candidates.
+fn ambiguity(
+  match_count: u64,
+  mut candidates: Vec<serde_json::Value>,
+  limit: Option<u64>,
+) -> AgentError {
+  candidates.truncate(limit.unwrap_or(10).clamp(1, RANKED_CANDIDATES) as usize);
+  AgentError::AmbiguousLocator {
+    match_count,
+    message: format!(
+      "Ambiguous locator: {match_count} nodes match. Refine it with a role, a stable attribute, or more exact text. Candidates: {}",
+      serde_json::Value::Array(candidates.clone())
+    ),
+    candidates,
+  }
 }
 
 /// What to do to the one match, once the fallback resolver has found it.
@@ -1348,8 +1661,6 @@ enum FallbackAct {
   Describe,
   /// Scroll it into view, for a click.
   Scroll,
-  /// Scroll, focus and prepare the field, for typing.
-  Focus { clear_first: bool },
 }
 
 /// Resolve `locator` in the page with the fallback script.
@@ -1362,40 +1673,350 @@ async fn fallback_resolve(
   candidate_limit: Option<u64>,
   act: FallbackAct,
 ) -> Result<(LocatorCandidate, Option<FallbackCenter>), AgentError> {
-  let (act_name, clear_first) = match act {
-    FallbackAct::Describe => ("none", false),
-    FallbackAct::Scroll => ("scroll", false),
-    FallbackAct::Focus { clear_first } => ("focus", clear_first),
+  let act_name = match act {
+    FallbackAct::Describe => "none",
+    FallbackAct::Scroll => "scroll",
   };
-  let opts = serde_json::json!({
-    "mode": "resolve",
-    "locator": locator,
-    "candidateLimit": candidate_limit.unwrap_or(10).clamp(1, 100),
-    "act": act_name,
-    "clearFirst": clear_first,
-  });
-  let answer = evaluate_json_script(target, fallback_script(&opts)).await?;
-  let resolution: FallbackResolution = serde_json::from_value(answer)
-    .map_err(|e| AgentError::Malformed(format!("fallback resolver: {e}")))?;
+  let script = |pick: Option<&str>| {
+    fallback_script(&serde_json::json!({
+      "mode": "resolve",
+      "locator": locator,
+      "candidateLimit": RANKED_CANDIDATES,
+      "act": act_name,
+      "pick": pick,
+    }))
+  };
+  let mut resolution =
+    FallbackResolution::from_report(evaluate_json_script(target, script(None)).await?)?;
+  if let Some(signature) = resolution.preferred_signature(locator) {
+    let picked = FallbackResolution::from_report(
+      evaluate_json_script(target, script(Some(&signature))).await?,
+    )?;
+    if picked.match_count == 1 {
+      resolution = picked;
+    }
+  }
+  let center = resolution.center;
+  Ok((
+    settle_fallback(resolution, locator, candidate_limit)?,
+    center,
+  ))
+}
+
+/// The one match a fallback resolution found, or its refusal.
+fn settle_fallback(
+  resolution: FallbackResolution,
+  locator: &LocatorDescription,
+  candidate_limit: Option<u64>,
+) -> Result<LocatorCandidate, AgentError> {
   match resolution.match_count {
+    0 if resolution.hidden_count > 0 => Err(AgentError::NoMatch {
+      message: format!(
+        "No visible node matches locator ({}); {} hidden element(s) match it. Open, expand or scroll to the part of the page that shows it, or name what is shown.",
+        describe_locator(locator),
+        resolution.hidden_count
+      ),
+    }),
     0 => Err(AgentError::NoMatch {
       message: format!("No node matches locator ({}).", describe_locator(locator)),
     }),
-    1 => {
-      let matched = resolution
-        .matched
-        .ok_or_else(|| AgentError::Malformed("fallback resolver answered one match without it".into()))?;
-      Ok((matched, resolution.center))
-    }
-    count => Err(AgentError::AmbiguousLocator {
-      match_count: count,
-      message: format!(
-        "Ambiguous locator: {count} nodes match. Refine it with a role, a stable attribute, or more exact text. Candidates: {}",
-        serde_json::Value::Array(resolution.candidates.clone())
-      ),
-      candidates: resolution.candidates,
-    }),
+    1 => resolution
+      .matched
+      .ok_or_else(|| AgentError::Malformed("fallback resolver answered one match without it".into())),
+    count => Err(ambiguity(count, resolution.candidates, candidate_limit)),
   }
+}
+
+/// Attributes left out when a matched node is compared with a DOM element.
+///
+/// The browser's index never carries `id` and `class` (Blink serializes them
+/// apart from the other HTML attributes), withholds `value` on a protected
+/// field, and reads `style` without the update the CSSOM leaves pending.
+const UNCOMPARED_ATTRIBUTES: [&str; 4] = ["id", "class", "style", "value"];
+
+/// Attribute pairs as a set that compares equal between the browser's index
+/// and the DOM.
+fn attribute_bag<'a>(pairs: impl Iterator<Item = (&'a str, &'a str)>) -> Vec<(String, &'a str)> {
+  let mut bag: Vec<(String, &str)> = pairs
+    .map(|(name, value)| (name.to_ascii_lowercase(), value))
+    .filter(|(name, _)| !UNCOMPARED_ATTRIBUTES.contains(&name.as_str()))
+    .collect();
+  bag.sort();
+  bag
+}
+
+/// A locator settled on one element of a Wayfern 152 page.
+struct LocatedNode {
+  /// The id the DOM domain knows the element by.
+  backend_node_id: i64,
+  matched: LocatorCandidate,
+  /// Wayfern when the browser's resolver matched, Fallback when the page did.
+  engine: Engine,
+}
+
+/// Text and whitespace-free text, the way both sides compare it: the browser
+/// joins text runs with spaces where the DOM may have none.
+fn squashed(text: &str) -> String {
+  text.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
+/// The text under a `DOM.describeNode` subtree, without script and style.
+fn described_text(node: &serde_json::Value, out: &mut String) {
+  if node.get("nodeType").and_then(|t| t.as_i64()) == Some(3) {
+    out.push_str(node.get("nodeValue").and_then(|v| v.as_str()).unwrap_or(""));
+    return;
+  }
+  if matches!(
+    node.get("nodeName").and_then(|n| n.as_str()),
+    Some("SCRIPT" | "STYLE" | "TEMPLATE")
+  ) {
+    return;
+  }
+  for key in ["shadowRoots", "children"] {
+    for child in node
+      .get(key)
+      .and_then(|c| c.as_array())
+      .into_iter()
+      .flatten()
+    {
+      described_text(child, out);
+    }
+  }
+}
+
+/// The browser's node id for `matched`, when the DOM shows that node carries
+/// the attributes and the text the browser matched.
+///
+/// Attributes alone are not enough: a renumbered id can land on a sibling with
+/// the same markup. A match with no comparable attribute, or text deeper than
+/// the subtree read here, is left to [`page_element`].
+async fn confirmed_node_id(
+  session: &mut WayfernSession,
+  matched: &LocatorCandidate,
+) -> Option<i64> {
+  let id = matched.backend_node_id?;
+  let wanted = attribute_bag(
+    matched
+      .attributes
+      .iter()
+      .map(|a| (a.name.as_str(), a.value.as_str())),
+  );
+  if wanted.is_empty() {
+    return None;
+  }
+  let reply = session
+    .call(
+      "DOM.describeNode",
+      serde_json::json!({ "backendNodeId": id, "depth": 4, "pierce": true }),
+    )
+    .await
+    .ok()?;
+  let node = reply.get("node")?;
+  if node.get("nodeType").and_then(|t| t.as_i64()) != Some(1) {
+    return None;
+  }
+  let flat: Vec<&str> = node
+    .get("attributes")?
+    .as_array()?
+    .iter()
+    .filter_map(|v| v.as_str())
+    .collect();
+  let actual = attribute_bag(
+    flat
+      .as_chunks::<2>()
+      .0
+      .iter()
+      .map(|[name, value]| (*name, *value)),
+  );
+  let mut text = String::new();
+  described_text(node, &mut text);
+  (actual == wanted && squashed(&text) == squashed(&matched.text)).then_some(id)
+}
+
+/// Run the fallback script with `returnElement` on an open session: its report,
+/// and the backend node id of the element it settled on, if it settled on one.
+async fn page_element(
+  session: &mut WayfernSession,
+  opts: &serde_json::Value,
+) -> Result<(serde_json::Value, Option<i64>), AgentError> {
+  const GROUP: &str = "donut-locator";
+  let outcome = async {
+    let result = session
+      .call(
+        "Runtime.evaluate",
+        serde_json::json!({
+          "expression": fallback_script(opts),
+          "returnByValue": false,
+          "objectGroup": GROUP,
+        }),
+      )
+      .await?;
+    if let Some(thrown) = script_exception(&result) {
+      return Err(thrown);
+    }
+    let pair = result
+      .pointer("/result/objectId")
+      .and_then(|v| v.as_str())
+      .ok_or_else(|| AgentError::Malformed("the page script returned no pair".into()))?;
+    let properties = session
+      .call(
+        "Runtime.getProperties",
+        serde_json::json!({ "objectId": pair, "ownProperties": true }),
+      )
+      .await?;
+    let entry = |index: &str| {
+      properties
+        .get("result")
+        .and_then(|r| r.as_array())
+        .and_then(|list| list.iter().find(|p| p["name"] == index))
+        .and_then(|p| p.get("value"))
+        .cloned()
+    };
+    let report = entry("0")
+      .as_ref()
+      .and_then(|v| v.get("value"))
+      .and_then(|v| v.as_str())
+      .and_then(|text| serde_json::from_str(text).ok())
+      .ok_or_else(|| AgentError::Malformed("the page script returned no report".into()))?;
+    let element = entry("1")
+      .filter(|v| v["subtype"] == "node")
+      .and_then(|v| v["objectId"].as_str().map(str::to_string));
+    let backend_node_id = match element {
+      Some(object_id) => session
+        .call(
+          "DOM.describeNode",
+          serde_json::json!({ "objectId": object_id }),
+        )
+        .await?
+        .pointer("/node/backendNodeId")
+        .and_then(|v| v.as_i64()),
+      None => None,
+    };
+    Ok((report, backend_node_id))
+  }
+  .await;
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": GROUP }),
+    )
+    .await;
+  outcome
+}
+
+/// Resolve `locator` to one DOM node on a Wayfern 152 page.
+///
+/// The browser's resolver decides what matches. Wayfern 152 to 155 report the
+/// wrong node id for that match: the index reads its snapshot through
+/// Chromium's frame combiner, which renumbers every node, so the id names some
+/// other node (a Google result link came back as a `<script>`). The id is used
+/// when the DOM confirms it; otherwise the page finds the element the browser
+/// described. When the browser matches nothing, the page applies the locator
+/// itself: the index never carries `id` or `class`, and a large page can outrun
+/// its snapshot budget. Several matches settle on the one
+/// [`preferred_candidate`] picks, or are refused.
+async fn wayfern_locate(
+  session: &mut WayfernSession,
+  locator: &LocatorDescription,
+  candidate_limit: Option<u64>,
+) -> Result<LocatedNode, AgentError> {
+  let options = ResolveOptions {
+    candidate_limit: Some(RANKED_CANDIDATES),
+    ..Default::default()
+  };
+  let native = match wayfern_cdp::resolve_locator(session, locator, options).await {
+    Ok(resolution) => Some(resolution.matched),
+    Err(WayfernError::NoMatch { .. }) => None,
+    Err(WayfernError::AmbiguousLocator {
+      match_count,
+      candidates,
+      ..
+    }) => {
+      let preferred = preferred_candidate(locator, match_count, &candidates)
+        .and_then(|index| ambiguity_candidate(&candidates[index]));
+      match preferred {
+        Some(matched) => Some(matched),
+        // The browser's ambiguity reply lists no boxes, so neither the
+        // visible nor the innermost candidate can stand out in it: a feed
+        // card's full-card link and its title link, both named by the title,
+        // were refused. The page's resolver has the boxes. When it cannot
+        // settle either, the browser's refusal stands: its candidates carry
+        // every attribute to refine with.
+        None if candidates.iter().all(|c| c.get("bounds").is_none()) => {
+          return match page_locate(session, locator, candidate_limit).await {
+            Ok(located) => Ok(located),
+            Err(_) => Err(ambiguity(match_count, candidates, candidate_limit)),
+          };
+        }
+        None => return Err(ambiguity(match_count, candidates, candidate_limit)),
+      }
+    }
+    Err(other) => return Err(other.into()),
+  };
+  if let Some(mut matched) = native {
+    let backend_node_id = match confirmed_node_id(session, &matched).await {
+      Some(id) => Some(id),
+      None => {
+        let opts = serde_json::json!({
+          "mode": "pin",
+          "match": &matched,
+          "skipAttributes": UNCOMPARED_ATTRIBUTES,
+          "returnElement": true,
+        });
+        page_element(session, &opts).await?.1
+      }
+    };
+    if let Some(id) = backend_node_id {
+      matched.backend_node_id = Some(id);
+      return Ok(LocatedNode {
+        backend_node_id: id,
+        matched,
+        engine: Engine::Wayfern,
+      });
+    }
+    log::debug!(
+      "Locator match not found in the page, applying the locator there node={}",
+      matched.backend_node_id.unwrap_or_default()
+    );
+  }
+  page_locate(session, locator, candidate_limit).await
+}
+
+/// Resolve `locator` to one DOM node with the page's own resolver.
+async fn page_locate(
+  session: &mut WayfernSession,
+  locator: &LocatorDescription,
+  candidate_limit: Option<u64>,
+) -> Result<LocatedNode, AgentError> {
+  let opts = |pick: Option<&str>| {
+    serde_json::json!({
+      "mode": "resolve",
+      "locator": locator,
+      "candidateLimit": RANKED_CANDIDATES,
+      "act": "none",
+      "returnElement": true,
+      "pick": pick,
+    })
+  };
+  let (report, mut backend_node_id) = page_element(session, &opts(None)).await?;
+  let mut resolution = FallbackResolution::from_report(report)?;
+  if let Some(signature) = resolution.preferred_signature(locator) {
+    let (report, picked_node) = page_element(session, &opts(Some(&signature))).await?;
+    let picked = FallbackResolution::from_report(report)?;
+    if picked.match_count == 1 {
+      resolution = picked;
+      backend_node_id = picked_node;
+    }
+  }
+  let mut matched = settle_fallback(resolution, locator, candidate_limit)?;
+  let backend_node_id = backend_node_id
+    .ok_or_else(|| AgentError::Malformed("the page resolved a match it did not return".into()))?;
+  matched.backend_node_id = Some(backend_node_id);
+  Ok(LocatedNode {
+    backend_node_id,
+    matched,
+    engine: Engine::Fallback,
+  })
 }
 
 /// A point the fallback resolver left an element at, as somewhere to strike.
@@ -1510,137 +2131,514 @@ async fn vellum_click(
   outcome
 }
 
-/// What to do to a field between the strike that focuses it and the typing.
-enum FieldPreparation {
-  /// Nothing: the field was already prepared by the caller's script.
-  None,
-  /// Run this script, which must return `true`.
-  Script(String),
-  /// Clear, or move the caret to the end of, the node behind this id.
-  Node { backend_node_id: i64, clear: bool },
-}
-
-/// Script run on a resolved node to empty it, or park the caret at its end.
+/// One page function for every step of typing into a field, run on an element
+/// with `Runtime.callFunctionOn` and named by its first argument:
 ///
-/// A strike puts the caret where the click landed; without this a text typed
-/// into a field that already holds one would land in the middle of it.
-const PREPARE_FIELD_FN: &str = r#"function(clear) {
+/// - `field`: what to type into: the element, the control a label is for, the
+///   one field inside a container, or the editing host of a rich text editor.
+///   Answered by reference.
+/// - `point`: where a hand would click it, in viewport pixels: on the element,
+///   its label or, for a control too small to aim at, the box around it, and
+///   only where that is what the click would hit. When nothing of it can be hit
+///   where it is, it is scrolled to the centre first. `covered` names what lies
+///   on top when still nothing can be hit, `hidden` means it has no box, and
+///   `frame` that it is in a frame, where the DOM's quads decide.
+/// - `focus`: whether the focus is on the field or inside it, after focusing it
+///   when `arg` is true and it is not.
+/// - `prepare`: what the field holds; then, with `arg`, select all of it, so
+///   the typed text replaces it with the input events a person's typing fires,
+///   or else park the caret at its end.
+/// - `read`: what the field holds, and whether the focus moved on to another
+///   field while the text was typed.
+const TYPING_FN: &str = r#"function (step, arg) {
   const el = this;
-  const editable = !!el.isContentEditable;
-  const tag = String(el.tagName || '').toLowerCase();
-  if (clear) {
-    if (editable) { el.textContent = ''; } else if (tag === 'input' || tag === 'textarea') { el.value = ''; }
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if (editable) {
-    const sel = window.getSelection(); if (sel) { sel.selectAllChildren(el); sel.collapseToEnd(); }
-  } else if (typeof el.setSelectionRange === 'function') {
-    try { const n = String(el.value || '').length; el.setSelectionRange(n, n); } catch (e) {}
+  const tagOf = (n) => String((n && n.tagName) || '').toLowerCase();
+  const NOT_TEXT = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color', 'hidden']);
+  const editable = (n) => !!n && n.nodeType === 1 && ((tagOf(n) === 'input' && !NOT_TEXT.has(String(n.type || 'text').toLowerCase())) || tagOf(n) === 'textarea' || !!n.isContentEditable);
+  const parentOf = (n) => n.parentElement || (n.parentNode && n.parentNode.host) || null;
+  const containsDeep = (outer, inner) => { for (let n = inner; n; n = n.parentNode || n.host) { if (n === outer) return true; } return false; };
+  const deepActive = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
+  const nameOf = (n) => { if (!n || n === document.body || n === document.documentElement) return 'the page'; let s = tagOf(n); if (n.id) s += '#' + n.id; const label = n.getAttribute && (n.getAttribute('aria-label') || n.getAttribute('name')); if (label) s += ' "' + String(label).slice(0, 40) + '"'; return s; };
+  const labelsOf = (n) => Array.from(n.labels || []);
+  const typedInto = (n) => { if (editable(n)) return n; const a = deepActive(); return a && containsDeep(n, a) && editable(a) ? a : null; };
+  const valueOf = (n) => {
+    const f = typedInto(n);
+    if (!f) return { kind: 'none' };
+    const tag = tagOf(f);
+    const type = tag === 'input' ? String(f.type || 'text').toLowerCase() : tag;
+    const secret = type === 'password' || /(^|\s)(cc-|password|one-time-code)/i.test(f.getAttribute('autocomplete') || '');
+    if (tag === 'input' || tag === 'textarea') return { kind: 'value', type, value: String(f.value), secret };
+    return { kind: 'editable', type, value: String(f.innerText || ''), secret };
+  };
+  if (step === 'field') {
+    if (el.isContentEditable) { let h = el; while (parentOf(h) && parentOf(h).isContentEditable) h = parentOf(h); return h; }
+    if (editable(el)) return el;
+    if (el.control && editable(el.control)) return el.control;
+    const inner = [];
+    const walk = (root) => { for (const n of root.querySelectorAll('*')) { if (editable(n) && !(n.isContentEditable && parentOf(n) && parentOf(n).isContentEditable)) inner.push(n); if (n.shadowRoot) walk(n.shadowRoot); } };
+    walk(el);
+    if (el.shadowRoot) walk(el.shadowRoot);
+    return inner.length === 1 ? inner[0] : el;
   }
-  return true;
+  if (step === 'point') {
+    if (window !== window.top) return { frame: true };
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const aimable = (n) => { const r = n.getBoundingClientRect(); if (!(r.width >= 4 && r.height >= 4)) return false; const s = window.getComputedStyle(n); return s.display !== 'none' && s.visibility !== 'hidden'; };
+    const boxes = [];
+    if (aimable(el)) boxes.push(el);
+    for (const l of labelsOf(el)) { if (aimable(l)) boxes.push(l); }
+    if (!boxes.length) { for (let p = parentOf(el), i = 0; p && i < 4; p = parentOf(p), i++) { if (aimable(p)) { boxes.push(p); break; } } }
+    if (!boxes.length) return { hidden: true };
+    const hitAt = (x, y) => { let h = document.elementFromPoint(x, y); while (h && h.shadowRoot) { const inner = h.shadowRoot.elementFromPoint(x, y); if (!inner || inner === h) break; h = inner; } return h; };
+    const takes = (box, h) => !!h && (containsDeep(el, h) || containsDeep(box, h) || labelsOf(el).some((l) => containsDeep(l, h)));
+    const centre = (box) => { const r = box.getBoundingClientRect(); const left = Math.max(r.left, 0), top = Math.max(r.top, 0), right = Math.min(r.right, vw), bottom = Math.min(r.bottom, vh); if (right - left < 1 || bottom - top < 1) return null; return { x: left + (right - left) / 2, y: top + (bottom - top) / 2, width: right - left, height: bottom - top }; };
+    const aim = () => { for (const box of boxes) { const p = centre(box); if (p && takes(box, hitAt(p.x, p.y))) return p; } return null; };
+    let point = aim();
+    if (!point) { try { boxes[0].scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); } catch (e) { boxes[0].scrollIntoView(); } point = aim(); }
+    if (point) return point;
+    const p = centre(boxes[0]);
+    return p ? Object.assign(p, { covered: nameOf(hitAt(p.x, p.y)) }) : { hidden: true };
+  }
+  if (step === 'focus') {
+    const holds = () => { const a = deepActive(); return !!a && (a === el || containsDeep(el, a)); };
+    if (!holds() && arg) { try { el.focus({ preventScroll: true }); } catch (e) {} }
+    return { focused: holds(), active: nameOf(deepActive()) };
+  }
+  if (step === 'prepare') {
+    const before = valueOf(el);
+    const f = typedInto(el);
+    if (f && f.isContentEditable) { const sel = window.getSelection(); if (sel) { sel.selectAllChildren(f); if (!arg) sel.collapseToEnd(); } }
+    else if (f && arg) { try { f.select(); } catch (e) {} }
+    else if (f) { try { const n = String(f.value).length; f.setSelectionRange(n, n); } catch (e) {} }
+    return before;
+  }
+  if (step === 'read') {
+    const now = valueOf(el);
+    const a = deepActive();
+    now.focusMoved = !!a && a !== el && !containsDeep(el, a) && editable(a);
+    return now;
+  }
+  return null;
 }"#;
 
-/// Script run on the focused element to park the caret at its end.
-const CARET_TO_END_JS: &str = r#"(() => {
-  const el = document.activeElement;
-  if (!el) return true;
-  if (el.isContentEditable) { const sel = window.getSelection(); if (sel) { sel.selectAllChildren(el); sel.collapseToEnd(); } }
-  else if (typeof el.setSelectionRange === 'function') { try { const n = String(el.value || '').length; el.setSelectionRange(n, n); } catch (e) {} }
-  return true;
-})()"#;
+/// Where a hand would click an element, as the `point` step of [`TYPING_FN`]
+/// answers it.
+enum Aim {
+  /// What the click would hit there is the element, or its label.
+  At(ViewportTarget),
+  /// Something else lies on top of the element's centre, named here.
+  Covered(ViewportTarget, String),
+  /// The element has no box to click.
+  Hidden,
+  /// The element is in a frame; its position is the DOM's to tell.
+  Frame,
+}
 
-async fn prepare_field(
+#[derive(Debug, Default, Deserialize)]
+struct AimReply {
+  #[serde(default)]
+  x: f64,
+  #[serde(default)]
+  y: f64,
+  #[serde(default)]
+  width: f64,
+  #[serde(default)]
+  height: f64,
+  #[serde(default)]
+  covered: Option<String>,
+  #[serde(default)]
+  hidden: bool,
+  #[serde(default)]
+  frame: bool,
+}
+
+/// What a field holds, as the `prepare` and `read` steps answer it.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FieldValue {
+  /// "value" for an input or textarea, "editable" for rich text, "none" when
+  /// the element is no field and holds none in focus.
+  #[serde(default)]
+  kind: String,
+  #[serde(default, rename = "type")]
+  field_type: String,
+  #[serde(default)]
+  value: String,
+  /// A password or card field: its value is compared, never shown.
+  #[serde(default)]
+  secret: bool,
+  #[serde(default)]
+  focus_moved: bool,
+}
+
+/// Field types whose value is the text typed into them. A date, time or
+/// colour field turns keys into its own value, which a comparison would
+/// misread.
+const TEXT_FIELD_TYPES: [&str; 8] = [
+  "text", "search", "email", "url", "tel", "password", "number", "textarea",
+];
+
+impl FieldValue {
+  fn holds_typed_text(&self) -> bool {
+    self.kind == "editable"
+      || (self.kind == "value" && TEXT_FIELD_TYPES.contains(&self.field_type.as_str()))
+  }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct FieldFocus {
+  #[serde(default)]
+  focused: bool,
+  #[serde(default)]
+  active: String,
+}
+
+/// Run one step of [`TYPING_FN`] on `object` and read its answer.
+async fn typing_step<T: serde::de::DeserializeOwned>(
   session: &mut WayfernSession,
-  preparation: &FieldPreparation,
-) -> Result<(), AgentError> {
-  match preparation {
-    FieldPreparation::None => Ok(()),
-    FieldPreparation::Script(script) => {
-      let result = session
-        .call(
-          "Runtime.evaluate",
-          serde_json::json!({ "expression": script, "returnByValue": true }),
-        )
-        .await?;
-      if let Some(exception) = result.get("exceptionDetails") {
-        let message = exception
-          .get("exception")
-          .and_then(|e| e.get("description"))
-          .or_else(|| exception.get("text"))
-          .and_then(|v| v.as_str())
-          .unwrap_or("preparing the field failed");
-        return Err(AgentError::BadRequest(message.to_string()));
-      }
-      Ok(())
+  object: &str,
+  step: &str,
+  arg: serde_json::Value,
+) -> Result<T, AgentError> {
+  let answer = call_on(
+    session,
+    object,
+    TYPING_FN,
+    serde_json::json!([{ "value": step }, { "value": arg }]),
+  )
+  .await?;
+  serde_json::from_value(answer)
+    .map_err(|e| AgentError::Malformed(format!("the page answered the {step} step with: {e}")))
+}
+
+/// The field behind `element`, by reference in [`FORM_GROUP`].
+async fn typing_field(session: &mut WayfernSession, element: &str) -> Result<String, AgentError> {
+  let reply = session
+    .call(
+      "Runtime.callFunctionOn",
+      serde_json::json!({
+        "objectId": element,
+        "functionDeclaration": TYPING_FN,
+        "arguments": [{ "value": "field" }, { "value": null }],
+        "returnByValue": false,
+        "objectGroup": FORM_GROUP,
+      }),
+    )
+    .await?;
+  if let Some(thrown) = script_exception(&reply) {
+    return Err(thrown);
+  }
+  reply
+    .pointer("/result/objectId")
+    .and_then(|v| v.as_str())
+    .map(str::to_string)
+    .ok_or_else(|| AgentError::Malformed("the page answered the field step with no element".into()))
+}
+
+/// Where a hand would click `object`.
+async fn aim_at(session: &mut WayfernSession, object: &str) -> Result<Aim, AgentError> {
+  let reply: AimReply = typing_step(session, object, "point", serde_json::Value::Null).await?;
+  if reply.frame {
+    return Ok(Aim::Frame);
+  }
+  if reply.hidden || !(reply.width > 0.0 && reply.height > 0.0) {
+    return Ok(Aim::Hidden);
+  }
+  let point = ViewportTarget {
+    x: reply.x,
+    y: reply.y,
+    width: reply.width,
+    height: reply.height,
+  };
+  Ok(match reply.covered {
+    Some(cover) => Aim::Covered(point, cover),
+    None => Aim::At(point),
+  })
+}
+
+/// The refusal for an element with no box to act on.
+fn not_visible() -> AgentError {
+  AgentError::BadRequest(
+    "The element has no visible box to click or type into; it may be hidden or collapsed. Open, expand or scroll to the part of the page that shows it."
+      .to_string(),
+  )
+}
+
+/// Where to strike a field before typing, or `None` when something covers it
+/// and a click would land on that instead.
+async fn typing_point(
+  session: &mut WayfernSession,
+  field: &str,
+  backend_node_id: Option<i64>,
+) -> Result<Option<ViewportTarget>, AgentError> {
+  match aim_at(session, field).await? {
+    Aim::At(point) => Ok(Some(point)),
+    Aim::Covered(_, cover) => {
+      log::debug!("Field is covered, focusing it without a click cover={cover}");
+      Ok(None)
     }
-    FieldPreparation::Node {
-      backend_node_id,
-      clear,
-    } => {
-      let resolved = session
-        .call(
-          "DOM.resolveNode",
-          serde_json::json!({ "backendNodeId": backend_node_id }),
-        )
-        .await?;
-      let object_id = resolved
-        .get("object")
-        .and_then(|o| o.get("objectId"))
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AgentError::Malformed("DOM.resolveNode answered no object".into()))?;
-      session
-        .call(
-          "Runtime.callFunctionOn",
-          serde_json::json!({
-            "objectId": object_id,
-            "functionDeclaration": PREPARE_FIELD_FN,
-            "arguments": [{ "value": clear }],
-            "returnByValue": true,
-          }),
-        )
-        .await?;
-      Ok(())
+    Aim::Hidden => Err(not_visible()),
+    Aim::Frame => match backend_node_id {
+      Some(id) => Ok(Some(wayfern_cdp::viewport_target(session, id).await?)),
+      None => Err(AgentError::BadRequest(
+        "The field is inside a frame; name it with a locator (type_locator).".to_string(),
+      )),
+    },
+  }
+}
+
+/// How typed keys reach a field.
+#[derive(Clone, Copy)]
+enum TypingMethod<'a> {
+  /// The browser's own humanized keyboard, Wayfern 152 and newer.
+  Vellum { typos: bool, timeout: Duration },
+  /// An accepted keystroke plan, sent as key events.
+  Keystrokes(&'a [crate::human_typing::TypingEvent]),
+  /// The whole text at once, the way an input method commits it.
+  Insert,
+}
+
+impl<'a> TypingMethod<'a> {
+  /// The method the budgets decided on: Vellum when it was budgeted, the plan
+  /// when one was made, otherwise all at once.
+  fn chosen(
+    vellum_timeout: Option<Duration>,
+    plan: Option<&'a [crate::human_typing::TypingEvent]>,
+    typos: bool,
+  ) -> Self {
+    match (vellum_timeout, plan) {
+      (Some(timeout), _) => Self::Vellum { typos, timeout },
+      (None, Some(plan)) => Self::Keystrokes(plan),
+      (None, None) => Self::Insert,
     }
   }
 }
 
-/// Focus `point` with a strike, prepare the field, and type `text`.
-async fn vellum_type_in(
-  session: &mut WayfernSession,
-  point: ViewportTarget,
-  text: &str,
-  typos: bool,
-  preparation: FieldPreparation,
-  timeout: Duration,
-) -> Result<vellum::Inscription, AgentError> {
-  let viewport = wayfern_cdp::layout_viewport(session).await?;
-  let point = clamp_to_viewport(point, viewport);
-  let origin = wayfern_cdp::glide_origin(&point, viewport);
-  let width = Some(point.width.min(point.height));
-  // Owned by the gesture, for the reason `vellum_click_in` gives.
-  let text = text.to_owned();
-  let inscription = vellum::with_pointer(session, origin.0, origin.1, |s, p| {
-    Box::pin(async move {
-      vellum::glide(s, p, point.x, point.y, width).await?;
-      vellum::strike(s, p, None, None).await?;
-      prepare_field(s, &preparation).await?;
-      Ok::<_, AgentError>(vellum::inscribe(s, p, &text, typos, timeout).await?)
-    })
-  })
-  .await?;
-  Ok(inscription)
+/// How long the page has to answer the keys (a framework's re-render, a mask)
+/// before the field is read back.
+const TYPING_SETTLE: Duration = Duration::from_millis(150);
+
+/// What typing into a field did.
+struct FieldTyping {
+  inscription: Option<vellum::Inscription>,
+  /// The field was read back and holds the text. False when it is not a field
+  /// whose value is the typed text (a date picker, a colour well).
+  verified: bool,
 }
 
-/// Type `text` at `point` on a fresh session.
-async fn vellum_type(
-  target: &CdpTarget,
+/// Letters and digits, lower-cased: what survives an input mask.
+fn mask_fold(text: &str) -> String {
+  text
+    .chars()
+    .filter(|c| c.is_alphanumeric())
+    .flat_map(char::to_lowercase)
+    .collect()
+}
+
+/// Whether a field that held `before` and holds `after` took `typed`.
+///
+/// Compared on letters and digits, so a mask that adds separators, a prefix or
+/// a different case still counts. When the field was not emptied, only what
+/// came after `before` counts. A field that moved the focus on while the text
+/// was typed (one box per character) took it when it holds its start. A text
+/// with no letters or digits cannot be told apart from a mask and passes.
+fn field_took(typed: &str, before: &str, after: &str, cleared: bool, focus_moved: bool) -> bool {
+  let wanted = mask_fold(typed);
+  if wanted.is_empty() {
+    return true;
+  }
+  let now = mask_fold(after);
+  let held = mask_fold(before);
+  let added = if cleared {
+    now.as_str()
+  } else {
+    now.strip_prefix(held.as_str()).unwrap_or(now.as_str())
+  };
+  added.contains(&wanted) || (focus_moved && !added.is_empty() && wanted.starts_with(added))
+}
+
+/// The verdict on a field read back after typing: whether it was checked, or
+/// the refusal when it does not hold the text.
+fn typing_verdict(
+  typed: &str,
+  before: &FieldValue,
+  after: &FieldValue,
+  cleared: bool,
+) -> Result<bool, AgentError> {
+  if !after.holds_typed_text() {
+    return Ok(false);
+  }
+  if field_took(
+    typed,
+    &before.value,
+    &after.value,
+    cleared,
+    after.focus_moved,
+  ) {
+    return Ok(true);
+  }
+  let shown: String = after.value.chars().take(200).collect();
+  let holds = if after.secret {
+    format!("{} characters", after.value.chars().count())
+  } else if after.value.is_empty() {
+    "nothing".to_string()
+  } else {
+    format!("{shown:?}")
+  };
+  Err(AgentError::TypeNotApplied {
+    reason: "value",
+    value: (!after.secret).then_some(shown),
+    message: format!(
+      "The field did not take the text: after typing it holds {holds}. The page may have reset it, or the field takes another kind of input (a mask, a length limit, a picker). Read it with perceive_page, then click the field and type again, or use press_key."
+    ),
+  })
+}
+
+/// Make sure the focus is in `field`, then select what it holds or park the
+/// caret at its end. Answers what it held.
+async fn focus_and_prepare(
+  session: &mut WayfernSession,
+  field: &str,
+  clear: bool,
+) -> Result<FieldValue, AgentError> {
+  let focus: FieldFocus = typing_step(session, field, "focus", true.into()).await?;
+  if !focus.focused {
+    return Err(AgentError::TypeNotApplied {
+      reason: "not_focused",
+      value: None,
+      message: format!(
+        "The field did not take the focus, so nothing was typed; the focus is on {}. Close what covers the field, or name the input itself.",
+        focus.active
+      ),
+    });
+  }
+  typing_step(session, field, "prepare", clear.into()).await
+}
+
+/// A trusted click at `point`, for the engines that type without Vellum.
+async fn dispatch_click(
+  session: &mut WayfernSession,
   point: ViewportTarget,
+) -> Result<(), AgentError> {
+  session
+    .call(
+      "Input.dispatchMouseEvent",
+      serde_json::json!({ "type": "mouseMoved", "x": point.x, "y": point.y }),
+    )
+    .await?;
+  for kind in ["mousePressed", "mouseReleased"] {
+    session
+      .call(
+        "Input.dispatchMouseEvent",
+        serde_json::json!({
+          "type": kind, "x": point.x, "y": point.y, "button": "left", "clickCount": 1,
+        }),
+      )
+      .await?;
+  }
+  Ok(())
+}
+
+/// Type `text` into the field behind `element`, then read the field back.
+///
+/// With Vellum the field is struck where a hand would land and typed into by
+/// the browser's own keyboard. Otherwise it is focused, and clicked when that
+/// does not take. Either way the focus must be in the field before a key is
+/// sent, and a field that does not hold the text afterwards is a
+/// [`AgentError::TypeNotApplied`], never a success.
+async fn type_into(
+  session: &mut WayfernSession,
+  target: &CdpTarget,
+  element: &str,
+  backend_node_id: Option<i64>,
   text: &str,
-  typos: bool,
-  preparation: FieldPreparation,
-  timeout: Duration,
-) -> Result<vellum::Inscription, AgentError> {
+  clear: bool,
+  method: TypingMethod<'_>,
+) -> Result<FieldTyping, AgentError> {
+  let field = typing_field(session, element).await?;
+  let point = typing_point(session, &field, backend_node_id).await?;
+  let (before, inscription) = if let TypingMethod::Vellum { typos, timeout } = method {
+    let viewport = wayfern_cdp::layout_viewport(session).await?;
+    let point = point.map(|p| clamp_to_viewport(p, viewport));
+    let rest = point.unwrap_or(ViewportTarget {
+      x: viewport.0 / 2.0,
+      y: viewport.1 / 2.0,
+      width: viewport.0,
+      height: viewport.1,
+    });
+    let origin = wayfern_cdp::glide_origin(&rest, viewport);
+    // Owned by the gesture, for the reason `vellum_click_in` gives.
+    let (field, text) = (field.clone(), text.to_owned());
+    vellum::with_pointer(session, origin.0, origin.1, |s, p| {
+      Box::pin(async move {
+        if let Some(point) = point {
+          vellum::glide(s, p, point.x, point.y, Some(point.width.min(point.height))).await?;
+          vellum::strike(s, p, None, None).await?;
+        }
+        let before = focus_and_prepare(s, &field, clear).await?;
+        let inscription = vellum::inscribe(s, p, &text, typos, timeout).await?;
+        Ok::<_, AgentError>((before, Some(inscription)))
+      })
+    })
+    .await?
+  } else {
+    let focus: FieldFocus = typing_step(session, &field, "focus", true.into()).await?;
+    if let (false, Some(point)) = (focus.focused, point) {
+      dispatch_click(session, point).await?;
+    }
+    let before = focus_and_prepare(session, &field, clear).await?;
+    match method {
+      TypingMethod::Keystrokes(plan) => dispatch_keystrokes(target, plan).await?,
+      _ => {
+        session
+          .call("Input.insertText", serde_json::json!({ "text": text }))
+          .await?;
+      }
+    }
+    (before, None)
+  };
+  tokio::time::sleep(TYPING_SETTLE).await;
+  let after: FieldValue = typing_step(session, &field, "read", serde_json::Value::Null).await?;
+  let verified = typing_verdict(text, &before, &after, clear)?;
+  Ok(FieldTyping {
+    inscription,
+    verified,
+  })
+}
+
+/// Type into the element `element` names, on a fresh session: what typing
+/// did, and the locator's match when a locator named it.
+async fn type_element(
+  target: &CdpTarget,
+  engine: Engine,
+  element: &ElementRef,
+  text: &str,
+  clear: bool,
+  method: TypingMethod<'_>,
+) -> Result<(FieldTyping, Option<LocatedNode>), AgentError> {
   let mut session = WayfernSession::open(target).await?;
-  let outcome = vellum_type_in(&mut session, point, text, typos, preparation, timeout).await;
+  let outcome = async {
+    let (object, located) = form_element(&mut session, engine, element).await?;
+    let backend_node_id = located.as_ref().map(|l| l.backend_node_id);
+    let typed = type_into(
+      &mut session,
+      target,
+      &object,
+      backend_node_id,
+      text,
+      clear,
+      method,
+    )
+    .await?;
+    Ok::<_, AgentError>((typed, located))
+  }
+  .await;
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": FORM_GROUP }),
+    )
+    .await;
   session.close().await;
   outcome
 }
@@ -1727,14 +2725,63 @@ pub(crate) async fn agent_perceive(
       ));
     }
   }
+  let continuation = request.cursor.as_deref().is_some_and(|c| !c.is_empty());
   if ctx.engine.is_wayfern() {
+    // The browser applies max_nodes to its tree in document order, before the
+    // viewport filter: after a scroll, a small ceiling held only the sticky
+    // header and never marked the result truncated. A viewport capture is
+    // taken without it, and the ceiling bounds the nodes returned instead.
+    let viewport_cap = request
+      .max_nodes
+      .filter(|&cap| cap > 0 && request.viewport_only == Some(true) && !continuation);
+    let uncapped = PerceptionRequest {
+      max_nodes: None,
+      ..request.clone()
+    };
+    let browser_request = if viewport_cap.is_some() {
+      &uncapped
+    } else {
+      request
+    };
     let mut session = WayfernSession::open(&ctx.target).await?;
-    let page = wayfern_cdp::capture_page_perception(&mut session, request).await;
+    let page = wayfern_cdp::capture_page_perception(&mut session, browser_request).await;
     session.close().await;
-    return Ok(page?);
-  }
-
-  if request.cursor.as_deref().is_some_and(|c| !c.is_empty()) {
+    let page = page?;
+    // Wayfern 152 to 155 start the budget clock before the accessibility
+    // snapshot, and stop the walk when it runs out without marking the result
+    // truncated: a heavy page came back as its header and no text. A capture
+    // that used its whole budget is not trusted, nor one whose tree the
+    // renderer cut short with no ceiling from the caller; the DOM answers.
+    let budget = request.budget_ms.unwrap_or(5_000).clamp(100, 60_000);
+    let caller_ceiling = browser_request.max_nodes.is_some_and(|cap| cap > 0);
+    let reason = if continuation {
+      None
+    } else if page.stats.elapsed_ms >= budget {
+      Some("budget")
+    } else if page.stats.frames_truncated > 0 && !caller_ceiling {
+      Some("frame_cut")
+    } else if viewport_cap.is_some_and(|cap| page.nodes.len() as u64 > cap) {
+      Some("max_nodes")
+    } else {
+      None
+    };
+    let Some(reason) = reason else {
+      return Ok(page);
+    };
+    let level = if reason == "max_nodes" {
+      log::Level::Debug
+    } else {
+      log::Level::Info
+    };
+    log::log!(
+      level,
+      "Perception incomplete, answering from the page profile={} reason={reason} budget_ms={budget} elapsed_ms={} nodes={} frames_truncated={}",
+      ctx.profile.id,
+      page.stats.elapsed_ms,
+      page.nodes.len(),
+      page.stats.frames_truncated
+    );
+  } else if continuation {
     return Err(AgentError::InvalidArgument(
       "the fallback engine answers in one page and has no cursors to continue".to_string(),
     ));
@@ -1777,17 +2824,16 @@ pub(crate) async fn agent_resolve_locator(
   let locator = canonical_locator(&request.locator);
   if ctx.engine.is_wayfern() {
     let mut session = WayfernSession::open(&ctx.target).await?;
-    let resolved = wayfern_cdp::resolve_locator(
-      &mut session,
-      &locator,
-      ResolveOptions {
-        candidate_limit: request.candidate_limit,
-        ..Default::default()
-      },
-    )
-    .await;
+    let located = wayfern_locate(&mut session, &locator, request.candidate_limit).await;
     session.close().await;
-    return Ok(resolved?);
+    let located = located?;
+    return Ok(LocatorResolution {
+      backend_node_id: Some(located.backend_node_id),
+      match_count: 1,
+      matched: located.matched,
+      locator,
+      engine: located.engine,
+    });
   }
 
   let (matched, _) = fallback_resolve(
@@ -1806,6 +2852,37 @@ pub(crate) async fn agent_resolve_locator(
   })
 }
 
+/// Where to strike a located node: where a hand would click it, which for a
+/// control the page draws through its label (a transparent or collapsed radio,
+/// checkbox or file input) is the label, and never a spot where something
+/// else lies on top while a better one is in view. In a frame, or when the
+/// page sees no box, the DOM's quads decide.
+async fn click_point(
+  session: &mut WayfernSession,
+  backend_node_id: i64,
+) -> Result<ViewportTarget, AgentError> {
+  let node = session
+    .call(
+      "DOM.resolveNode",
+      serde_json::json!({ "backendNodeId": backend_node_id, "objectGroup": FORM_GROUP }),
+    )
+    .await?;
+  let aim = match node.pointer("/object/objectId").and_then(|v| v.as_str()) {
+    Some(object) => aim_at(session, object).await,
+    None => Ok(Aim::Frame),
+  };
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": FORM_GROUP }),
+    )
+    .await;
+  match aim? {
+    Aim::At(point) | Aim::Covered(point, _) => Ok(point),
+    Aim::Hidden | Aim::Frame => Ok(wayfern_cdp::viewport_target(session, backend_node_id).await?),
+  }
+}
+
 /// Resolve a locator and click it.
 pub(crate) async fn agent_click_locator(
   ctx: &AgentContext,
@@ -1819,23 +2896,19 @@ pub(crate) async fn agent_click_locator(
     let mut session = WayfernSession::open(&ctx.target).await?;
     let outcome = async {
       session.call("Page.enable", serde_json::json!({})).await?;
-      let resolved =
-        wayfern_cdp::resolve_locator(&mut session, &locator, ResolveOptions::default()).await?;
-      let backend_node_id = resolved
-        .backend_node_id
-        .ok_or_else(|| AgentError::Malformed("resolveLocator answered no backendNodeId".into()))?;
-      let point = wayfern_cdp::viewport_target(&mut session, backend_node_id).await?;
+      let located = wayfern_locate(&mut session, &locator, None).await?;
+      let point = click_point(&mut session, located.backend_node_id).await?;
       let (_, navigated) =
         vellum_click_in(&mut session, point, button, request.click_count).await?;
-      Ok::<_, AgentError>((resolved, navigated))
+      Ok::<_, AgentError>((located, navigated))
     }
     .await;
     let _ = session.call("Page.disable", serde_json::json!({})).await;
     session.close().await;
-    let (resolved, navigated) = outcome?;
+    let (located, navigated) = outcome?;
     return Ok(AgentClick {
       clicked: true,
-      matched: resolved.matched,
+      matched: located.matched,
       engine: Engine::Wayfern,
       navigated,
     });
@@ -1903,61 +2976,54 @@ pub(crate) async fn agent_type_locator(
   let typos = request.typos.unwrap_or(true);
   let locator = canonical_locator(&request.locator);
 
-  if ctx.engine.is_wayfern() {
-    let timeout = vellum_typing_budget(&request.text, max_seconds)?;
-    let mut session = WayfernSession::open(&ctx.target).await?;
-    let outcome = async {
-      let resolved =
-        wayfern_cdp::resolve_locator(&mut session, &locator, ResolveOptions::default()).await?;
-      let backend_node_id = resolved
-        .backend_node_id
-        .ok_or_else(|| AgentError::Malformed("resolveLocator answered no backendNodeId".into()))?;
-      let point = wayfern_cdp::viewport_target(&mut session, backend_node_id).await?;
-      let inscription = vellum_type_in(
-        &mut session,
-        point,
-        &request.text,
-        typos,
-        FieldPreparation::Node {
-          backend_node_id,
-          clear: clear_first,
-        },
-        timeout,
-      )
-      .await?;
-      Ok::<_, AgentError>((resolved, inscription))
-    }
-    .await;
-    session.close().await;
-    let (resolved, inscription) = outcome?;
-    return Ok(AgentTyping {
-      typed: true,
-      characters: inscription.characters,
-      corrections: Some(inscription.corrections),
-      duration_ms: inscription.duration_ms,
-      engine: Engine::Wayfern,
-      matched: resolved.matched,
-    });
-  }
-
-  // Planned first, before the field is touched, for the reason the selector
-  // tools plan first: a refusal after the clear is a lie.
-  let plan = plan_typing(&request.text, request.wpm, max_seconds)?;
-  let (matched, _) = fallback_resolve(
+  // Budgeted and planned first, before the field is touched, for the reason
+  // the selector tools plan first: a refusal after the clear is a lie.
+  let wayfern = ctx.engine.is_wayfern();
+  let vellum_timeout = if wayfern {
+    Some(vellum_typing_budget(&request.text, max_seconds)?)
+  } else {
+    None
+  };
+  let plan = if wayfern {
+    None
+  } else {
+    Some(plan_typing(&request.text, request.wpm, max_seconds)?)
+  };
+  let (typed, located) = type_element(
     &ctx.target,
-    &locator,
-    None,
-    FallbackAct::Focus { clear_first },
+    ctx.engine,
+    &ElementRef::Locator(locator),
+    &request.text,
+    clear_first,
+    TypingMethod::chosen(vellum_timeout, plan.as_deref(), typos),
   )
   .await?;
-  dispatch_keystrokes(&ctx.target, &plan).await?;
+  let matched = located
+    .map(|l| l.matched)
+    .ok_or_else(|| AgentError::Malformed("the locator settled on no element".into()))?;
+  let (characters, corrections, duration_ms) = match typed.inscription {
+    Some(inscription) => (
+      inscription.characters,
+      Some(inscription.corrections),
+      inscription.duration_ms,
+    ),
+    None => (
+      request.text.chars().count() as u64,
+      None,
+      plan
+        .as_deref()
+        .and_then(<[_]>::last)
+        .map_or(0.0, |event| event.time * 1000.0),
+    ),
+  };
   Ok(AgentTyping {
     typed: true,
-    characters: request.text.chars().count() as u64,
-    corrections: None,
-    duration_ms: plan.last().map_or(0.0, |event| event.time * 1000.0),
-    engine: Engine::Fallback,
+    characters,
+    corrections,
+    duration_ms,
+    engine: ctx.engine,
     matched,
+    verified: typed.verified,
   })
 }
 
@@ -1991,6 +3057,456 @@ pub(crate) async fn agent_pick_element(
     wayfern_cdp::pick_element(&mut session, Duration::from_millis(timeout_ms), true).await;
   session.close().await;
   Ok(picked?)
+}
+
+// --- Form tools: options of a select, files of a file input -----------------
+
+/// How a form tool names its element.
+enum ElementRef {
+  Selector(String),
+  /// An entry of the session's last `get_interactive_elements` listing.
+  Index {
+    cache: String,
+    index: u64,
+  },
+  Locator(LocatorDescription),
+}
+
+/// The object group a form tool's element handles live in, released when the
+/// tool is done.
+const FORM_GROUP: &str = "donut-form";
+
+/// The page's handle to the element `element` names, and where the locator
+/// settled when a locator named it.
+async fn form_element(
+  session: &mut WayfernSession,
+  engine: Engine,
+  element: &ElementRef,
+) -> Result<(String, Option<LocatedNode>), AgentError> {
+  let (expression, missing) = match element {
+    ElementRef::Locator(locator) => {
+      let located = if engine.is_wayfern() {
+        wayfern_locate(session, locator, None).await?
+      } else {
+        page_locate(session, locator, None).await?
+      };
+      let node = session
+        .call(
+          "DOM.resolveNode",
+          serde_json::json!({
+            "backendNodeId": located.backend_node_id,
+            "objectGroup": FORM_GROUP,
+          }),
+        )
+        .await?;
+      let object = node
+        .pointer("/object/objectId")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AgentError::Malformed("DOM.resolveNode answered no object".into()))?;
+      return Ok((object.to_string(), Some(located)));
+    }
+    ElementRef::Selector(selector) => (
+      format!(
+        "document.querySelector({})",
+        serde_json::Value::from(selector.as_str())
+      ),
+      format!("No element matches selector {selector}"),
+    ),
+    ElementRef::Index { cache, index } => (
+      format!("(() => {{ const arr = window[{cache}]; return (arr && arr[{index}]) || null; }})()"),
+      format!(
+        "No element at index {index}. Call get_interactive_elements first or after navigation."
+      ),
+    ),
+  };
+  let result = session
+    .call(
+      "Runtime.evaluate",
+      serde_json::json!({
+        "expression": expression,
+        "returnByValue": false,
+        "objectGroup": FORM_GROUP,
+      }),
+    )
+    .await?;
+  if let Some(thrown) = script_exception(&result) {
+    return Err(thrown);
+  }
+  match result.pointer("/result/objectId").and_then(|v| v.as_str()) {
+    Some(object) => Ok((object.to_string(), None)),
+    None => Err(AgentError::NoMatch { message: missing }),
+  }
+}
+
+/// Run `function` on `object` and hand back what it returned.
+async fn call_on(
+  session: &mut WayfernSession,
+  object: &str,
+  function: &str,
+  arguments: serde_json::Value,
+) -> Result<serde_json::Value, AgentError> {
+  let reply = session
+    .call(
+      "Runtime.callFunctionOn",
+      serde_json::json!({
+        "objectId": object,
+        "functionDeclaration": function,
+        "arguments": arguments,
+        "returnByValue": true,
+      }),
+    )
+    .await?;
+  if let Some(thrown) = script_exception(&reply) {
+    return Err(thrown);
+  }
+  Ok(reply.pointer("/result/value").cloned().unwrap_or_default())
+}
+
+/// Pick the options a caller named in a `<select>` (or the one `<select>` a
+/// label or a container names), the way a person's pick leaves it: focused,
+/// with `input` and `change` fired when the choice changed. Answers the
+/// choice, or `{ error, ... }`.
+const SELECT_OPTION_FN: &str = r#"function (wanted) {
+  const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+  let el = this;
+  if (!(el instanceof HTMLSelectElement)) {
+    const inner = el.control instanceof HTMLSelectElement
+      ? [el.control]
+      : Array.from(el.querySelectorAll ? el.querySelectorAll('select') : []);
+    if (inner.length !== 1) {
+      return { error: 'not_select', tag: String(el.tagName || '').toLowerCase(), found: inner.length };
+    }
+    el = inner[0];
+  }
+  const options = Array.from(el.options);
+  const label = (o) => norm(o.label || o.text);
+  const describe = (o) => ({ value: o.value, label: label(o), disabled: o.disabled });
+  const find = (w) => {
+    const text = norm(w);
+    return options.find((o) => o.value === w)
+      || options.find((o) => label(o) === text)
+      || options.find((o) => label(o).toLowerCase() === text.toLowerCase());
+  };
+  const chosen = wanted.map(find);
+  const missing = wanted.filter((_, i) => !chosen[i]);
+  if (missing.length) {
+    return { error: 'no_option', missing, options: options.slice(0, 50).map(describe), count: options.length };
+  }
+  if (el.disabled) return { error: 'disabled' };
+  const off = chosen.filter((o) => o.disabled || (o.parentElement instanceof HTMLOptGroupElement && o.parentElement.disabled));
+  if (off.length) return { error: 'option_disabled', options: off.map(describe) };
+  if (chosen.length > 1 && !el.multiple) return { error: 'single' };
+  const before = options.map((o) => o.selected);
+  el.scrollIntoView({ block: 'nearest' });
+  el.focus({ preventScroll: true });
+  if (el.multiple) {
+    for (const o of options) o.selected = chosen.includes(o);
+  } else {
+    el.selectedIndex = options.indexOf(chosen[0]);
+  }
+  const changed = options.some((o, i) => o.selected !== before[i]);
+  if (changed) {
+    el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  return { selected: options.filter((o) => o.selected).map(describe), changed, multiple: el.multiple };
+}"#;
+
+/// What `select_option` did.
+#[derive(Debug, Serialize)]
+struct SelectedOptions {
+  selected: serde_json::Value,
+  changed: bool,
+  navigated: bool,
+  #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+  matched: Option<LocatorCandidate>,
+}
+
+/// A refusal `SELECT_OPTION_FN` answered, as an error an agent can act on.
+fn select_refusal(answer: &serde_json::Value) -> Option<AgentError> {
+  let error = answer.get("error")?.as_str()?;
+  Some(match error {
+    "not_select" => AgentError::BadRequest(format!(
+      "The element is a <{}>, not a <select>. For a custom dropdown, click it open and click the option.",
+      answer["tag"].as_str().unwrap_or("?")
+    )),
+    "no_option" => AgentError::BadRequest(format!(
+      "No option matches {}. The select has {} options: {}",
+      answer["missing"], answer["count"], answer["options"]
+    )),
+    "disabled" => AgentError::BadRequest("The select is disabled.".to_string()),
+    "option_disabled" => AgentError::BadRequest(format!(
+      "These options are disabled: {}",
+      answer["options"]
+    )),
+    "single" => AgentError::InvalidArgument(
+      "This select takes one option; name one.".to_string(),
+    ),
+    other => AgentError::Malformed(format!("the select script answered {other}")),
+  })
+}
+
+async fn agent_select_option(
+  ctx: &AgentContext,
+  element: &ElementRef,
+  wanted: &[String],
+) -> Result<SelectedOptions, AgentError> {
+  let mut session = WayfernSession::open(&ctx.target).await?;
+  let outcome = async {
+    session.call("Page.enable", serde_json::json!({})).await?;
+    let (object, located) = form_element(&mut session, ctx.engine, element).await?;
+    let matched = located.map(|l| l.matched);
+    let (reply, navigated) = session
+      .call_then_await_navigation(
+        "Runtime.callFunctionOn",
+        serde_json::json!({
+          "objectId": object,
+          "functionDeclaration": SELECT_OPTION_FN,
+          "arguments": [{ "value": wanted }],
+          "returnByValue": true,
+        }),
+        CLICK_LOAD_TIMEOUT,
+      )
+      .await?;
+    if let Some(thrown) = script_exception(&reply) {
+      return Err(thrown);
+    }
+    let answer = reply.pointer("/result/value").cloned().unwrap_or_default();
+    if let Some(refusal) = select_refusal(&answer) {
+      return Err(refusal);
+    }
+    Ok(SelectedOptions {
+      selected: answer["selected"].clone(),
+      changed: answer["changed"].as_bool().unwrap_or(false),
+      navigated,
+      matched,
+    })
+  }
+  .await;
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": FORM_GROUP }),
+    )
+    .await;
+  let _ = session.call("Page.disable", serde_json::json!({})).await;
+  session.close().await;
+  outcome
+}
+
+/// The file input `this` names: itself, the input a label is for, or the one
+/// file input inside it. Answers the input, or why there is none as a string.
+const FILE_INPUT_FN: &str = r#"function () {
+  const isFile = (n) => n instanceof HTMLInputElement && n.type === 'file';
+  let el = this;
+  if (!isFile(el)) {
+    if (isFile(el.control)) {
+      el = el.control;
+    } else {
+      const inner = el.querySelectorAll ? el.querySelectorAll('input[type=file]') : [];
+      if (inner.length !== 1) return inner.length ? 'many' : 'none:' + String(el.tagName || '').toLowerCase();
+      el = inner[0];
+    }
+  }
+  if (el.disabled) return 'disabled';
+  return el;
+}"#;
+
+/// What a file input holds now.
+const INPUT_FILES_FN: &str =
+  "function () { return Array.from(this.files || []).map((f) => ({ name: f.name, bytes: f.size })); }";
+
+/// What `file_upload` did.
+#[derive(Debug, Serialize)]
+struct UploadedFiles {
+  files: serde_json::Value,
+  #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+  matched: Option<LocatorCandidate>,
+}
+
+/// The files of a `file_upload` call, checked before anything touches the page.
+fn upload_files(
+  arguments: &serde_json::Value,
+) -> Result<Vec<crate::agent_uploads::UploadFile>, AgentError> {
+  use crate::agent_uploads::{clean_name, UploadFile, MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES};
+  use base64::{engine::general_purpose, Engine as _};
+  let listed = arguments
+    .get("files")
+    .and_then(|v| v.as_array())
+    .filter(|files| !files.is_empty())
+    .ok_or_else(|| AgentError::InvalidArgument("files must list at least one file".into()))?;
+  if listed.len() > MAX_UPLOAD_FILES {
+    return Err(AgentError::InvalidArgument(format!(
+      "At most {MAX_UPLOAD_FILES} files per call"
+    )));
+  }
+  let mut files: Vec<UploadFile> = Vec::with_capacity(listed.len());
+  let mut total = 0usize;
+  for file in listed {
+    let raw_name = file
+      .get("name")
+      .and_then(|v| v.as_str())
+      .unwrap_or_default();
+    let name = clean_name(raw_name).ok_or_else(|| {
+      AgentError::InvalidArgument(format!(
+        "{raw_name:?} is not a usable file name; give a name like report.pdf"
+      ))
+    })?;
+    if files.iter().any(|f| f.name.eq_ignore_ascii_case(&name)) {
+      return Err(AgentError::InvalidArgument(format!(
+        "Two files are named {name}; give each its own name"
+      )));
+    }
+    let bytes = match (
+      file.get("text").and_then(|v| v.as_str()),
+      file.get("content_base64").and_then(|v| v.as_str()),
+    ) {
+      (Some(text), None) => text.as_bytes().to_vec(),
+      (None, Some(encoded)) => {
+        let encoded = encoded
+          .split_once(";base64,")
+          .map_or(encoded, |(_, data)| data);
+        let compact: String = encoded.chars().filter(|c| !c.is_whitespace()).collect();
+        [
+          general_purpose::STANDARD,
+          general_purpose::STANDARD_NO_PAD,
+          general_purpose::URL_SAFE,
+          general_purpose::URL_SAFE_NO_PAD,
+        ]
+        .iter()
+        .find_map(|engine| engine.decode(&compact).ok())
+        .ok_or_else(|| {
+          AgentError::InvalidArgument(format!("content_base64 of {name} is not base64"))
+        })?
+      }
+      _ => {
+        return Err(AgentError::InvalidArgument(format!(
+          "Give {name} exactly one of text or content_base64"
+        )))
+      }
+    };
+    total += bytes.len();
+    if total > MAX_UPLOAD_BYTES {
+      return Err(AgentError::InvalidArgument(format!(
+        "The files come to more than {} KB, the most one call carries",
+        MAX_UPLOAD_BYTES / 1024
+      )));
+    }
+    files.push(UploadFile { name, bytes });
+  }
+  Ok(files)
+}
+
+async fn agent_file_upload(
+  ctx: &AgentContext,
+  element: &ElementRef,
+  files: &[crate::agent_uploads::UploadFile],
+) -> Result<UploadedFiles, AgentError> {
+  let profile_id = ctx.profile.id.to_string();
+  let mut session = WayfernSession::open(&ctx.target).await?;
+  let outcome = async {
+    let (object, located) = form_element(&mut session, ctx.engine, element).await?;
+    let matched = located.map(|l| l.matched);
+    let reply = session
+      .call(
+        "Runtime.callFunctionOn",
+        serde_json::json!({
+          "objectId": object,
+          "functionDeclaration": FILE_INPUT_FN,
+          "returnByValue": false,
+          "objectGroup": FORM_GROUP,
+        }),
+      )
+      .await?;
+    if let Some(thrown) = script_exception(&reply) {
+      return Err(thrown);
+    }
+    let input = match reply.pointer("/result/objectId").and_then(|v| v.as_str()) {
+      Some(input) => input.to_string(),
+      None => {
+        let reason = reply
+          .pointer("/result/value")
+          .and_then(|v| v.as_str())
+          .unwrap_or_default();
+        return Err(AgentError::BadRequest(match reason {
+          "many" => "The element holds more than one file input; name the input itself, e.g. with selector input[type=file].".to_string(),
+          "disabled" => "The file input is disabled.".to_string(),
+          other => format!(
+            "The element is a <{}>, not a file input, and holds none. Name the input itself, e.g. with selector input[type=file]; it may be hidden.",
+            other.trim_start_matches("none:")
+          ),
+        }));
+      }
+    };
+    let multiple = call_on(&mut session, &input, "function () { return this.multiple; }", serde_json::json!([]))
+      .await?
+      .as_bool()
+      .unwrap_or(false);
+    if files.len() > 1 && !multiple {
+      return Err(AgentError::InvalidArgument(
+        "This file input takes one file; send one.".to_string(),
+      ));
+    }
+    let staged = crate::agent_uploads::stage(&profile_id, files)
+      .map_err(|e| AgentError::Browser(format!("Could not write the files: {e}")))?;
+    let staged: Vec<String> = staged
+      .iter()
+      .map(|file| file.to_string_lossy().to_string())
+      .collect();
+    session
+      .call(
+        "DOM.setFileInputFiles",
+        serde_json::json!({ "files": staged, "objectId": input }),
+      )
+      .await?;
+    let held = call_on(&mut session, &input, INPUT_FILES_FN, serde_json::json!([])).await?;
+    Ok(UploadedFiles {
+      files: held,
+      matched,
+    })
+  }
+  .await;
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": FORM_GROUP }),
+    )
+    .await;
+  session.close().await;
+  outcome
+}
+
+/// The schema of a form tool: the four ways to name its element, and `extra`.
+fn form_tool_schema(what: &str, extra: serde_json::Value, required: &[&str]) -> serde_json::Value {
+  let mut properties = serde_json::json!({
+    "profile_id": {
+      "type": "string",
+      "description": "The UUID of the running profile"
+    },
+    "selector": {
+      "type": "string",
+      "description": format!("CSS selector of the {what}")
+    },
+    "locator": locator_schema(&format!("Instead of selector: how to name the {what}")),
+    "index": {
+      "type": "integer",
+      "description": "Instead of selector: zero-based index from the last get_interactive_elements response"
+    },
+    "element_id": {
+      "type": "string",
+      "description": "Instead of index: the stable id (e12) from the last get_interactive_elements response"
+    }
+  });
+  if let (Some(properties), Some(extra)) = (properties.as_object_mut(), extra.as_object()) {
+    properties.extend(extra.clone());
+  }
+  let mut required_list = vec!["profile_id"];
+  required_list.extend_from_slice(required);
+  serde_json::json!({
+    "type": "object",
+    "properties": properties,
+    "required": required_list
+  })
 }
 
 /// The JSON schema of a locator argument, shared by every tool that takes one.
@@ -2092,19 +3608,6 @@ async fn locate_by_script(target: &CdpTarget, script: String) -> Result<Viewport
   rect_from_script_result(&result)
 }
 
-/// What the selector and index typing tools do to the caret after the strike
-/// that focuses the field.
-///
-/// A cleared field has nowhere else to put it. One that keeps its text needs
-/// the caret at the end, or the new text lands wherever the click did.
-fn caret_preparation(clear_first: bool) -> FieldPreparation {
-  if clear_first {
-    FieldPreparation::None
-  } else {
-    FieldPreparation::Script(CARET_TO_END_JS.to_string())
-  }
-}
-
 fn click_report(prefix: &str, navigated: bool) -> String {
   if navigated {
     format!("{prefix} (a page load followed)")
@@ -2126,11 +3629,16 @@ const BATCH_TOOLS: &[&str] = &[
   "type_text",
   "type_by_index",
   "type_locator",
+  "select_option",
   "get_page_info",
 ];
 const MAX_BATCH_ACTIONS: usize = 20;
 /// How much of each step's answer a batch reports.
 const BATCH_RESULT_CHARS: usize = 2_000;
+/// How much of a captured body `get_network_request` shows when not told, and
+/// at most. The most stays under what one tool answer carries.
+const DEFAULT_BODY_CHARS: u64 = 20_000;
+const MAX_BODY_CHARS: u64 = 90_000;
 
 /// A tab helper's coded refusal as a tool error.
 fn tab_error(message: String) -> McpError {
@@ -2377,7 +3885,8 @@ const SCROLL_SETTLE: Duration = Duration::from_millis(300);
 fn wait_for_script(text: Option<&str>, selector: Option<&str>) -> Option<String> {
   match (text, selector) {
     (Some(text), None) => Some(format!(
-      "(() => (document.body ? document.body.innerText : '').includes({}))()",
+      "(() => ({} || '').includes({}))()",
+      rendered_text_js("document.body"),
       serde_json::to_string(text).ok()?
     )),
     (None, Some(selector)) => Some(format!(
@@ -2388,11 +3897,18 @@ fn wait_for_script(text: Option<&str>, selector: Option<&str>) -> Option<String>
   }
 }
 
-fn typing_report(prefix: &str, inscription: &vellum::Inscription) -> String {
-  format!(
-    "{prefix} ({} characters, {} corrected, {:.0} ms)",
-    inscription.characters, inscription.corrections, inscription.duration_ms
-  )
+fn typing_report(prefix: &str, typed: &FieldTyping) -> String {
+  let mut report = prefix.to_string();
+  if let Some(inscription) = &typed.inscription {
+    report.push_str(&format!(
+      " ({} characters, {} corrected, {:.0} ms)",
+      inscription.characters, inscription.corrections, inscription.duration_ms
+    ));
+  }
+  if typed.verified {
+    report.push_str("; the field holds the text");
+  }
+  report
 }
 
 impl McpServer {
@@ -2444,7 +3960,7 @@ impl McpServer {
     if !allowed {
       let summary = match CLOUD_AUTH.get_user().await {
         Some(state) => format!(
-          "logged_in=true plan={} status={} period={:?}",
+          "logged_in=true plan={} subscription_status={} plan_period={:?}",
           state.user.plan, state.user.subscription_status, state.user.plan_period,
         ),
         None => "logged_in=false".to_string(),
@@ -2744,6 +4260,14 @@ impl McpServer {
         | "type_locator"
         | "extract_structured"
         | "pick_element"
+        | "select_option"
+        | "file_upload"
+        // A capture reads every request the browser makes, so starting one
+        // and reading it are browser reads like get_page_content, and are
+        // refused while the person has paused agents or holds the profile.
+        | "start_network_capture"
+        | "list_network_requests"
+        | "get_network_request"
         // Starting a bot run leases a remote host for up to two hours and
         // spends the account's pooled remote-hour budget, which makes it the
         // most expensive tool here. Cancelling one reaches the same fleet, and
@@ -3941,7 +5465,7 @@ impl McpServer {
       },
       McpTool {
         name: "run_actions".to_string(),
-        description: "Run several browser actions in one call, in order, on one profile: navigate, go_back, scroll, press_key, wait_for, the click and type tools, get_page_info. Stops at the first failure and, unless stop_on_change is false, as soon as the page address changes, since later steps were planned for the old page. Returns each step's result.".to_string(),
+        description: "Run several browser actions in one call, in order, on one profile: navigate, go_back, scroll, press_key, wait_for, the click and type tools, select_option, get_page_info. Stops at the first failure and, unless stop_on_change is false, as soon as the page address changes, since later steps were planned for the old page. Returns each step's result.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4151,7 +5675,7 @@ impl McpServer {
       },
       McpTool {
         name: "type_text".to_string(),
-        description: "Focus an element by CSS selector and type text into it. By default uses realistic human-like typing with variable speed, natural errors, and self-corrections. Only set instant=true when you are certain the target does not have bot detection (e.g. browser address bars, developer tools, internal apps) — using instant on public websites risks the profile being flagged as a bot.".to_string(),
+        description: "Focus an element by CSS selector and type text into it. By default uses realistic human-like typing with variable speed, natural errors, and self-corrections. A label, or a container with one field in it, types into that field. The field is read back after typing: when it does not hold the text (the page reset it, a mask or length limit refused it, or it never took the focus) the call fails with TYPE_NOT_APPLIED and says what the field holds. Only set instant=true when you are certain the target does not have bot detection (e.g. browser address bars, developer tools, internal apps) — using instant on public websites risks the profile being flagged as a bot.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4269,7 +5793,7 @@ impl McpServer {
       },
       McpTool {
         name: "type_by_index".to_string(),
-        description: "Focus the element at the given index from the last get_interactive_elements call and type text into it. Same human-like-typing defaults as type_text; only set instant=true when you're sure the target lacks bot detection.".to_string(),
+        description: "Focus the element at the given index from the last get_interactive_elements call and type text into it. Same human-like-typing defaults and the same read-back as type_text (TYPE_NOT_APPLIED when the field does not hold the text); only set instant=true when you're sure the target lacks bot detection.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4310,7 +5834,7 @@ impl McpServer {
       // GUI — which is no use to an MCP client running on its own.
       McpTool {
         name: "run_profile_remote".to_string(),
-        description: "Start this profile on a remote host of its own operating system. The profile must have Regular cloud sync enabled. Returns a session id; poll get_remote_session until state is 'live', then drive it with navigate, screenshot, click_element and the rest exactly as you would a local profile.".to_string(),
+        description: "Start this profile on a remote host (Linux for a Wayfern profile, otherwise the profile's own operating system). The profile must have Regular cloud sync enabled. Returns a session id; poll get_remote_session until state is 'live', then drive it with navigate, screenshot, click_element and the rest exactly as you would a local profile.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4424,7 +5948,7 @@ impl McpServer {
             "platform": {
               "type": "string",
               "enum": ["windows", "macos", "linux"],
-              "description": "Must match the profile's own operating system; taken from the profile when omitted"
+              "description": "Must match the platform the profile runs on remotely (linux for a Wayfern profile); taken from the profile when omitted"
             },
             "enabled": {
               "type": "boolean",
@@ -4591,7 +6115,7 @@ impl McpServer {
       },
       McpTool {
         name: "perceive_page".to_string(),
-        description: "Read the page the way an agent needs it: every visible element with its role, accessible name, text, value, state and page-coordinate bounds, plus the readable text, in one call and with no script injected on Wayfern 152. Far more complete than get_interactive_elements. On a profile older than Wayfern 152 the same shape is synthesised from the DOM (engine: \"fallback\"). A truncated result carries a cursor; pass it back to continue.".to_string(),
+        description: "Read the page the way an agent needs it: every visible element with its role, accessible name, text, value, state and bounds in viewport coordinates (y is negative above the window), plus the readable text, in one call and with no script injected on Wayfern 152. A capture that uses its whole budget, or that the browser cut short, is answered from the DOM instead (engine: \"fallback\"). Far more complete than get_interactive_elements. On a profile older than Wayfern 152 the same shape is synthesised from the DOM (engine: \"fallback\"). A truncated result carries a cursor; pass it back to continue.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4605,11 +6129,11 @@ impl McpServer {
             },
             "budget_ms": {
               "type": "integer",
-              "description": "Capture budget in milliseconds (default: 5000, clamped to 100-60000). Exceeding it truncates and paginates; it is never an error"
+              "description": "Capture budget in milliseconds (default: 5000, clamped to 100-60000). A capture that uses all of it is answered from the DOM instead; it is never an error"
             },
             "max_nodes": {
               "type": "integer",
-              "description": "Per-frame node ceiling (default: 100000; 0 for no limit)"
+              "description": "Per-frame node ceiling, counted in document order (default: 100000; 0 for no limit). With viewport_only it bounds the nodes returned instead; a viewport with more is answered from the DOM, cut there, with truncated true"
             },
             "include_text": {
               "type": "boolean",
@@ -4634,7 +6158,7 @@ impl McpServer {
       },
       McpTool {
         name: "resolve_locator".to_string(),
-        description: "Resolve a locator (role, accessible name, text, attributes) to EXACTLY ONE element and describe it. Ambiguity is an error whose data.candidates lists what matched, and a locator that matches nothing is an error too, so a click never lands on the wrong element. Use the result's signature or attributes to refine.".to_string(),
+        description: "Resolve a locator (role, accessible name, text, attributes) to EXACTLY ONE element and describe it. When several match, the one that stands out is taken: the only visible one, the one whose name or text is exactly a nameContains or textContains, or a control over its own label. Otherwise ambiguity is an error whose data.candidates lists what matched, and a locator that matches nothing is an error too (its message says when only hidden elements match), so a click never lands on the wrong element. Use the result's signature or attributes to refine.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4653,7 +6177,7 @@ impl McpServer {
       },
       McpTool {
         name: "click_locator".to_string(),
-        description: "Resolve a locator to exactly one element and click it with a humanized pointer: on Wayfern 152 a real pointer glides to the element along a human path and presses with the profile's own timing (nothing is injected into the page); on older builds a trusted mouse event is dispatched at the element's centre. Waits for a page load when the click causes one.".to_string(),
+        description: "Resolve a locator to exactly one element and click it with a humanized pointer: on Wayfern 152 a real pointer glides to the element along a human path and presses with the profile's own timing (the click is never a script); on older builds a trusted mouse event is dispatched at the element's centre. A radio, checkbox or file input that the page hides behind its label is clicked through the label, and text or name matches the label too. Waits for a page load when the click causes one.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4677,7 +6201,7 @@ impl McpServer {
       },
       McpTool {
         name: "type_locator".to_string(),
-        description: "Resolve a locator to exactly one field, focus it with a real click and type text into it one key at a time. On Wayfern 152 the keys are paced by the profile's own typing rhythm, with a few seed-determined typos corrected along the way when typos is on; on older builds the same human-typing model as type_text is used. The field is emptied first unless clear_first is false.".to_string(),
+        description: "Resolve a locator to exactly one field, focus it with a real click and type text into it one key at a time. On Wayfern 152 the keys are paced by the profile's own typing rhythm, with a few seed-determined typos corrected along the way when typos is on; on older builds the same human-typing model as type_text is used. The typed text replaces what the field holds unless clear_first is false. The field is read back afterwards: a field that does not hold the text fails with TYPE_NOT_APPLIED (data.reason not_focused or value, data.value what it holds), never a success. An autocomplete keeps the typed text only until you pick an option.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4704,6 +6228,150 @@ impl McpServer {
             }
           },
           "required": ["profile_id", "locator", "text"]
+        }),
+      },
+      McpTool {
+        name: "select_option".to_string(),
+        description: "Choose options of a native <select>, named by selector, locator, or index from get_interactive_elements; a label or a container that holds one <select> also works. Each option is matched by its value, then by its visible label. The select is focused and the input and change events a pick fires are dispatched in the page. For a custom dropdown that is not a <select>, click it open and click the option instead. Waits for a page load when the choice causes one.".to_string(),
+        input_schema: form_tool_schema(
+          "select element",
+          serde_json::json!({
+            "option": {
+              "type": "string",
+              "description": "The value or visible label of the option to choose"
+            },
+            "options": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Instead of option: every option to choose, for a <select multiple>"
+            }
+          }),
+          &[],
+        ),
+      },
+      McpTool {
+        name: "file_upload".to_string(),
+        description: "Put files into a file input (<input type=file>), named by selector, locator, or index; a label or a container that holds one file input also works, and the input may be hidden. Send each file's content: text for a text file, content_base64 for any file, at most 10 files and 700 KB in all per call. Donut writes them to a private folder on this computer and sets them on the input the way the file chooser does, so the page sees a trusted change; they are deleted when the browser stops. Setting files replaces what the input held. Only for profiles running on this computer.".to_string(),
+        input_schema: form_tool_schema(
+          "file input",
+          serde_json::json!({
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 10,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The file name the page sees, with its extension (report.pdf)"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "The content of a text file"
+                  },
+                  "content_base64": {
+                    "type": "string",
+                    "description": "Instead of text: the content as base64 (a data: URL works too)"
+                  }
+                },
+                "required": ["name"]
+              }
+            }
+          }),
+          &["files"],
+        ),
+      },
+      McpTool {
+        name: "start_network_capture".to_string(),
+        description: "Start recording the requests that every tab of a running profile makes, for list_network_requests and get_network_request. Nothing the page can see changes. The record is in memory only: at most 2,000 requests and text response bodies up to 2 MB each and 32 MB in all, the oldest dropped first. Cookie, Set-Cookie, Authorization and Proxy-Authorization values read [redacted]. Requests made while the person has paused agents or taken over the profile are not recorded. The capture and its record end when the browser stops, or with stop_network_capture. Only for profiles running on this computer; a capture already running is kept.".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "description": "The UUID of the running profile"
+            }
+          },
+          "required": ["profile_id"]
+        }),
+      },
+      McpTool {
+        name: "stop_network_capture".to_string(),
+        description: "Stop a profile's network capture and delete its record.".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "description": "The UUID of the profile"
+            }
+          },
+          "required": ["profile_id"]
+        }),
+      },
+      McpTool {
+        name: "list_network_requests".to_string(),
+        description: "List the requests a profile's network capture recorded, oldest first: id, tab, method, URL, type (Document, XHR, Fetch, Script, Image...), state (pending, done, failed, redirected, incomplete), status, MIME type, bytes, duration and what became of the body (kept, or why not). Filter by URL text, method, type, status, failure or body text. Page with after and limit; last_id is the newest id recorded, so after set to it later shows only new requests.".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "description": "The UUID of the profile"
+            },
+            "after": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Only requests with a larger id: next_after or last_id from an earlier call"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Requests per page, 50 when left out"
+            },
+            "url_contains": { "type": "string", "description": "Text the URL contains (any case)" },
+            "method": { "type": "string", "description": "GET, POST, ..." },
+            "type": { "type": "string", "description": "Document, XHR, Fetch, Script, Image, ..." },
+            "status": { "type": "integer", "description": "Only this HTTP status" },
+            "failed": { "type": "boolean", "description": "true: only requests that failed; false: none of them" },
+            "body_contains": { "type": "string", "description": "Text a kept response body contains (any case)" }
+          },
+          "required": ["profile_id"]
+        }),
+      },
+      McpTool {
+        name: "get_network_request".to_string(),
+        description: "One request a network capture recorded, in full: request and response headers, the request body (up to 64 KB), status, timing, and the response body when it is text. Read a long body in parts with body_offset and max_body_chars.".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "description": "The UUID of the profile"
+            },
+            "request_id": {
+              "type": "integer",
+              "description": "The id from list_network_requests"
+            },
+            "body": {
+              "type": "boolean",
+              "description": "Include the response body (default: true)"
+            },
+            "body_offset": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The character to start the body at: next_offset from the previous call"
+            },
+            "max_body_chars": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90000,
+              "description": "The most body characters to show, 20000 when left out"
+            }
+          },
+          "required": ["profile_id", "request_id"]
         }),
       },
       McpTool {
@@ -4823,7 +6491,7 @@ impl McpServer {
       },
       McpTool {
         name: "send_feedback".to_string(),
-        description: "Send feedback about Donut Browser to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach the recent app logs, which help with bugs and never contain profile names, visited URLs or credentials. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
+        description: "Send feedback about Donut Browser to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach what get_diagnostics returns: facts about this install and the recent app and proxy worker logs, which help with bugs and never contain profile names, visited URLs or credentials. The feedback is anonymous: it carries nothing about the person's account. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4836,6 +6504,16 @@ impl McpServer {
             "include_logs": { "type": "boolean", "description": "Attach the recent app logs (default: false)" }
           },
           "required": ["message"]
+        }),
+      },
+      McpTool {
+        name: "get_diagnostics".to_string(),
+        description: "Read what a bug report would attach, to find out why Donut Browser misbehaves: facts about this install (version, OS, install kind, sync, installed Wayfern versions, running browsers and proxy workers, one line per profile) and the newest app and proxy worker log lines. Profiles, proxies, VPNs and groups appear as aliases such as profile-3, the same in the facts and the logs; names, emails, account details, IP addresses, web addresses and secrets are removed. Use it when the person reports a problem: follow the triage playbook at https://raw.githubusercontent.com/donutbrowser/donutbrowser/main/docs/TRIAGE.md, then report with send_feedback (include_logs: true). Returns {diagnostics}.".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "max_kb": { "type": "integer", "minimum": 8, "maximum": 512, "description": "Most kilobytes to return; the newest lines are kept (default: 64)" }
+          }
         }),
       },
     ]
@@ -5093,6 +6771,14 @@ impl McpServer {
       .dispatch_tool_call(caller, tool_name, &arguments)
       .await
       .map_err(|error| explain_engine_refusal(error, CLOUD_AUTH.wayfern_device_refusal()));
+    if let Err(error) = &mut result {
+      if error.message.contains("requires a paid Donut Browser plan") {
+        let profile = arguments.get("profile_id").and_then(|v| v.as_str());
+        if let Some(reason) = stale_plan_token_refusal(profile).await {
+          error.message = reason;
+        }
+      }
+    }
     let elapsed_ms = started.elapsed().as_millis();
     if human_tool {
       crate::agent_console::touch_session(caller.session);
@@ -5143,6 +6829,7 @@ impl McpServer {
       }
       "report_progress" => Self::handle_report_progress(caller, arguments),
       "send_feedback" => self.handle_send_feedback(caller, arguments).await,
+      "get_diagnostics" => self.handle_get_diagnostics(arguments).await,
       "list_profiles" => self.handle_list_profiles(arguments).await,
       "get_profile" => self.handle_get_profile(arguments).await,
       "run_profile" => {
@@ -5506,6 +7193,48 @@ impl McpServer {
         )
         .await?;
         self.handle_type_locator(arguments).await
+      }
+      "select_option" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        self.handle_select_option(caller, arguments).await
+      }
+      "file_upload" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        self.handle_file_upload(caller, arguments).await
+      }
+      "start_network_capture" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        self.handle_start_network_capture(arguments).await
+      }
+      // Stopping only deletes; it works without a plan, like stop_sync_session.
+      "stop_network_capture" => Self::handle_stop_network_capture(arguments),
+      "list_network_requests" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        Self::handle_list_network_requests(arguments)
+      }
+      "get_network_request" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        Self::handle_get_network_request(arguments)
       }
       "extract_structured" => {
         Self::require_capability(
@@ -6197,9 +7926,14 @@ impl McpServer {
         })?;
     }
 
+    let profile_id = profile.id.to_string();
+    let mut not_applied: Vec<(&str, String)> = Vec::new();
+
     if let Some(start_urls) = start_urls.filter(|urls| !urls.is_empty()) {
-      let _ =
-        ProfileManager::instance().update_profile_start_urls(&profile.id.to_string(), start_urls);
+      if let Err(e) = ProfileManager::instance().update_profile_start_urls(&profile_id, start_urls)
+      {
+        not_applied.push(("start_urls", e.to_string()));
+      }
     }
 
     if let Some(status_id) = arguments
@@ -6207,30 +7941,41 @@ impl McpServer {
       .and_then(|v| v.as_str())
       .filter(|id| !id.is_empty())
     {
-      let _ = ProfileManager::instance()
-        .set_profiles_status(&[profile.id.to_string()], Some(status_id.to_string()));
-    }
-
-    if let Some(tags) = tags {
-      let _ = ProfileManager::instance().update_profile_tags(
-        &app_handle,
-        &profile.id.to_string(),
-        tags.clone(),
-      );
-      profile.tags = tags;
-      if let Ok(profiles) = ProfileManager::instance().list_profiles() {
-        let _ = crate::tag_manager::TAG_MANAGER
-          .lock()
-          .map(|manager| manager.rebuild_from_profiles(&profiles));
+      if let Err(e) = ProfileManager::instance().set_profiles_status(
+        std::slice::from_ref(&profile_id),
+        Some(status_id.to_string()),
+      ) {
+        not_applied.push(("status_id", e.to_string()));
       }
     }
 
-    Ok(serde_json::json!({
-      "content": [{
-        "type": "text",
-        "text": format!("Profile '{}' created (id: {})", profile.name, profile.id)
-      }]
-    }))
+    if let Some(tags) = tags {
+      match ProfileManager::instance().update_profile_tags(&app_handle, &profile_id, tags) {
+        Ok(updated) => {
+          profile.tags = updated.tags;
+          if let Ok(profiles) = ProfileManager::instance().list_profiles() {
+            let _ = crate::tag_manager::TAG_MANAGER
+              .lock()
+              .map(|manager| manager.rebuild_from_profiles(&profiles));
+          }
+        }
+        Err(e) => not_applied.push(("tags", e.to_string())),
+      }
+    }
+
+    if !not_applied.is_empty() {
+      let fields: Vec<&str> = not_applied.iter().map(|(field, _)| *field).collect();
+      log::warn!(
+        "MCP profile created with settings not applied profile={profile_id} fields={}",
+        fields.join(",")
+      );
+    }
+
+    Ok(created_profile_result(
+      &profile.name,
+      &profile_id,
+      &not_applied,
+    ))
   }
 
   async fn handle_update_profile(
@@ -8668,14 +10413,6 @@ impl McpServer {
       .map_err(cdp_error)
   }
 
-  async fn send_planned_keystrokes(
-    &self,
-    target: &CdpTarget,
-    events: &[crate::human_typing::TypingEvent],
-  ) -> Result<(), McpError> {
-    dispatch_keystrokes(target, events).await.map_err(cdp_error)
-  }
-
   /// `expect_navigation`: the command is a navigation, so the page's load is
   /// always awaited; otherwise only a navigation that starts is.
   async fn send_cdp_and_wait_for_load(
@@ -9522,11 +11259,12 @@ impl McpServer {
     // browser types through Vellum, which paces the keys itself, so the plan
     // below is only built for the fallback engine.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_version(&profile.version).is_wayfern() && !instant;
+    let engine = Engine::for_version(&profile.version);
+    let humanized = engine.is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
-    // (TYPING_TOO_LONG), and the focus step below empties the field when
-    // `clear_first` is set — so planning after it meant the server answered
+    // (TYPING_TOO_LONG), and the typing below replaces what the field holds
+    // when `clear_first` is set — so planning after it meant the server answered
     // "refused, nothing happened" having already wiped the customer's form
     // field. The refusal now precedes every mutation on every branch,
     // including the Vellum budget, which is decided in the same place.
@@ -9542,96 +11280,20 @@ impl McpServer {
     };
 
     let target = resolve_target(&profile).await?;
-
-    let selector_escaped = selector.replace('\\', "\\\\").replace('\'', "\\'");
-    let focus_js = if clear_first {
-      format!(
-        r#"(() => {{
-          const el = document.querySelector('{}');
-          if (!el) throw new Error('Element not found: {}');
-          el.scrollIntoView({{block: 'center'}});
-          el.focus();
-          el.value = '';
-          el.dispatchEvent(new Event('input', {{bubbles: true}}));
-          {}
-        }})()"#,
-        selector_escaped, selector_escaped, RETURN_RECT_JS
-      )
-    } else {
-      format!(
-        r#"(() => {{
-          const el = document.querySelector('{}');
-          if (!el) throw new Error('Element not found: {}');
-          el.scrollIntoView({{block: 'center'}});
-          el.focus();
-          {}
-        }})()"#,
-        selector_escaped, selector_escaped, RETURN_RECT_JS
-      )
-    };
-
-    let focus_result = self
-      .send_cdp(
-        &target,
-        "Runtime.evaluate",
-        serde_json::json!({
-          "expression": focus_js,
-          "returnByValue": true,
-        }),
-      )
-      .await?;
-
-    if let Some(exception) = focus_result.get("exceptionDetails") {
-      let msg = exception
-        .get("exception")
-        .and_then(|e| e.get("description"))
-        .or_else(|| exception.get("text"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("Focus failed");
-      return Err(McpError {
-        code: -32000,
-        message: msg.to_string(),
-        data: None,
-      });
-    }
-
-    if let Some(timeout) = inscribe_timeout {
-      let point = rect_from_script_result(&focus_result)?;
-      let inscription = vellum_type(
-        &target,
-        point,
-        text,
-        typos,
-        caret_preparation(clear_first),
-        timeout,
-      )
-      .await
-      .map_err(AgentError::into_mcp)?;
-      return Ok(serde_json::json!({
-        "content": [{
-          "type": "text",
-          "text": typing_report(&format!("Typed text into element: {selector}"), &inscription)
-        }]
-      }));
-    }
-
-    match &plan {
-      Some(events) => self.send_planned_keystrokes(&target, events).await?,
-      None => {
-        self
-          .send_cdp(
-            &target,
-            "Input.insertText",
-            serde_json::json!({ "text": text }),
-          )
-          .await?;
-      }
-    }
-
+    let (typed, _) = type_element(
+      &target,
+      engine,
+      &ElementRef::Selector(selector.to_string()),
+      text,
+      clear_first,
+      TypingMethod::chosen(inscribe_timeout, plan.as_deref(), typos),
+    )
+    .await
+    .map_err(AgentError::into_mcp)?;
     Ok(serde_json::json!({
       "content": [{
         "type": "text",
-        "text": format!("Typed text into element: {selector}")
+        "text": typing_report(&format!("Typed text into element: {selector}"), &typed)
       }]
     }))
   }
@@ -9672,18 +11334,12 @@ impl McpServer {
           sel_escaped
         )
       } else {
-        format!(
-          r#"(() => {{
-            const el = document.querySelector('{}');
-            return el ? el.innerText : null;
-          }})()"#,
-          sel_escaped
-        )
+        rendered_text_js(&format!("document.querySelector('{sel_escaped}')"))
       }
     } else if format == "html" {
       "document.documentElement.outerHTML".to_string()
     } else {
-      "document.body.innerText".to_string()
+      rendered_text_js("document.body")
     };
 
     let result = self
@@ -9997,11 +11653,12 @@ impl McpServer {
 
     // Engine first, then budgets, then the page: see handle_type_text.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_version(&profile.version).is_wayfern() && !instant;
+    let engine = Engine::for_version(&profile.version);
+    let humanized = engine.is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
-    // (TYPING_TOO_LONG), and the focus step below empties the field when
-    // `clear_first` is set — so planning after it meant the server answered
+    // (TYPING_TOO_LONG), and the typing below replaces what the field holds
+    // when `clear_first` is set — so planning after it meant the server answered
     // "refused, nothing happened" having already wiped the customer's form
     // field. The refusal now precedes every mutation on every branch.
     let plan = if instant || humanized {
@@ -10016,97 +11673,20 @@ impl McpServer {
     };
 
     let target = resolve_target(&profile).await?;
-
-    // Mirrors handle_type_text's focus step but resolves the element via the
-    // cached index instead of a CSS selector.
-    let focus_js = if clear_first {
-      format!(
-        r#"(() => {{
-          const arr = window[{cache}];
-          if (!arr || !arr[{index}]) throw new Error('No element at index {index}. Call get_interactive_elements first or after navigation.');
-          const el = arr[{index}];
-          el.scrollIntoView({{block: 'center'}});
-          el.focus();
-          el.value = '';
-          el.dispatchEvent(new Event('input', {{bubbles: true}}));
-          {RETURN_RECT_JS}
-        }})()"#
-      )
-    } else {
-      format!(
-        r#"(() => {{
-          const arr = window[{cache}];
-          if (!arr || !arr[{index}]) throw new Error('No element at index {index}. Call get_interactive_elements first or after navigation.');
-          const el = arr[{index}];
-          el.scrollIntoView({{block: 'center'}});
-          el.focus();
-          {RETURN_RECT_JS}
-        }})()"#
-      )
-    };
-
-    let focus_result = self
-      .send_cdp(
-        &target,
-        "Runtime.evaluate",
-        serde_json::json!({
-          "expression": focus_js,
-          "returnByValue": true,
-        }),
-      )
-      .await?;
-
-    if let Some(exception) = focus_result.get("exceptionDetails") {
-      let msg = exception
-        .get("exception")
-        .and_then(|e| e.get("description"))
-        .or_else(|| exception.get("text"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("Focus failed");
-      return Err(McpError {
-        code: -32000,
-        message: msg.to_string(),
-        data: None,
-      });
-    }
-
-    if let Some(timeout) = inscribe_timeout {
-      let point = rect_from_script_result(&focus_result)?;
-      let inscription = vellum_type(
-        &target,
-        point,
-        text,
-        typos,
-        caret_preparation(clear_first),
-        timeout,
-      )
-      .await
-      .map_err(AgentError::into_mcp)?;
-      return Ok(serde_json::json!({
-        "content": [{
-          "type": "text",
-          "text": typing_report(&format!("Typed text into element at index {index}"), &inscription)
-        }]
-      }));
-    }
-
-    match &plan {
-      Some(events) => self.send_planned_keystrokes(&target, events).await?,
-      None => {
-        self
-          .send_cdp(
-            &target,
-            "Input.insertText",
-            serde_json::json!({ "text": text }),
-          )
-          .await?;
-      }
-    }
-
+    let (typed, _) = type_element(
+      &target,
+      engine,
+      &ElementRef::Index { cache, index },
+      text,
+      clear_first,
+      TypingMethod::chosen(inscribe_timeout, plan.as_deref(), typos),
+    )
+    .await
+    .map_err(AgentError::into_mcp)?;
     Ok(serde_json::json!({
       "content": [{
         "type": "text",
-        "text": format!("Typed text into element at index {index}")
+        "text": typing_report(&format!("Typed text into element at index {index}"), &typed)
       }]
     }))
   }
@@ -10185,6 +11765,219 @@ impl McpServer {
       .await
       .map_err(AgentError::into_mcp)?;
     Self::json_content(&typed)
+  }
+
+  /// The element a form tool names: one of selector, locator, index or
+  /// element_id.
+  async fn form_element_ref(
+    &self,
+    caller: McpCaller<'_>,
+    profile_id: &str,
+    arguments: &serde_json::Value,
+  ) -> Result<ElementRef, McpError> {
+    let given = |key: &str| arguments.get(key).is_some_and(|v| !v.is_null());
+    let named = ["selector", "locator", "index", "element_id"]
+      .into_iter()
+      .filter(|key| given(key))
+      .count();
+    if named != 1 {
+      return Err(McpError {
+        code: -32602,
+        message: "Name the element one way: selector, locator, index or element_id".to_string(),
+        data: None,
+      });
+    }
+    if given("locator") {
+      let locator: LocatorDescription = Self::agent_arguments(&arguments["locator"])?;
+      validate_locator(&locator).map_err(AgentError::into_mcp)?;
+      return Ok(ElementRef::Locator(canonical_locator(&locator)));
+    }
+    if given("selector") {
+      return Ok(ElementRef::Selector(
+        Self::require_str(arguments, "selector")?.to_string(),
+      ));
+    }
+    let cache = interactive_cache_slot(require_indexed_session(caller)?);
+    let index = self.element_index(profile_id, &cache, arguments).await?;
+    Ok(ElementRef::Index { cache, index })
+  }
+
+  async fn handle_select_option(
+    &self,
+    caller: McpCaller<'_>,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let wanted: Option<Vec<String>> = match (arguments.get("option"), arguments.get("options")) {
+      (Some(serde_json::Value::String(one)), None) => Some(vec![one.clone()]),
+      (None, Some(serde_json::Value::Array(many))) if !many.is_empty() => many
+        .iter()
+        .map(|v| v.as_str().map(str::to_string))
+        .collect(),
+      _ => None,
+    };
+    let wanted = wanted.ok_or_else(|| McpError {
+      code: -32602,
+      message: "Give option (one value or label) or options (a list of them)".to_string(),
+      data: None,
+    })?;
+    let element = self.form_element_ref(caller, profile_id, arguments).await?;
+    let ctx = self.agent_context(profile_id).await?;
+    let selected = agent_select_option(&ctx, &element, &wanted)
+      .await
+      .map_err(AgentError::into_mcp)?;
+    Self::json_content(&selected)
+  }
+
+  async fn handle_file_upload(
+    &self,
+    caller: McpCaller<'_>,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let files = upload_files(arguments).map_err(AgentError::into_mcp)?;
+    let element = self.form_element_ref(caller, profile_id, arguments).await?;
+    let ctx = self.agent_context(profile_id).await?;
+    if ctx.target.is_remote() {
+      return Err(McpError {
+        code: -32000,
+        message: "file_upload works only for a profile whose browser runs on this computer."
+          .to_string(),
+        data: Some(serde_json::json!({ "code": "FILE_UPLOAD_LOCAL_ONLY" })),
+      });
+    }
+    // A browser that exited by itself left its files; nothing reads them now.
+    if let Ok(profiles) = ProfileManager::instance().list_profiles() {
+      let running: HashSet<String> = profiles
+        .iter()
+        .filter(|p| p.process_id.is_some())
+        .map(|p| p.id.to_string())
+        .collect();
+      crate::agent_uploads::sweep(|id| running.contains(id));
+    }
+    let uploaded = agent_file_upload(&ctx, &element, &files)
+      .await
+      .map_err(AgentError::into_mcp)?;
+    Self::json_content(&uploaded)
+  }
+
+  async fn handle_start_network_capture(
+    &self,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    use crate::network_capture::StartError;
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let profile = self.get_wayfern_profile(profile_id)?;
+    match crate::network_capture::start(&profile).await {
+      Ok(answer) => Self::json_content(&answer),
+      Err(StartError::NotLocal) => Err(McpError {
+        code: -32000,
+        message: "No browser of this profile runs on this computer. Network capture works for a profile launched here with run_profile, not on the remote fleet.".to_string(),
+        data: Some(serde_json::json!({ "code": "NETWORK_CAPTURE_LOCAL_ONLY" })),
+      }),
+      Err(StartError::Refused(reason)) => Err(McpError {
+        code: -32000,
+        message: format!("The browser did not accept the capture: {reason}"),
+        data: Some(serde_json::json!({ "code": "NETWORK_CAPTURE_FAILED" })),
+      }),
+    }
+  }
+
+  fn handle_stop_network_capture(
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let answer = match crate::network_capture::stop(profile_id) {
+      Some(requests) => serde_json::json!({ "stopped": true, "requests": requests }),
+      None => serde_json::json!({ "stopped": false }),
+    };
+    Self::json_content(&answer)
+  }
+
+  fn capture_not_running() -> McpError {
+    McpError {
+      code: -32000,
+      message: "No network capture runs for this profile. Call start_network_capture first; a capture ends when its browser stops.".to_string(),
+      data: Some(serde_json::json!({ "code": "NETWORK_CAPTURE_NOT_RUNNING" })),
+    }
+  }
+
+  fn handle_list_network_requests(
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    use crate::mcp_views::{DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT};
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let text = |key: &str| {
+      arguments
+        .get(key)
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+    };
+    let limit = match arguments.get("limit") {
+      None | Some(serde_json::Value::Null) => DEFAULT_LIST_LIMIT,
+      Some(value) => value
+        .as_u64()
+        .filter(|n| (1..=MAX_LIST_LIMIT as u64).contains(n))
+        .ok_or_else(|| McpError {
+          code: -32602,
+          message: format!("limit is a whole number from 1 to {MAX_LIST_LIMIT}"),
+          data: None,
+        })? as usize,
+    };
+    let query = crate::network_capture::ListQuery {
+      after: arguments.get("after").and_then(|v| v.as_u64()).unwrap_or(0),
+      limit,
+      url_contains: text("url_contains"),
+      method: text("method"),
+      resource_type: text("type"),
+      status: arguments.get("status").and_then(|v| v.as_u64()),
+      failed: arguments.get("failed").and_then(|v| v.as_bool()),
+      body_contains: text("body_contains"),
+    };
+    let answer = crate::network_capture::read(profile_id, |log| log.list(&query))
+      .ok_or_else(Self::capture_not_running)?;
+    Self::json_content(&answer)
+  }
+
+  fn handle_get_network_request(
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let id = arguments
+      .get("request_id")
+      .and_then(|v| v.as_u64())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing request_id".to_string(),
+        data: None,
+      })?;
+    let with_body = arguments
+      .get("body")
+      .and_then(|v| v.as_bool())
+      .unwrap_or(true);
+    let offset = arguments
+      .get("body_offset")
+      .and_then(|v| v.as_u64())
+      .unwrap_or(0) as usize;
+    let max_chars = arguments
+      .get("max_body_chars")
+      .and_then(|v| v.as_u64())
+      .unwrap_or(DEFAULT_BODY_CHARS)
+      .clamp(1, MAX_BODY_CHARS) as usize;
+    match crate::network_capture::read(profile_id, |log| {
+      log.detail(id, with_body, offset, max_chars)
+    }) {
+      None => Err(Self::capture_not_running()),
+      Some(None) => Err(McpError {
+        code: -32000,
+        message: format!(
+          "No request {id} in the capture. Ids come from list_network_requests; the oldest are dropped past 2,000."
+        ),
+        data: Some(serde_json::json!({ "code": "NETWORK_REQUEST_NOT_FOUND" })),
+      }),
+      Some(Some(answer)) => Self::json_content(&answer),
+    }
   }
 
   async fn handle_extract_structured(
@@ -10425,6 +12218,39 @@ impl McpServer {
     Self::json_content(&serde_json::json!({ "ok": true }))
   }
 
+  async fn handle_get_diagnostics(
+    &self,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let max_kb = match arguments.get("max_kb") {
+      None | Some(serde_json::Value::Null) => 64,
+      Some(value) => value
+        .as_u64()
+        .filter(|kb| (8..=512).contains(kb))
+        .ok_or_else(|| Self::invalid_argument("max_kb must be a whole number from 8 to 512"))?,
+    };
+    let app_handle = self.inner.lock().await.app_handle.clone();
+    let Some(handle) = app_handle else {
+      return Err(McpError {
+        code: -32001,
+        message: "MCP server is not running".to_string(),
+        data: None,
+      });
+    };
+    let diagnostics = crate::diagnostics::excerpt(
+      crate::app_dirs::log_dir(&handle),
+      max_kb as usize * 1024,
+      crate::diagnostics::Reader::Agent,
+    )
+    .await
+    .map_err(|_| McpError {
+      code: -32000,
+      message: "The app logs could not be read.".to_string(),
+      data: Some(serde_json::json!({ "code": "FEEDBACK_LOGS_UNREADABLE" })),
+    })?;
+    Self::json_content(&serde_json::json!({ "diagnostics": diagnostics }))
+  }
+
   async fn handle_send_feedback(
     &self,
     caller: McpCaller<'_>,
@@ -10467,14 +12293,17 @@ impl McpServer {
       let app_handle = self.inner.lock().await.app_handle.clone();
       match app_handle {
         Some(handle) => Some(
-          crate::feedback::log_excerpt(crate::app_dirs::log_dir(&handle))
-            .await
-            .map_err(|_| McpError {
-              code: -32000,
-              message: "The app logs could not be read. Send the feedback without include_logs."
-                .to_string(),
-              data: Some(serde_json::json!({ "code": "FEEDBACK_LOGS_UNREADABLE" })),
-            })?,
+          crate::feedback::log_excerpt(
+            crate::app_dirs::log_dir(&handle),
+            crate::diagnostics::Reader::Agent,
+          )
+          .await
+          .map_err(|_| McpError {
+            code: -32000,
+            message: "The app logs could not be read. Send the feedback without include_logs."
+              .to_string(),
+            data: Some(serde_json::json!({ "code": "FEEDBACK_LOGS_UNREADABLE" })),
+          })?,
         ),
         None => None,
       }
@@ -10894,7 +12723,7 @@ impl McpServer {
     Ok(profile)
   }
 
-  /// Start this profile on a host of its own operating system.
+  /// Start this profile on the remote host its platform names.
   ///
   /// Deliberately no `is_cross_os` guard: local `run_profile` refuses a profile
   /// bound to another OS because THIS machine is the wrong OS, and running it
@@ -11020,9 +12849,10 @@ impl McpServer {
 
     // `bot_precondition` already proved the profile has an OS the fleet can
     // lease. Taking the platform from the profile rather than the arguments is
-    // what stops an agent enrolling a macOS profile onto a Windows host.
+    // what stops an agent enrolling a macOS profile onto a Windows host; a
+    // Wayfern profile runs on a Linux host whatever OS it claims.
     let platform = profile
-      .resolved_os()
+      .remote_platform()
       .ok_or_else(|| McpError {
         code: -32000,
         message: "Profile has no recorded operating system".to_string(),
@@ -11035,7 +12865,7 @@ impl McpServer {
         return Err(McpError {
           code: -32602,
           message: format!(
-            "platform {requested:?} does not match the profile's own operating system {platform:?}"
+            "platform {requested:?} does not match the platform this profile runs on remotely {platform:?}"
           ),
           data: None,
         });
@@ -11187,6 +13017,10 @@ impl McpServer {
 static MCP_SERVER: std::sync::LazyLock<McpServer> = std::sync::LazyLock::new(McpServer::new);
 
 #[cfg(test)]
+#[path = "mcp_server_browser_tests.rs"]
+mod browser_tests;
+
+#[cfg(test)]
 mod tests {
   use super::*;
 
@@ -11218,6 +13052,17 @@ mod tests {
       explain_engine_refusal(other, Some(device.to_string())).message,
       "Profile not found"
     );
+  }
+  #[test]
+  fn a_stale_plan_token_says_to_restart_and_how_long_the_browser_ran() {
+    let message = stale_plan_token_message(Some(204_189));
+    assert!(message.contains("56 h"), "{message}");
+    assert!(
+      message.contains("kill_profile, then run_profile"),
+      "{message}"
+    );
+    assert!(!message.contains("requires a paid"), "{message}");
+    assert!(!stale_plan_token_message(None).contains(" h."));
   }
 
   #[test]
@@ -11341,7 +13186,7 @@ mod tests {
     // tool was added or removed on purpose.
     assert_eq!(
       tools.len(),
-      107,
+      114,
       "the tool list is a published contract; update this number deliberately"
     );
 
@@ -11432,6 +13277,13 @@ mod tests {
     assert!(tool_names.contains(&"resolve_locator"));
     assert!(tool_names.contains(&"click_locator"));
     assert!(tool_names.contains(&"type_locator"));
+    assert!(tool_names.contains(&"select_option"));
+    assert!(tool_names.contains(&"file_upload"));
+    // Network capture tools
+    assert!(tool_names.contains(&"start_network_capture"));
+    assert!(tool_names.contains(&"stop_network_capture"));
+    assert!(tool_names.contains(&"list_network_requests"));
+    assert!(tool_names.contains(&"get_network_request"));
     assert!(tool_names.contains(&"extract_structured"));
     assert!(tool_names.contains(&"pick_element"));
     // Remote fleet: an agent must be able to start a session, see it become
@@ -12167,8 +14019,8 @@ mod tests {
       production.matches("window[__CACHE__]").count()
         + production.matches("window[{cache}]").count()
         + production.matches("window[{slot}]").count(),
-      8,
-      "the eight cache sites (one write, five reads, two in the teardown) must \
+      7,
+      "the seven cache sites (one write, four reads, two in the teardown) must \
        all be parameterised"
     );
   }
@@ -12489,10 +14341,10 @@ mod tests {
       .split_once("\n#[cfg(test)]")
       .map_or(source, |(code, _)| code);
     let sender = production
-      .split("async fn send_planned_keystrokes(")
+      .split("async fn dispatch_keystrokes(")
       .nth(1)
-      .expect("send_planned_keystrokes must exist");
-    let sender = &sender[..sender.find("\n  }").unwrap_or(sender.len())];
+      .expect("dispatch_keystrokes must exist");
+    let sender = &sender[..sender.find("\n}").unwrap_or(sender.len())];
     assert!(
       !sender.contains("plan_typing"),
       "the sender must take the accepted plan, not decide for itself, \
@@ -12508,11 +14360,10 @@ mod tests {
   #[test]
   fn a_refused_typing_request_has_not_already_emptied_the_field() {
     // The ORDER, which the duration bound alone never pinned. Both typing
-    // handlers used to focus the element and run `el.value = ''` first and call
+    // handlers used to focus the element and empty it first and call
     // `plan_typing` only afterwards, so a TYPING_TOO_LONG was a lie: the server
     // answered "refused" with the customer's form field already wiped. Nothing
-    // may touch the page before the plan is accepted, on EITHER branch of
-    // `clear_first`.
+    // may touch the page before the plan is accepted.
     let production = include_str!("mcp_server.rs")
       .split_once("\n#[cfg(test)]")
       .map_or("", |(code, _)| code);
@@ -12533,29 +14384,14 @@ mod tests {
         "{handler} must plan exactly once, before the page is touched"
       );
 
-      // Both branches of `clear_first` are present, and BOTH are built after
-      // the plan. The clearing branch is the one that destroys data; the other
-      // still focuses and scrolls, which is a mutation the caller can see.
-      assert_eq!(
-        body.matches("el.value = ''").count(),
-        1,
-        "{handler} must still have exactly one clearing branch to order"
+      // Everything that touches the page comes after the plan, and the page is
+      // touched in one place: the shared typing path, which replaces a field's
+      // text by selecting it, never by assigning a value.
+      assert!(
+        !body.contains(".value = ''") && !body.contains("let focus_js"),
+        "{handler} must leave the field to type_element"
       );
-      assert_eq!(
-        body.matches("el.focus();").count(),
-        2,
-        "{handler} must have both a clearing and a non-clearing focus branch"
-      );
-
-      for mutation in [
-        "el.value = ''",
-        "el.focus();",
-        "scrollIntoView",
-        "let focus_js",
-        ".send_cdp(",
-        "send_planned_keystrokes",
-        "Input.insertText",
-      ] {
+      for mutation in ["resolve_target(", "type_element("] {
         let at = body
           .find(mutation)
           .unwrap_or_else(|| panic!("{handler} no longer contains {mutation}"));
@@ -13138,6 +14974,12 @@ mod tests {
       "type_locator",
       "extract_structured",
       "pick_element",
+      "select_option",
+      "file_upload",
+      // A capture reads every request the browser makes.
+      "start_network_capture",
+      "list_network_requests",
+      "get_network_request",
       // Leases a remote host for up to two hours and spends the pooled
       // remote-hour budget.
       "run_cookie_bot_now",
@@ -13209,9 +15051,10 @@ mod tests {
     }))
     .unwrap();
 
-    // The 152 engine: the native resolver names the node, the DOM says where
-    // it is on screen, and a real pointer strikes it. No script runs in the
-    // page and nothing is dispatched synthetically.
+    // The 152 engine: the native resolver names the node, the DOM confirms the
+    // node carries what was matched and says where it is on screen, and a real
+    // pointer strikes it. No script runs in the page and nothing is dispatched
+    // synthetically.
     let (target, frames) = fake_browser(Fake::Cooperative).await;
     let ctx = agent_context_for("152.0.7977.64", target);
     assert_eq!(ctx.engine, Engine::Wayfern);
@@ -13237,7 +15080,8 @@ mod tests {
       ]
     );
     assert!(sent.iter().any(|m| m == "Wayfern.resolveLocator"));
-    assert!(sent.iter().any(|m| m == "DOM.getContentQuads"));
+    assert!(sent.iter().any(|m| m == "DOM.describeNode"));
+    assert!(sent.iter().any(|m| m == "DOM.resolveNode"));
     assert!(
       !sent
         .iter()
@@ -13284,6 +15128,23 @@ mod tests {
     );
   }
 
+  /// What the fake saw, with each step of the typing function named by its
+  /// step and every other frame by its method.
+  fn typing_steps(frames: &crate::wayfern_cdp::test_support::Frames) -> Vec<String> {
+    frames
+      .lock()
+      .unwrap()
+      .iter()
+      .filter_map(|f| {
+        let method = f["method"].as_str()?;
+        match f["params"]["arguments"][0]["value"].as_str() {
+          Some(step) if method == "Runtime.callFunctionOn" => Some(step.to_string()),
+          _ => Some(method.to_string()),
+        }
+      })
+      .collect()
+  }
+
   #[tokio::test]
   async fn a_152_profile_types_through_inscribe_and_an_older_one_through_key_events() {
     use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
@@ -13299,30 +15160,31 @@ mod tests {
     let ctx = agent_context_for("152.0.7977.64", target);
     let typed = agent_type_locator(&ctx, &request, 300.0).await.unwrap();
     assert!(typed.typed);
+    assert!(typed.verified, "the field read back holds the text");
     assert_eq!(typed.engine, Engine::Wayfern);
     assert_eq!(typed.characters, 2);
     assert_eq!(typed.corrections, Some(1));
-    let sent = methods(&frames);
-    let native: Vec<&str> = sent
-      .iter()
-      .filter(|m| {
-        m.starts_with("Vellum.") || m.starts_with("DOM.resolveNode") || m.starts_with("Runtime.")
-      })
-      .map(String::as_str)
+    let steps: Vec<String> = typing_steps(&frames)
+      .into_iter()
+      .filter(|m| !m.contains('.') || m.starts_with("Vellum.") || m == "DOM.resolveNode")
       .collect();
-    // Focus by a real strike, THEN the field is emptied on the resolved node,
-    // then the keys: clearing before the click would leave the caret wherever
-    // the click landed in a field that is no longer empty.
+    // The field is struck where a hand would land, the focus is confirmed in it
+    // before a key is sent, its text is selected so the keys replace it, and it
+    // is read back once the page has answered.
     assert_eq!(
-      native,
+      steps,
       vec![
+        "DOM.resolveNode",
+        "field",
+        "point",
         "Vellum.acquire",
         "Vellum.glide",
         "Vellum.strike",
-        "DOM.resolveNode",
-        "Runtime.callFunctionOn",
+        "focus",
+        "prepare",
         "Vellum.inscribe",
-        "Vellum.release"
+        "Vellum.release",
+        "read",
       ]
     );
     {
@@ -13333,12 +15195,24 @@ mod tests {
         .unwrap();
       assert_eq!(inscribe["params"]["text"], "hi");
       assert_eq!(inscribe["params"]["typos"], true);
-      let clear = sent_frames
+      let glide = sent_frames
         .iter()
-        .find(|f| f["method"] == "Runtime.callFunctionOn")
+        .find(|f| f["method"] == "Vellum.glide")
         .unwrap();
-      assert_eq!(clear["params"]["arguments"][0]["value"], true);
-      assert_eq!(clear["params"]["objectId"], "obj-7");
+      assert_eq!(glide["params"]["x"], 140.0);
+      let prepare = sent_frames
+        .iter()
+        .find(|f| f["params"]["arguments"][0]["value"] == "prepare")
+        .unwrap();
+      assert_eq!(prepare["params"]["arguments"][1]["value"], true);
+      assert_eq!(prepare["params"]["objectId"], "field-7");
+      assert!(
+        !prepare["params"]["functionDeclaration"]
+          .as_str()
+          .unwrap()
+          .contains(".value ="),
+        "a field is never emptied by assigning its value"
+      );
     }
 
     let (target, frames) = fake_browser(Fake::Cooperative).await;
@@ -13347,6 +15221,7 @@ mod tests {
     assert_eq!(typed.engine, Engine::Fallback);
     assert_eq!(typed.characters, 2);
     assert_eq!(typed.corrections, None);
+    assert!(typed.verified);
     let sent = methods(&frames);
     assert_eq!(sent.first().map(String::as_str), Some("Runtime.evaluate"));
     assert!(
@@ -13358,6 +15233,359 @@ mod tests {
       "two characters are at least two key downs and two key ups: {sent:?}"
     );
     assert!(!sent.iter().any(|m| m.starts_with("Vellum.")));
+    // Focused by the page before the keys, so no click was needed.
+    assert!(!sent.iter().any(|m| m == "Input.dispatchMouseEvent"));
+  }
+
+  #[tokio::test]
+  async fn typing_the_page_does_not_keep_is_refused_rather_than_reported() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let request: AgentTypeRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "textbox", "name": "Email" },
+      "text": "hi@example.com"
+    }))
+    .unwrap();
+
+    // Typed, then reset by the page: the field reads back empty.
+    for version in ["152.0.7977.64", "151.0.7922.76"] {
+      let (target, _) = fake_browser(Fake::TypingLost).await;
+      let ctx = agent_context_for(version, target);
+      let refused = agent_type_locator(&ctx, &request, 300.0)
+        .await
+        .expect_err("a field that holds nothing did not take the text");
+      let error = refused.into_mcp();
+      assert_eq!(error.code, -32000);
+      let data = error.data.expect("the verdict travels in data");
+      assert_eq!(data["code"], "TYPE_NOT_APPLIED", "{version}");
+      assert_eq!(data["reason"], "value");
+      assert_eq!(data["value"], "");
+      assert!(error.message.contains("holds nothing"), "{}", error.message);
+    }
+
+    // A field that never takes the focus gets no keys at all: they would land
+    // in whatever has it. The older engine clicks it before it gives up.
+    let (target, frames) = fake_browser(Fake::FieldUnfocusable).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    let refused = agent_type_locator(&ctx, &request, 300.0)
+      .await
+      .expect_err("no focus, no typing");
+    assert!(
+      matches!(
+        &refused,
+        AgentError::TypeNotApplied {
+          reason: "not_focused",
+          ..
+        }
+      ),
+      "{refused:?}"
+    );
+    let sent = methods(&frames);
+    assert!(sent.iter().any(|m| m == "Vellum.strike"));
+    assert!(!sent.iter().any(|m| m == "Vellum.inscribe"), "{sent:?}");
+    assert_eq!(
+      sent.last().map(String::as_str),
+      Some("Runtime.releaseObjectGroup")
+    );
+
+    let (target, frames) = fake_browser(Fake::FieldUnfocusable).await;
+    let ctx = agent_context_for("151.0.7922.76", target);
+    let refused = agent_type_locator(&ctx, &request, 300.0)
+      .await
+      .expect_err("no focus, no typing");
+    assert_eq!(refused.code(), "TYPE_NOT_APPLIED");
+    let sent = methods(&frames);
+    assert_eq!(
+      sent
+        .iter()
+        .filter(|m| *m == "Input.dispatchMouseEvent")
+        .count(),
+      3,
+      "move, press and release before giving up: {sent:?}"
+    );
+    assert!(
+      !sent.iter().any(|m| m == "Input.dispatchKeyEvent"),
+      "{sent:?}"
+    );
+  }
+
+  #[tokio::test]
+  async fn a_click_lands_where_the_page_aims_and_the_dom_decides_in_a_frame() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let request: AgentClickRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "radio", "name": "Female" }
+    }))
+    .unwrap();
+    // The page names the point (a label, an unobstructed spot); no quads.
+    let (target, frames) = fake_browser(Fake::Cooperative).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    agent_click_locator(&ctx, &request).await.unwrap();
+    let steps = typing_steps(&frames);
+    let point = steps.iter().position(|m| m == "point").unwrap();
+    let strike = steps.iter().position(|m| m == "Vellum.strike").unwrap();
+    assert!(point < strike, "{steps:?}");
+    assert!(
+      !steps.iter().any(|m| m == "DOM.getContentQuads"),
+      "{steps:?}"
+    );
+
+    // In a frame the page's own coordinates are not the viewport's.
+    let (target, frames) = fake_browser(Fake::FramedNode).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    agent_click_locator(&ctx, &request).await.unwrap();
+    assert_eq!(node_ids_sent(&frames, "DOM.getContentQuads"), vec![7]);
+
+    // Nothing to click: refused as the caller's problem, not a broken reply.
+    let (target, frames) = fake_browser(Fake::HiddenControl).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let refused = agent_click_locator(&ctx, &request)
+      .await
+      .expect_err("no box, no click");
+    let error = refused.into_mcp();
+    assert_eq!(error.data.as_ref().unwrap()["code"], "BAD_REQUEST");
+    assert!(
+      error.message.contains("no visible box"),
+      "{}",
+      error.message
+    );
+    assert!(!methods(&frames).iter().any(|m| m == "Vellum.strike"));
+
+    let typing: AgentTypeRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "textbox", "name": "Email" },
+      "text": "hi"
+    }))
+    .unwrap();
+    let (target, frames) = fake_browser(Fake::HiddenControl).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let refused = agent_type_locator(&ctx, &typing, 300.0)
+      .await
+      .expect_err("no box, no typing");
+    assert_eq!(refused.code(), "BAD_REQUEST");
+    assert!(!methods(&frames).iter().any(|m| m.starts_with("Vellum.")));
+  }
+
+  #[test]
+  fn a_field_holds_the_typed_text_through_masks_and_appends() {
+    // Cleared first: the value is the text, whatever a mask added.
+    assert!(field_took("Jane", "", "Jane", true, false));
+    assert!(field_took("5551234567", "", "(555) 123-4567", true, false));
+    assert!(field_took(
+      "5551234567",
+      "",
+      "+1 (555) 123-4567",
+      true,
+      false
+    ));
+    assert!(field_took("ab12cd", "", "AB12CD", true, false));
+    assert!(field_took("New Y", "", "New York", true, false));
+    assert!(field_took(
+      "line one\nline two",
+      "",
+      "line one\r\nline two",
+      true,
+      false
+    ));
+    // Nothing kept, or only part of it.
+    assert!(!field_took("Jane", "", "", true, false));
+    assert!(!field_took("abcdef", "", "abc", true, false));
+    assert!(!field_took("Jane", "Old", "Old", true, false));
+    // A field that already held the text, emptied and typed again.
+    assert!(field_took("Jane", "Jane", "Jane", true, false));
+    // Appended: only what came after the old text counts.
+    assert!(field_took(" Doe", "Jane", "Jane Doe", false, false));
+    assert!(field_took("hello", "hello", "hellohello", false, false));
+    assert!(!field_took("hello", "hello", "hello", false, false));
+    assert!(!field_took("Doe", "Jane Doe", "Jane Doe", false, false));
+    // One box per character: the first box holds the start.
+    assert!(field_took("123456", "", "1", true, true));
+    assert!(!field_took("123456", "", "9", true, true));
+    assert!(!field_took("123456", "", "1", true, false));
+    // Nothing to tell a mask from: no letters or digits.
+    assert!(field_took("--", "", "", true, false));
+  }
+
+  #[test]
+  fn a_field_that_is_not_text_is_not_judged_by_its_value() {
+    let read = |kind: &str, field_type: &str, value: &str| FieldValue {
+      kind: kind.to_string(),
+      field_type: field_type.to_string(),
+      value: value.to_string(),
+      ..Default::default()
+    };
+    let empty = read("value", "text", "");
+    assert!(typing_verdict("Jane", &empty, &read("value", "text", "Jane"), true).unwrap());
+    assert!(typing_verdict("Jane", &empty, &read("editable", "div", "Jane\n"), true).unwrap());
+    // A date field shows its own format, and an element that is no field
+    // shows nothing to compare.
+    assert!(!typing_verdict(
+      "2026-10-19",
+      &empty,
+      &read("value", "date", "2026-10-19"),
+      true
+    )
+    .unwrap());
+    assert!(!typing_verdict("Jane", &empty, &read("none", "", ""), true).unwrap());
+    // A refusal names what the field holds, except a secret.
+    let refused = typing_verdict("Jane", &empty, &read("value", "text", "J"), true).unwrap_err();
+    assert!(
+      refused.message().contains("holds \"J\""),
+      "{}",
+      refused.message()
+    );
+    assert_eq!(refused.detail()["value"], "J");
+    let secret = FieldValue {
+      secret: true,
+      ..read("value", "password", "abc")
+    };
+    let refused = typing_verdict("hunter22", &empty, &secret, true).unwrap_err();
+    assert!(
+      refused.message().contains("3 characters"),
+      "{}",
+      refused.message()
+    );
+    assert!(!refused.message().contains("abc"));
+    assert!(refused.detail().get("value").is_none());
+  }
+
+  #[test]
+  fn the_typing_method_is_the_one_the_budgets_chose() {
+    let plan = [crate::human_typing::TypingEvent {
+      time: 0.1,
+      action: crate::human_typing::TypingAction::Char('a'),
+    }];
+    let timeout = Duration::from_secs(5);
+    assert!(matches!(
+      TypingMethod::chosen(Some(timeout), None, false),
+      TypingMethod::Vellum { typos: false, .. }
+    ));
+    assert!(matches!(
+      TypingMethod::chosen(None, Some(&plan), true),
+      TypingMethod::Keystrokes(events) if events.len() == 1
+    ));
+    assert!(matches!(
+      TypingMethod::chosen(None, None, true),
+      TypingMethod::Insert
+    ));
+  }
+
+  #[test]
+  fn an_ambiguous_match_settles_on_the_candidate_that_stands_out() {
+    let candidate = |name: &str, role: &str, width: f64| {
+      serde_json::json!({
+        "role": role, "name": name, "text": "", "signature": name,
+        "bounds": { "x": 0.0, "y": 0.0, "width": width, "height": 20.0 }
+      })
+    };
+    let locator =
+      |json: serde_json::Value| -> LocatorDescription { serde_json::from_value(json).unwrap() };
+
+    // The exact name over the longer one that contains it.
+    let first_names = [
+      candidate("First Name (optional)", "textField", 200.0),
+      candidate("First Name", "textField", 200.0),
+    ];
+    let contains = locator(serde_json::json!({ "nameContains": "First Name" }));
+    assert_eq!(preferred_candidate(&contains, 2, &first_names), Some(1));
+    let any_case = locator(serde_json::json!({ "nameContains": "first  name" }));
+    assert_eq!(preferred_candidate(&any_case, 2, &first_names), Some(1));
+    // The exact form already chose: both carry it, nothing stands out.
+    let exact = locator(serde_json::json!({ "name": "First Name" }));
+    let twins = [
+      candidate("First Name", "textField", 200.0),
+      candidate("First Name", "textField", 200.0),
+    ];
+    assert_eq!(preferred_candidate(&exact, 2, &twins), None);
+    // The visible one over the one with no box.
+    let shown = [
+      candidate("Save", "button", 0.0),
+      candidate("Save", "button", 80.0),
+    ];
+    assert_eq!(preferred_candidate(&exact, 2, &shown), Some(1));
+    // The control over the label, and the label's text, that name it.
+    let labelled = [
+      candidate("Female", "labelText", 60.0),
+      candidate("Female", "staticText", 50.0),
+      candidate("Female", "radioButton", 16.0),
+    ];
+    assert_eq!(preferred_candidate(&exact, 3, &labelled), Some(2));
+    // A label and the text inside it: the text, innermost.
+    let mut text = candidate("Female", "staticText", 40.0);
+    text["bounds"]["x"] = serde_json::json!(10.0);
+    text["bounds"]["height"] = serde_json::json!(16.0);
+    let nested = [candidate("Female", "labelText", 60.0), text];
+    assert_eq!(preferred_candidate(&exact, 2, &nested), Some(1));
+    // A list the resolver cut short is not ranked: the best may be missing.
+    assert_eq!(preferred_candidate(&contains, 12, &first_names), None);
+    assert_eq!(preferred_candidate(&contains, 1, &first_names[..1]), None);
+
+    // The refusal lists what matched, up to the caller's limit.
+    let many: Vec<serde_json::Value> = (0..30)
+      .map(|i| candidate(&format!("Row {i}"), "row", 10.0))
+      .collect();
+    let refused = ambiguity(30, many, Some(5));
+    let detail = refused.detail();
+    assert_eq!(detail["matchCount"], 30);
+    assert_eq!(detail["candidates"].as_array().map(Vec::len), Some(5));
+    assert!(refused
+      .message()
+      .starts_with("Ambiguous locator: 30 nodes match"));
+    assert!(refused.message().contains("Row 4") && !refused.message().contains("Row 5\""));
+  }
+  #[test]
+  fn a_candidate_from_the_browsers_ambiguity_reply_becomes_a_match() {
+    // The browser's reply lists candidates without a box.
+    let candidate = serde_json::json!({
+      "backendNodeId": 4,
+      "role": "textField",
+      "name": "First Name",
+      "text": "",
+      "signature": "8eb94bf54df1ce79",
+      "attributes": [{ "name": "id", "value": "first-name" }],
+    });
+    let matched = ambiguity_candidate(&candidate).expect("a candidate without bounds still reads");
+    assert_eq!(matched.name, "First Name");
+    assert_eq!(matched.backend_node_id, Some(4));
+  }
+
+  #[tokio::test]
+  async fn a_native_ambiguity_with_one_exact_name_is_not_refused() {
+    use crate::wayfern_cdp::test_support::{fake_browser, Fake};
+
+    let request: AgentResolveRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "nameContains": "First Name" }
+    }))
+    .unwrap();
+    let (target, _) = fake_browser(Fake::AmbiguousByName).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let resolved = agent_resolve_locator(&ctx, &request).await.unwrap();
+    assert_eq!(resolved.matched.name, "First Name");
+    assert_eq!(resolved.matched.signature, "s8");
+    assert_eq!(resolved.engine, Engine::Wayfern);
+  }
+
+  #[tokio::test]
+  async fn a_native_ambiguity_with_no_boxes_is_ranked_by_the_page() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let request: AgentResolveRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "link", "name": "Save" }
+    }))
+    .unwrap();
+    let (target, frames) = fake_browser(Fake::AmbiguousForTheBrowser).await;
+    let ctx = agent_context_for("155.0.8059.79", target);
+    let resolved = agent_resolve_locator(&ctx, &request).await.unwrap();
+    assert_eq!(resolved.engine, Engine::Fallback);
+    assert_eq!(resolved.backend_node_id, Some(353));
+    let sent = methods(&frames);
+    let native = sent
+      .iter()
+      .position(|m| m == "Wayfern.resolveLocator")
+      .unwrap();
+    assert!(
+      sent[native..].iter().any(|m| m == "Runtime.evaluate"),
+      "{sent:?}"
+    );
   }
 
   #[tokio::test]
@@ -13511,6 +15739,270 @@ mod tests {
     assert!(matches!(refused, AgentError::InvalidArgument(_)));
   }
 
+  /// The `backendNodeId` every frame of `method` named.
+  fn node_ids_sent(frames: &crate::wayfern_cdp::test_support::Frames, method: &str) -> Vec<i64> {
+    frames
+      .lock()
+      .unwrap()
+      .iter()
+      .filter(|f| f["method"] == method)
+      .filter_map(|f| f["params"]["backendNodeId"].as_i64())
+      .collect()
+  }
+
+  #[tokio::test]
+  async fn a_renumbered_node_id_is_found_in_the_page_before_the_click() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    // Wayfern 152 to 155 answer the right match with the wrong node id. The
+    // click must land on the node the page finds, never on the one the id names.
+    let request: AgentClickRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "button", "name": "Save" }
+    }))
+    .unwrap();
+    // A sibling with the same markup and other text is not the match either.
+    let (target, frames) = fake_browser(Fake::RenumberedToSibling).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let clicked = agent_click_locator(&ctx, &request).await.unwrap();
+    assert_eq!(clicked.matched.backend_node_id, Some(353));
+    assert_eq!(node_ids_sent(&frames, "DOM.resolveNode"), vec![353]);
+
+    let (target, frames) = fake_browser(Fake::RenumberedNodeIds).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let clicked = agent_click_locator(&ctx, &request).await.unwrap();
+    assert_eq!(clicked.engine, Engine::Wayfern);
+    assert_eq!(clicked.matched.signature, "s7");
+    assert_eq!(clicked.matched.backend_node_id, Some(353));
+    assert_eq!(node_ids_sent(&frames, "DOM.resolveNode"), vec![353]);
+    {
+      let sent = frames.lock().unwrap();
+      let pin = sent
+        .iter()
+        .find(|f| f["method"] == "Runtime.evaluate")
+        .expect("the page is asked for the match");
+      assert_eq!(pin["params"]["returnByValue"], false);
+      let expression = pin["params"]["expression"].as_str().unwrap();
+      assert!(expression.contains("\"mode\":\"pin\""));
+      assert!(expression.contains("\"signature\":\"s7\""));
+    }
+    let sent = methods(&frames);
+    assert!(sent.iter().any(|m| m == "Runtime.releaseObjectGroup"));
+    assert!(sent.iter().any(|m| m == "Vellum.strike"));
+    assert!(!sent.iter().any(|m| m == "Input.dispatchMouseEvent"));
+
+    let resolve: AgentResolveRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "button", "name": "Save" }
+    }))
+    .unwrap();
+    let (target, _) = fake_browser(Fake::RenumberedNodeIds).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let resolved = agent_resolve_locator(&ctx, &resolve).await.unwrap();
+    let wire = serde_json::to_value(&resolved).unwrap();
+    assert_eq!(wire["backendNodeId"], 353);
+    assert_eq!(wire["match"]["backendNodeId"], 353);
+    assert_eq!(wire["engine"], "wayfern");
+  }
+
+  #[tokio::test]
+  async fn a_locator_the_browser_cannot_match_is_applied_in_the_page() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    // The browser's index never carries `id`, so this locator can only match
+    // in the page.
+    let resolve: AgentResolveRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "attributes": [{ "name": "id", "value": "save" }] }
+    }))
+    .unwrap();
+    let (target, frames) = fake_browser(Fake::NativeNoMatch).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let resolved = agent_resolve_locator(&ctx, &resolve).await.unwrap();
+    let wire = serde_json::to_value(&resolved).unwrap();
+    assert_eq!(wire["engine"], "fallback");
+    assert_eq!(wire["backendNodeId"], 353);
+    assert_eq!(wire["match"]["signature"], "s7");
+    assert_eq!(wire["locator"]["attributes"][0]["name"], "id");
+    let sent = methods(&frames);
+    assert_eq!(
+      sent.first().map(String::as_str),
+      Some("Wayfern.resolveLocator")
+    );
+    assert!(sent.iter().any(|m| m == "Runtime.getProperties"));
+
+    let click: AgentClickRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "attributes": [{ "name": "id", "value": "save" }] }
+    }))
+    .unwrap();
+    let (target, frames) = fake_browser(Fake::NativeNoMatch).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let clicked = agent_click_locator(&ctx, &click).await.unwrap();
+    assert_eq!(clicked.engine, Engine::Wayfern);
+    assert_eq!(node_ids_sent(&frames, "DOM.resolveNode"), vec![353]);
+
+    // Nothing in the page either: the refusal is the usual one.
+    let nowhere: AgentResolveRequest = serde_json::from_value(serde_json::json!({
+      "locator": { "role": "button", "name": "Nowhere" }
+    }))
+    .unwrap();
+    let (target, frames) = fake_browser(Fake::NativeNoMatch).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let refused = agent_resolve_locator(&ctx, &nowhere)
+      .await
+      .expect_err("nothing matches");
+    let error = refused.into_mcp();
+    assert_eq!(error.data.as_ref().unwrap()["code"], "LOCATOR_NO_MATCH");
+    assert!(error.message.contains("name=Nowhere"), "{}", error.message);
+    assert!(!methods(&frames).iter().any(|m| m == "DOM.describeNode"));
+  }
+
+  #[tokio::test]
+  async fn a_capture_that_used_its_budget_is_answered_from_the_page() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let (target, frames) = fake_browser(Fake::SlowPerception).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let page = agent_perceive(&ctx, &PerceptionRequest::default())
+      .await
+      .unwrap();
+    assert_eq!(page.engine, Engine::Fallback);
+    assert_eq!(page.text, "Save");
+    assert_eq!(
+      methods(&frames),
+      vec!["Wayfern.capturePagePerception", "Runtime.evaluate"]
+    );
+
+    // A larger budget covers the same capture.
+    let generous: PerceptionRequest =
+      serde_json::from_value(serde_json::json!({ "budget_ms": 10_000 })).unwrap();
+    let (target, _) = fake_browser(Fake::SlowPerception).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let page = agent_perceive(&ctx, &generous).await.unwrap();
+    assert_eq!(page.engine, Engine::Wayfern);
+
+    // A continuation belongs to the browser's snapshot; the page has no cursor.
+    let continuation: PerceptionRequest =
+      serde_json::from_value(serde_json::json!({ "cursor": "snap-1.2" })).unwrap();
+    let (target, frames) = fake_browser(Fake::SlowPerception).await;
+    let ctx = agent_context_for("154.0.8037.57", target);
+    let page = agent_perceive(&ctx, &continuation).await.unwrap();
+    assert_eq!(page.engine, Engine::Wayfern);
+    assert_eq!(methods(&frames), vec!["Wayfern.capturePagePerception"]);
+  }
+
+  /// The `params` of every recorded call to `method`.
+  fn sent_params(
+    frames: &crate::wayfern_cdp::test_support::Frames,
+    method: &str,
+  ) -> Vec<serde_json::Value> {
+    frames
+      .lock()
+      .unwrap()
+      .iter()
+      .filter(|f| f["method"] == method)
+      .map(|f| f["params"].clone())
+      .collect()
+  }
+
+  #[tokio::test]
+  async fn a_capture_the_browser_cut_short_is_answered_from_the_page() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let (target, frames) = fake_browser(Fake::CutPerception).await;
+    let ctx = agent_context_for("155.0.8059.79", target);
+    let page = agent_perceive(&ctx, &PerceptionRequest::default())
+      .await
+      .unwrap();
+    assert_eq!(page.engine, Engine::Fallback);
+    assert_eq!(
+      methods(&frames),
+      vec!["Wayfern.capturePagePerception", "Runtime.evaluate"]
+    );
+
+    // The caller's own ceiling cut it: the browser's answer stands, and says so.
+    let capped: PerceptionRequest =
+      serde_json::from_value(serde_json::json!({ "max_nodes": 50 })).unwrap();
+    let (target, frames) = fake_browser(Fake::CutPerception).await;
+    let ctx = agent_context_for("155.0.8059.79", target);
+    let page = agent_perceive(&ctx, &capped).await.unwrap();
+    assert_eq!(page.engine, Engine::Wayfern);
+    assert_eq!(page.stats.frames_truncated, 1);
+    assert_eq!(
+      sent_params(&frames, "Wayfern.capturePagePerception")[0]["maxNodes"],
+      50
+    );
+    let wire = serde_json::to_value(&page).unwrap();
+    assert_eq!(wire["stats"]["framesTruncated"], 1);
+  }
+
+  #[tokio::test]
+  async fn a_viewport_capture_bounds_the_nodes_it_returns() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    // The browser counts its ceiling in document order, before the viewport
+    // filter, so it is never given one: after a scroll it kept only the header.
+    let roomy: PerceptionRequest =
+      serde_json::from_value(serde_json::json!({ "viewport_only": true, "max_nodes": 3 })).unwrap();
+    let (target, frames) = fake_browser(Fake::CrowdedPerception).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    let page = agent_perceive(&ctx, &roomy).await.unwrap();
+    assert_eq!(page.engine, Engine::Wayfern);
+    assert_eq!(page.nodes.len(), 3);
+    let sent = sent_params(&frames, "Wayfern.capturePagePerception");
+    assert_eq!(sent[0]["viewportOnly"], true);
+    assert!(sent[0].get("maxNodes").is_none(), "{}", sent[0]);
+
+    // More nodes than the bound: the page answers, cut at the bound.
+    let tight: PerceptionRequest =
+      serde_json::from_value(serde_json::json!({ "viewport_only": true, "max_nodes": 2 })).unwrap();
+    let (target, frames) = fake_browser(Fake::CrowdedPerception).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    let page = agent_perceive(&ctx, &tight).await.unwrap();
+    assert_eq!(page.engine, Engine::Fallback);
+    assert_eq!(
+      methods(&frames),
+      vec!["Wayfern.capturePagePerception", "Runtime.evaluate"]
+    );
+    let script = sent_params(&frames, "Runtime.evaluate")[0]["expression"]
+      .as_str()
+      .unwrap()
+      .to_string();
+    assert!(script.contains("\"maxNodes\":2"), "{script}");
+    assert!(script.contains("\"viewportOnly\":true"), "{script}");
+  }
+
+  #[test]
+  fn the_fallback_script_reads_text_through_shadow_roots_and_slots() {
+    let script = fallback_script(&serde_json::json!({ "mode": "perceive" }));
+    assert!(!script.contains("__FLAT_TEXT__"));
+    assert!(script.contains("assignedNodes()"));
+    // Bounds are the browser's: viewport coordinates, with no scroll added.
+    assert!(!script.contains("scrollY"), "{script}");
+    let page_text = rendered_text_js("document.body");
+    assert!(page_text.contains("assignedNodes()"));
+    assert!(page_text.ends_with("(document.body)"), "{page_text}");
+  }
+
+  #[test]
+  fn attribute_bags_compare_what_the_index_and_the_dom_both_carry() {
+    let index = attribute_bag([("href", "/a"), ("data-ved", "x")].into_iter());
+    let dom = attribute_bag(
+      [
+        ("ID", "link"),
+        ("data-ved", "x"),
+        ("class", "c"),
+        ("style", "color: red"),
+        ("HREF", "/a"),
+        ("value", "secret"),
+      ]
+      .into_iter(),
+    );
+    assert_eq!(index, dom);
+    assert_ne!(
+      index,
+      attribute_bag([("href", "/b"), ("data-ved", "x")].into_iter())
+    );
+    assert!(attribute_bag([("id", "x"), ("class", "y")].into_iter()).is_empty());
+  }
+
   #[test]
   fn the_picker_waits_less_over_mcp_than_the_relay_does() {
     assert_eq!(MAX_PICK_TIMEOUT_MS, 300_000);
@@ -13549,11 +16041,10 @@ mod tests {
 
   #[test]
   fn the_typing_tools_plan_only_for_the_engine_that_needs_a_plan() {
-    // The selector and index typing tools keep their whole pre-152 body, and
-    // the source-scanning test above pins its order. What is pinned here is
-    // that the 152 branch is decided from the PROFILE'S version, read at the
-    // point of use, and that the Vellum budget is decided in the same place as
-    // the plan, before the focus script.
+    // The source-scanning test above pins the order of the selector and index
+    // typing tools. What is pinned here is that the 152 branch is decided from
+    // the PROFILE'S version, read at the point of use, and that the Vellum
+    // budget is decided in the same place as the plan, before the page.
     let production = include_str!("mcp_server.rs")
       .split_once("\n#[cfg(test)]")
       .map_or("", |(code, _)| code);
@@ -13573,18 +16064,16 @@ mod tests {
         body.matches("MAX_BRIDGE_TYPING_SECONDS").count() >= 2,
         "{handler} must budget both engines on the MCP budget"
       );
-      let focus = body.find("let focus_js").unwrap();
+      let page = body.find("type_element(").unwrap();
       assert!(
-        engine < budget && budget < focus,
+        engine < budget && budget < page,
         "{handler}: engine, budget, then the page"
       );
+      // Vellum when budgeted, the plan when made, otherwise the instant path,
+      // which every engine keeps.
       assert!(
-        body.contains("vellum_type("),
-        "{handler} must type through Vellum on a 152 profile"
-      );
-      assert!(
-        body.contains("Input.insertText"),
-        "{handler} must keep the instant path for every engine"
+        body.contains("TypingMethod::chosen(inscribe_timeout, plan.as_deref(), typos)"),
+        "{handler} must type through the method its budgets chose"
       );
     }
     for handler in ["handle_click_element", "handle_click_by_index"] {
@@ -13622,6 +16111,11 @@ mod tests {
       "type_locator",
       "extract_structured",
       "pick_element",
+      "select_option",
+      "file_upload",
+      "start_network_capture",
+      "list_network_requests",
+      "get_network_request",
     ] {
       assert!(
         advertised.iter().any(|t| t == tool),
@@ -13920,5 +16414,185 @@ mod tests {
     assert_eq!(item.text, "navigate hangs");
     let feedback = item.feedback.as_ref().unwrap();
     assert_eq!((feedback.kind.as_str(), feedback.logs), ("bug", true));
+  }
+
+  #[test]
+  fn upload_files_are_read_and_checked_before_the_page_is_touched() {
+    let files = upload_files(&serde_json::json!({
+      "files": [
+        { "name": "notes.txt", "text": "héllo" },
+        { "name": "../pic.png", "content_base64": "data:image/png;base64,AAEC\nAw==" },
+        { "name": "raw.bin", "content_base64": "_-8" },
+      ]
+    }))
+    .unwrap();
+    assert_eq!(files[0].name, "notes.txt");
+    assert_eq!(files[0].bytes, "héllo".as_bytes());
+    assert_eq!(files[1].name, "pic.png");
+    assert_eq!(files[1].bytes, vec![0, 1, 2, 3]);
+    assert_eq!(files[2].bytes, vec![0xff, 0xef]);
+
+    let refused =
+      |arguments: serde_json::Value| upload_files(&arguments).unwrap_err().into_mcp().message;
+    assert!(refused(serde_json::json!({})).contains("at least one file"));
+    assert!(refused(serde_json::json!({ "files": [] })).contains("at least one file"));
+    assert!(
+      refused(serde_json::json!({ "files": [{ "name": "a.txt" }] })).contains("exactly one of")
+    );
+    assert!(refused(
+      serde_json::json!({ "files": [{ "name": "a.txt", "text": "x", "content_base64": "eA==" }] })
+    )
+    .contains("exactly one of"));
+    assert!(
+      refused(serde_json::json!({ "files": [{ "name": "..", "text": "x" }] }))
+        .contains("not a usable file name")
+    );
+    assert!(refused(serde_json::json!({
+      "files": [{ "name": "a.txt", "text": "x" }, { "name": "A.TXT", "text": "y" }]
+    }))
+    .contains("Two files are named"));
+    assert!(refused(
+      serde_json::json!({ "files": [{ "name": "a.bin", "content_base64": "%%%" }] })
+    )
+    .contains("not base64"));
+    let many: Vec<serde_json::Value> = (0..=crate::agent_uploads::MAX_UPLOAD_FILES)
+      .map(|n| serde_json::json!({ "name": format!("{n}.txt"), "text": "x" }))
+      .collect();
+    assert!(refused(serde_json::json!({ "files": many })).contains("At most"));
+    let large = "x".repeat(crate::agent_uploads::MAX_UPLOAD_BYTES + 1);
+    assert!(
+      refused(serde_json::json!({ "files": [{ "name": "big.txt", "text": large }] }))
+        .contains("KB")
+    );
+  }
+
+  #[test]
+  fn a_select_refusal_tells_the_agent_what_to_do() {
+    let message = |answer: serde_json::Value| select_refusal(&answer).unwrap().into_mcp().message;
+    assert!(
+      message(serde_json::json!({ "error": "not_select", "tag": "div" }))
+        .contains("<div>, not a <select>")
+    );
+    let missing = message(serde_json::json!({
+      "error": "no_option",
+      "missing": ["Mars"],
+      "count": 2,
+      "options": [{ "value": "de", "label": "Germany", "disabled": false }],
+    }));
+    assert!(
+      missing.contains("Mars") && missing.contains("Germany"),
+      "{missing}"
+    );
+    assert!(message(serde_json::json!({ "error": "single" })).contains("takes one option"));
+    assert!(select_refusal(&serde_json::json!({ "selected": [], "changed": false })).is_none());
+  }
+
+  #[test]
+  fn a_form_tool_names_its_element_four_ways_and_reads_no_path() {
+    let server = McpServer::new();
+    for name in ["select_option", "file_upload"] {
+      let tool = server
+        .get_tools()
+        .into_iter()
+        .find(|tool| tool.name == name)
+        .unwrap();
+      let properties = tool.input_schema["properties"].as_object().unwrap();
+      for key in ["profile_id", "selector", "locator", "index", "element_id"] {
+        assert!(properties.contains_key(key), "{name} lacks {key}");
+      }
+      assert_eq!(tool.input_schema["required"][0], "profile_id");
+      assert!(!LOCAL_PATH_TOOLS.contains(&name));
+    }
+  }
+
+  #[tokio::test]
+  async fn a_form_tool_refuses_two_ways_of_naming_its_element() {
+    let server = McpServer::new();
+    let caller = McpCaller {
+      session: Some("s"),
+      toolsets: None,
+    };
+    for arguments in [
+      serde_json::json!({}),
+      serde_json::json!({ "selector": "#a", "index": 1 }),
+      serde_json::json!({ "locator": { "role": "button" }, "selector": "#a" }),
+    ] {
+      let error = server
+        .form_element_ref(caller, "p", &arguments)
+        .await
+        .err()
+        .unwrap();
+      assert!(error.message.contains("one way"), "{arguments}");
+    }
+    let named = server
+      .form_element_ref(
+        caller,
+        "p",
+        &serde_json::json!({ "selector": "select#country" }),
+      )
+      .await
+      .unwrap();
+    assert!(matches!(named, ElementRef::Selector(selector) if selector == "select#country"));
+    let located = server
+      .form_element_ref(
+        caller,
+        "p",
+        &serde_json::json!({ "locator": { "role": "textbox", "name": "Email" } }),
+      )
+      .await
+      .unwrap();
+    assert!(
+      matches!(located, ElementRef::Locator(locator) if locator.role.as_deref() == Some("textField"))
+    );
+  }
+
+  #[test]
+  fn network_reads_without_a_capture_say_how_to_start_one() {
+    let profile = serde_json::json!({ "profile_id": "no-capture-profile" });
+    let error = McpServer::handle_list_network_requests(&profile).unwrap_err();
+    assert_eq!(error.data.unwrap()["code"], "NETWORK_CAPTURE_NOT_RUNNING");
+    let error = McpServer::handle_get_network_request(&serde_json::json!({
+      "profile_id": "no-capture-profile",
+      "request_id": 1,
+    }))
+    .unwrap_err();
+    assert!(error.message.contains("start_network_capture"));
+    let error = McpServer::handle_list_network_requests(&serde_json::json!({
+      "profile_id": "no-capture-profile",
+      "limit": 0,
+    }))
+    .unwrap_err();
+    assert_eq!(error.code, -32602);
+    let stopped = McpServer::handle_stop_network_capture(&profile).unwrap();
+    assert_eq!(stopped["structuredContent"]["stopped"], false);
+  }
+
+  #[test]
+  fn a_create_setting_that_failed_is_reported_as_not_applied() {
+    let clean = created_profile_result("Shop", "p-1", &[]);
+    assert_eq!(
+      clean["content"][0]["text"],
+      "Profile 'Shop' created (id: p-1)"
+    );
+    assert_eq!(
+      clean["structuredContent"]["not_applied"],
+      serde_json::json!([])
+    );
+
+    let failed = created_profile_result(
+      "Shop",
+      "p-1",
+      &[
+        ("status_id", "PROFILE_STATUS_NOT_FOUND".to_string()),
+        ("tags", "disk full".to_string()),
+      ],
+    );
+    let text = failed["content"][0]["text"].as_str().unwrap();
+    assert!(text.starts_with("Profile 'Shop' created (id: p-1)"));
+    assert!(text.contains("Not applied: status_id (PROFILE_STATUS_NOT_FOUND); tags (disk full)"));
+    assert_eq!(
+      failed["structuredContent"]["not_applied"],
+      serde_json::json!(["status_id", "tags"])
+    );
   }
 }

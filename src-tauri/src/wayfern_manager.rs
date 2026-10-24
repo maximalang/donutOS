@@ -400,7 +400,7 @@ pub fn supports_identity_api(version: &str) -> bool {
 
 /// First Wayfern version that ships the 152 launch contract: the identity file
 /// (`--wayfern-identity-file`), the `--wayfern-token` switch, WebRTC mode and
-/// exit IP, persona/icon/camera/Widevine/entitlement-cache switches, the
+/// exit IP, persona/icon/camera/entitlement-cache switches, the
 /// `Vellum` input domain and the perception/locator/extraction commands.
 /// Everything gated on it keeps its pre-152 path on any older browser.
 const WAYFERN_152_MIN_VERSION: &str = "152";
@@ -412,9 +412,25 @@ pub fn supports_wayfern_152(version: &str) -> bool {
   crate::api_client::compare_versions(version, WAYFERN_152_MIN_VERSION) != std::cmp::Ordering::Less
 }
 
+/// First Wayfern version that reads the stored config from the launch document
+/// and writes the config to store back to a result file. Older browsers keep
+/// the launcher-side path in `wayfern_identity_storage`.
+const LAUNCH_RESULT_MIN_VERSION: &str = "155";
+
+/// Whether `version` takes the stored config in the launch document and
+/// reports the config to store. Same rule as [`supports_wayfern_152`].
+pub fn supports_launch_result(version: &str) -> bool {
+  crate::api_client::compare_versions(version, LAUNCH_RESULT_MIN_VERSION)
+    != std::cmp::Ordering::Less
+}
+
 /// Where the launch-time identity document lives inside the profile directory.
 /// Rewritten before every launch; the sync manifest excludes it.
 pub const LAUNCH_IDENTITY_FILE: &str = "wayfern-identity.json";
+
+/// Where the browser writes the config to store after a launch. Deleted before
+/// every launch, so a file that exists afterwards came from that launch.
+pub const LAUNCH_RESULT_FILE: &str = "wayfern-identity-result.json";
 
 /// What kind of launch this is, from the browser's point of view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -744,6 +760,22 @@ pub fn wayfern_failure(detail: &str, fallback_code: &str, claimed_os: Option<&st
     .unwrap_or_else(|| crate::backend_error_with_detail(fallback_code, cdp_error_message(detail)))
 }
 
+/// The last lines a browser printed before it quit, redacted, for one log
+/// line.
+fn last_said(lines: &[String]) -> String {
+  let start = lines.len().saturating_sub(2);
+  lines[start..]
+    .iter()
+    .map(|line| {
+      crate::log_redaction::text(line)
+        .chars()
+        .take(300)
+        .collect::<String>()
+    })
+    .collect::<Vec<_>>()
+    .join(" | ")
+}
+
 fn early_exit_error(said: &str, status: &std::process::ExitStatus) -> String {
   known_wayfern_failure(said, None).unwrap_or_else(|| {
     crate::backend_error_with_detail("WAYFERN_BROWSER_EXITED", status.to_string())
@@ -757,6 +789,7 @@ pub fn is_temporary_wayfern_failure(coded: &str) -> bool {
     "WAYFERN_GENERATION_UNAVAILABLE",
     "WAYFERN_BROWSER_BUSY",
     "WAYFERN_GENERATION_LIMIT_REACHED",
+    "TOO_MANY_BROWSERS_RUNNING",
   ]
   .iter()
   .any(|code| coded.contains(&format!("\"{code}\"")))
@@ -797,10 +830,60 @@ pub fn persona_switch(
   Some(format!("--wayfern-profile-persona={}", path.display()))
 }
 
+/// The folder in the profile directory that holds a copy of the camera source,
+/// so the source travels with the profile to every machine.
+const CARRIED_CAMERA_DIR: &str = "Camera Source";
+
+/// The last component of a path written on any OS.
+fn path_file_name(path: &str) -> Option<&str> {
+  path
+    .rsplit(['/', '\\'])
+    .next()
+    .filter(|name| !name.is_empty() && *name != "." && *name != "..")
+}
+
+/// The camera source for a launch. The configured file is an absolute path on
+/// the machine where it was chosen. When it is here, a copy goes into the
+/// profile directory; when it is not, the copy that came with the profile is
+/// used.
+fn camera_source(profile_path: &Path, file: &str) -> String {
+  let Some(name) = path_file_name(file) else {
+    return file.to_string();
+  };
+  let carried_dir = profile_path.join(CARRIED_CAMERA_DIR);
+  let carried = carried_dir.join(name);
+  let source = Path::new(file);
+  if source.is_file() {
+    let current = match (std::fs::metadata(source), std::fs::metadata(&carried)) {
+      (Ok(source), Ok(copy)) => {
+        source.len() == copy.len()
+          && matches!(
+            (source.modified(), copy.modified()),
+            (Ok(source), Ok(copy)) if copy >= source
+          )
+      }
+      _ => false,
+    };
+    if !current {
+      let _ = std::fs::remove_dir_all(&carried_dir);
+      let copied =
+        std::fs::create_dir_all(&carried_dir).and_then(|_| std::fs::copy(source, &carried));
+      if let Err(e) = copied {
+        log::warn!("Camera source not copied into the profile file={file} err=\"{e}\"");
+      }
+    }
+    return file.to_string();
+  }
+  if carried.is_file() {
+    return carried.to_string_lossy().to_string();
+  }
+  file.to_string()
+}
+
 /// The camera switches for a launch. A file that is not there is still passed,
 /// so the camera serves dark frames rather than the computer's own camera; the
 /// log line here names the file.
-pub fn camera_switches(version: &str, config: &WayfernConfig) -> Vec<String> {
+pub fn camera_switches(version: &str, profile_path: &Path, config: &WayfernConfig) -> Vec<String> {
   if !supports_wayfern_152(version) {
     return Vec::new();
   }
@@ -812,7 +895,8 @@ pub fn camera_switches(version: &str, config: &WayfernConfig) -> Vec<String> {
   else {
     return Vec::new();
   };
-  if !Path::new(file).is_file() {
+  let file = camera_source(profile_path, file);
+  if !Path::new(&file).is_file() {
     log::warn!("Camera source missing, camera serves dark frames file={file}");
   }
   let mut switches = vec![format!("--wayfern-camera-file={file}")];
@@ -845,54 +929,6 @@ fn valid_camera_crop(crop: &str) -> bool {
     return false;
   };
   values[2] > 0 && values[3] > 0
-}
-
-/// The platform directory a component-updater CDM install uses, and the
-/// library name inside it. `None` on a platform Widevine does not ship for.
-fn widevine_platform() -> Option<(&'static str, &'static str)> {
-  let arch = match std::env::consts::ARCH {
-    "x86_64" => "x64",
-    "aarch64" => "arm64",
-    _ => return None,
-  };
-  let (os, library) = match std::env::consts::OS {
-    "macos" => ("mac", "libwidevinecdm.dylib"),
-    "windows" => ("win", "widevinecdm.dll"),
-    "linux" => ("linux", "libwidevinecdm.so"),
-    _ => return None,
-  };
-  Some((Box::leak(format!("{os}_{arch}").into_boxed_str()), library))
-}
-
-/// The Widevine switch for a launch, when a CDM has been provisioned into
-/// `<data>/WidevineCdm` in the component-updater layout.
-///
-/// Donut does not download the CDM: its distribution is a licensing decision.
-/// What this does is use one that is present, and say so when one is present
-/// but unusable — the browser registers nothing from a broken directory, and a
-/// silent fallback to the bundled path would hide that.
-pub fn widevine_switch(version: &str, data_root: &Path) -> Option<String> {
-  if !supports_wayfern_152(version) {
-    return None;
-  }
-  let dir = data_root.join("WidevineCdm");
-  if !dir.join("manifest.json").is_file() {
-    return None;
-  }
-  match widevine_platform() {
-    Some((platform, library)) => {
-      let payload = dir.join("_platform_specific").join(platform).join(library);
-      if !payload.is_file() {
-        log::warn!(
-          "Widevine library missing, browser registers no CDM dir={} missing={}",
-          dir.display(),
-          payload.display()
-        );
-      }
-    }
-    None => log::warn!("Widevine does not ship for this platform, CDM dir passed as provisioned"),
-  }
-  Some(format!("--wayfern-widevine-cdm-dir={}", dir.display()))
 }
 
 /// The last lines the browser wrote about Wayfern itself.
@@ -933,11 +969,14 @@ impl BrowserLogTap {
     })
   }
 
+  /// Whether the browser ran without the profile's stored edits because the
+  /// plan could not be checked. A plan that does not include them is a settled
+  /// answer and the launch goes on without them.
   pub fn dropped_overrides(&self) -> bool {
-    self
-      .lines()
-      .iter()
-      .any(|line| line.contains("Wayfern launch identity: dropping"))
+    self.lines().iter().any(|line| {
+      line.contains("Wayfern launch identity: dropping")
+        && (line.contains("temporarily unavailable") || line.contains("not known yet"))
+    })
   }
 
   /// Whether the browser reported the launch identity as applied.
@@ -961,7 +1000,13 @@ fn tap_browser_stderr(stderr: tokio::process::ChildStderr, tap: BrowserLogTap, o
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut lines = BufReader::new(stderr).lines();
     while let Ok(Some(line)) = lines.next_line().await {
-      if line.contains("Wayfern") || line.contains("wayfern_") {
+      // Chromium's own errors are kept too: a browser that quits before its
+      // control port opens says why only there.
+      if line.contains("Wayfern")
+        || line.contains("wayfern_")
+        || line.contains(":ERROR:")
+        || line.contains(":FATAL:")
+      {
         // What the browser did with the identity explains a profile that
         // launched without one; the rest is detail.
         let level = if line.contains("Wayfern launch identity") {
@@ -992,6 +1037,31 @@ fn profile_id_in_path(path: &str) -> String {
     .to_string()
 }
 
+/// How long a headless profile left behind by a crash is kept.
+const STALE_HEADLESS_PROFILE: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Where a headless browser keeps its throwaway profile: Donut's own cache,
+/// not the system temp folder. Wayfern refuses to generate when that profile
+/// is on a volume it cannot resolve, such as a RAM disk the temp folder was
+/// moved to.
+fn headless_profiles_root() -> PathBuf {
+  let root = crate::app_dirs::cache_dir().join("headless");
+  if let Ok(entries) = std::fs::read_dir(&root) {
+    for entry in entries.flatten() {
+      let stale = entry
+        .metadata()
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.elapsed().ok())
+        .is_some_and(|age| age > STALE_HEADLESS_PROFILE);
+      if stale {
+        let _ = std::fs::remove_dir_all(entry.path());
+      }
+    }
+  }
+  root
+}
+
 pub(crate) struct HeadlessWayfern {
   child: tokio::process::Child,
   user_data_dir: PathBuf,
@@ -1007,6 +1077,10 @@ impl HeadlessWayfern {
     token: Option<&str>,
     label: &str,
   ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    if crate::profile_generation_limiter::headless_browser_refused().await {
+      log::debug!("Headless browser not started, no browser seat left {label}");
+      return Err(crate::backend_error("TOO_MANY_BROWSERS_RUNNING").into());
+    }
     let started = std::time::Instant::now();
     let executable_path = BrowserRunner::instance()
       .get_browser_executable_path(profile)
@@ -1014,8 +1088,7 @@ impl HeadlessWayfern {
 
     let port = WayfernManager::find_free_port().await?;
 
-    let user_data_dir =
-      std::env::temp_dir().join(format!("wayfern_fingerprint_{}", uuid::Uuid::new_v4()));
+    let user_data_dir = headless_profiles_root().join(uuid::Uuid::new_v4().to_string());
     std::fs::create_dir_all(&user_data_dir)?;
 
     let mut cmd = TokioCommand::new(&executable_path);
@@ -1327,7 +1400,16 @@ pub struct WayfernLaunchResult {
   pub profilePath: Option<String>,
   pub url: Option<String>,
   pub cdp_port: Option<u16>,
+  /// The profile as stored after this launch, when the browser returned a
+  /// config to store. The caller persists this copy instead of its own.
+  #[serde(skip)]
+  pub stored_profile: Option<BrowserProfile>,
 }
+
+/// How long a started browser has to open its DevTools port.
+const CDP_READY_LIMIT: Duration = Duration::from_secs(90);
+/// How long one DevTools command may take to answer.
+const CDP_COMMAND_LIMIT: Duration = Duration::from_secs(60);
 
 struct WayfernInstance {
   process_id: Option<u32>,
@@ -1882,6 +1964,68 @@ impl WayfernManager {
     Ok(path)
   }
 
+  /// Delete the result file a previous launch left and return the absolute
+  /// path the browser writes this launch's result to. `None` when the old file
+  /// cannot be removed, so it can never be read as this launch's result.
+  fn clear_launch_result(profile_path: &str, profile: &BrowserProfile) -> Option<PathBuf> {
+    let dir = PathBuf::from(profile_path);
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+      log::warn!(
+        "Profile directory not created for the launch result profile={} err=\"{e}\"",
+        profile.id
+      );
+      return None;
+    }
+    let path = dir.canonicalize().unwrap_or(dir).join(LAUNCH_RESULT_FILE);
+    match std::fs::remove_file(&path) {
+      Ok(()) => Some(path),
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(path),
+      Err(e) => {
+        log::warn!(
+          "Old launch result not removed profile={} err=\"{e}\"",
+          profile.id
+        );
+        None
+      }
+    }
+  }
+
+  /// A cross-OS refusal the browser made before its first window names the
+  /// claim in the launch result, so the message can say which OS it was.
+  fn with_refused_claim(
+    error: Box<dyn std::error::Error + Send + Sync>,
+    result: Option<&crate::wayfern_identity_storage::LaunchResult>,
+  ) -> Box<dyn std::error::Error + Send + Sync> {
+    if !error
+      .to_string()
+      .contains("\"WAYFERN_CROSS_OS_REQUIRES_PLAN\"")
+    {
+      return error;
+    }
+    match result.and_then(|result| result.operating_system.as_deref()) {
+      Some(os) => crate::backend_error_with_detail("WAYFERN_CROSS_OS_REQUIRES_PLAN", os).into(),
+      None => error,
+    }
+  }
+
+  /// Read this launch's result and store the config it returns.
+  fn store_launch_result(
+    profile: &BrowserProfile,
+    sent: &WayfernConfig,
+    result_file: Option<&Path>,
+  ) -> (
+    Option<crate::wayfern_identity_storage::LaunchResult>,
+    Option<BrowserProfile>,
+  ) {
+    let Some(result) = result_file
+      .and_then(|path| crate::wayfern_identity_storage::read_launch_result(path, &profile.id))
+    else {
+      return (None, None);
+    };
+    let stored = crate::wayfern_identity_storage::store_launch_result(profile, sent, &result);
+    (Some(result), stored)
+  }
+
   /// Whether the browser started on the identity the launcher handed it.
   ///
   /// The browser's own stderr verdict is authoritative when present: a
@@ -1937,18 +2081,36 @@ impl WayfernManager {
     child: &mut tokio::process::Child,
     log: &BrowserLogTap,
   ) -> Result<Vec<CdpTarget>, Box<dyn std::error::Error + Send + Sync>> {
+    self
+      .wait_for_cdp_ready_within(port, child, log, CDP_READY_LIMIT)
+      .await
+  }
+
+  async fn wait_for_cdp_ready_within(
+    &self,
+    port: u16,
+    child: &mut tokio::process::Child,
+    log: &BrowserLogTap,
+    limit: Duration,
+  ) -> Result<Vec<CdpTarget>, Box<dyn std::error::Error + Send + Sync>> {
     let url = format!("http://127.0.0.1:{port}/json/version");
-    let max_attempts = 120;
     let delay = Duration::from_millis(500);
+    // A refused connection can take seconds on Windows, so the wait is bounded
+    // by time, not by a count of tries.
+    let deadline = std::time::Instant::now() + limit;
 
     let pid = child.id().unwrap_or_default();
     let mut last_error: Option<String> = None;
-    for attempt in 0..max_attempts {
+    let mut attempt = 0u32;
+    while std::time::Instant::now() < deadline {
+      attempt += 1;
       if let Ok(Some(status)) = child.try_wait() {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        let said = log.lines().join("\n");
+        let lines = log.lines();
+        let said = lines.join("\n");
         log::warn!(
-          "Browser exited before CDP was ready pid={pid} cdp_port={port} status=\"{status}\""
+          "Browser exited before CDP was ready pid={pid} cdp_port={port} status=\"{status}\" said=\"{}\"",
+          crate::log_redaction::Plain(&last_said(&lines))
         );
         return Err(early_exit_error(&said, &status).into());
       }
@@ -1971,7 +2133,20 @@ impl WayfernManager {
     }
 
     let detail = last_error.unwrap_or_else(|| "no attempts completed".to_string());
-    Err(format!("CDP not ready after {max_attempts} attempts on port {port}: {detail}").into())
+    log::warn!(
+      "Browser did not answer CDP pid={pid} cdp_port={port} attempts={attempt} err=\"{detail}\""
+    );
+    Err(
+      serde_json::json!({
+        "code": "WAYFERN_NOT_RESPONDING",
+        "params": {
+          "seconds": limit.as_secs().to_string(),
+          "detail": format!("CDP not ready on port {port}: {detail}"),
+        }
+      })
+      .to_string()
+      .into(),
+    )
   }
 
   // The control port can open before the first tab. Both launch paths must
@@ -2037,6 +2212,24 @@ impl WayfernManager {
   }
 
   pub(crate) async fn send_cdp_command(
+    &self,
+    ws_url: &str,
+    method: &str,
+    params: serde_json::Value,
+  ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    match tokio::time::timeout(CDP_COMMAND_LIMIT, self.cdp_exchange(ws_url, method, params)).await {
+      Ok(result) => result,
+      Err(_) => Err(
+        format!(
+          "CDP command {method} got no answer in {} s",
+          CDP_COMMAND_LIMIT.as_secs()
+        )
+        .into(),
+      ),
+    }
+  }
+
+  async fn cdp_exchange(
     &self,
     ws_url: &str,
     method: &str,
@@ -2438,6 +2631,27 @@ impl WayfernManager {
     }
   }
 
+  /// Ask the engine for a device: the identity API returns it from one call,
+  /// the legacy pair mints it with refresh and reads it back with get.
+  async fn generate_device(
+    &self,
+    ws_url: &str,
+    use_identity_api: bool,
+    params: serde_json::Value,
+  ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    if use_identity_api {
+      return self
+        .send_cdp_command(ws_url, "Wayfern.createIdentity", params)
+        .await;
+    }
+    self
+      .send_cdp_command(ws_url, "Wayfern.refreshFingerprint", params)
+      .await?;
+    self
+      .send_cdp_command(ws_url, "Wayfern.getFingerprint", json!({}))
+      .await
+  }
+
   /// Generate a device for `config` on a headless Wayfern.
   ///
   /// On a browser that ships the identity API this mints an identity and
@@ -2487,25 +2701,29 @@ impl WayfernManager {
     // No geolocation override is passed here. Donut resolves the exit's
     // location itself, below, through the profile's own proxy, because the
     // browser cannot resolve it through an authenticated upstream.
-    let generate_result = if use_identity_api {
-      self
-        .send_cdp_command(&ws_url, "Wayfern.createIdentity", generate_params)
-        .await
-    } else {
-      match self
-        .send_cdp_command(&ws_url, "Wayfern.refreshFingerprint", generate_params)
+    let mut generate_result = self
+      .generate_device(&ws_url, use_identity_api, generate_params.clone())
+      .await;
+    // The server drops a token on a plan change and after a day, and the engine
+    // then reads a paid account as one without a plan. One new token, one try.
+    let refused_for_plan = generate_result.as_ref().is_err_and(|e| {
+      wayfern_failure(&e.to_string(), "", Some(os)).contains("\"WAYFERN_CROSS_OS_REQUIRES_PLAN\"")
+    });
+    if refused_for_plan {
+      if let Some(fresh) = crate::cloud_auth::CLOUD_AUTH
+        .wayfern_token_after_refusal(wayfern_token.as_deref())
         .await
       {
-        // The legacy pair is two commands: refresh mints the device, get reads
-        // it back. Only the identity API returns the device from one call.
-        Ok(_) => {
-          self
-            .send_cdp_command(&ws_url, "Wayfern.getFingerprint", json!({}))
-            .await
-        }
-        Err(e) => Err(e),
+        log::info!(
+          "Fingerprint generation retried with a new Wayfern token profile={}",
+          profile.id
+        );
+        generate_params["wayfernToken"] = json!(fresh);
+        generate_result = self
+          .generate_device(&ws_url, use_identity_api, generate_params)
+          .await;
       }
-    };
+    }
 
     let (fingerprint, identity_id, geolocation_applied) = match generate_result {
       Ok(result) => {
@@ -2670,7 +2888,34 @@ impl WayfernManager {
         claimed_os.as_deref(),
       )
     };
-    let token = crate::cloud_auth::CLOUD_AUTH.get_wayfern_token().await;
+    let auth = &crate::cloud_auth::CLOUD_AUTH;
+    // A view read once is shown again without starting a browser, while the
+    // plan includes custom fingerprints.
+    let view_key = format!(
+      "{}|{}",
+      profile.version,
+      serde_json::Value::Object(params.clone())
+    );
+    let entitled = auth.can_use_cross_os_fingerprints().await;
+    if let Some(view) = FINGERPRINT_VIEWS
+      .lock()
+      .ok()
+      .and_then(|views| views.get(&view_key).cloned())
+      .filter(|_| entitled)
+    {
+      return Ok(Some(view));
+    }
+    let mut token = auth.get_wayfern_token().await;
+    // A paid account whose Wayfern token has not arrived yet asks for one.
+    if token.is_none() && auth.is_entitled_to_wayfern_token().await {
+      if let Err(e) = auth.request_wayfern_token().await {
+        log::warn!(
+          "Wayfern token request for a fingerprint view failed profile={} err=\"{e}\"",
+          profile.id
+        );
+      }
+      token = auth.get_wayfern_token().await;
+    }
     if let Some(token) = &token {
       params.insert("wayfernToken".to_string(), json!(token));
     }
@@ -2691,10 +2936,26 @@ impl WayfernManager {
       .await;
     session.stop().await;
     let location = Self::stored_object(config.location.as_deref());
-    Ok(
-      Self::identity_view(&answer.map_err(failure)?, &location)
-        .map(|view| serde_json::Value::Object(view).to_string()),
-    )
+    match Self::identity_view(&answer.map_err(failure)?, &location) {
+      Some(view) => {
+        let view = serde_json::Value::Object(view).to_string();
+        if let Ok(mut views) = FINGERPRINT_VIEWS.lock() {
+          views.insert(view_key, view.clone());
+        }
+        Ok(Some(view))
+      }
+      // No device in the answer: a plan with custom fingerprints is told to
+      // try again, and any other plan has no device to show.
+      None if entitled => {
+        log::warn!(
+          "Fingerprint view empty profile={} token={}",
+          profile.id,
+          token.is_some()
+        );
+        Err(crate::backend_error("WAYFERN_PLAN_CHECK_UNAVAILABLE"))
+      }
+      None => Ok(None),
+    }
   }
 
   #[allow(clippy::too_many_arguments)]
@@ -2953,11 +3214,22 @@ impl WayfernManager {
         .fingerprint
         .as_deref()
         .and_then(Self::fingerprint_object);
-      if let Some(claimed) = Self::claimed_operating_system(config, stored_device.as_ref()) {
+      // An identity profile with no stored `os` claims the OS of the machine
+      // that created it, which is what its launch document names.
+      let identity_claim = (config.fingerprint.is_none()
+        && config
+          .identity_id
+          .as_deref()
+          .is_some_and(|id| !id.trim().is_empty()))
+      .then(|| profile.native_os());
+      let claimed = Self::claimed_operating_system(config, stored_device.as_ref())
+        .map(str::to_string)
+        .or(identity_claim);
+      if let Some(claimed) = claimed {
         let host_os = crate::profile::types::get_host_os();
-        if claimed != host_os.as_str() {
+        if claimed != host_os {
           return Err(
-            crate::backend_error_with_detail("WAYFERN_CROSS_OS_REQUIRES_PLAN", claimed).into(),
+            crate::backend_error_with_detail("WAYFERN_CROSS_OS_REQUIRES_PLAN", &claimed).into(),
           );
         }
       }
@@ -2966,7 +3238,7 @@ impl WayfernManager {
     if wayfern_token.is_none()
       && !Self::stored_object(config.identity_overrides.as_deref()).is_empty()
       && crate::cloud_auth::CLOUD_AUTH
-        .is_entitled_to_wayfern_token()
+        .can_use_cross_os_fingerprints()
         .await
     {
       log::warn!(
@@ -3002,12 +3274,20 @@ impl WayfernManager {
     // the profile's device rather than the host's. Older browsers, legacy
     // device payloads and a profile whose location carries no timezone keep
     // the post-launch CDP apply below.
-    let launch_identity = if supports_wayfern_152(&profile.version) {
+    let identity_document = if supports_wayfern_152(&profile.version) {
       Self::launch_identity_document(config, &profile.native_os())
     } else {
       None
     };
-    if launch_identity.is_none()
+    // A browser that reports a result also gets the stored config, and the
+    // launcher stores what the result says after the launch.
+    let result_file = if supports_launch_result(&profile.version) {
+      Self::clear_launch_result(profile_path, profile)
+    } else {
+      None
+    };
+    if identity_document.is_none()
+      && result_file.is_none()
       && supports_wayfern_152(&profile.version)
       && config.identity_id.is_some()
       && config.fingerprint.is_none()
@@ -3017,6 +3297,38 @@ impl WayfernManager {
         profile.id
       );
     }
+    let launch_identity = match result_file.as_deref() {
+      Some(result_file) => {
+        // A signed-in plan without fingerprint editing is a settled answer
+        // with or without a token; only a plan that includes it waits for one.
+        let account_known = (wayfern_token.is_some()
+          || !crate::cloud_auth::CLOUD_AUTH
+            .can_use_cross_os_fingerprints()
+            .await)
+          && crate::cloud_auth::CLOUD_AUTH.is_logged_in().await;
+        let mut document = identity_document
+          .as_ref()
+          .and_then(|document| document.as_object().cloned())
+          .unwrap_or_default();
+        document.extend(crate::wayfern_identity_storage::launch_document_keys(
+          profile,
+          config,
+          result_file,
+          account_known,
+        ));
+        // The plan of the signed-in account, as this app knows it.
+        if let Some(auth) = crate::cloud_auth::CLOUD_AUTH.get_user().await {
+          let plan = if auth.user.entitlements().active {
+            auth.user.effective_plan().to_string()
+          } else {
+            "free".to_string()
+          };
+          document.insert("accountPlan".to_string(), json!(plan));
+        }
+        Some(serde_json::Value::Object(document))
+      }
+      None => identity_document.clone(),
+    };
     let identity_file = match &launch_identity {
       Some(document) => Some(
         Self::write_launch_identity(profile_path, document)
@@ -3025,7 +3337,7 @@ impl WayfernManager {
       None => None,
     };
     let identity_at_launch =
-      identity_file.is_some() || (config.identity_id.is_none() && config.fingerprint.is_none());
+      identity_document.is_some() || (config.identity_id.is_none() && config.fingerprint.is_none());
     let pages = launch_pages(url, &profile.start_urls, kind);
     let restore_session = match session_restore_verdict(
       config,
@@ -3093,10 +3405,10 @@ impl WayfernManager {
       &persona_seed,
       config.persona.as_deref(),
     ));
-    args.extend(camera_switches(&profile.version, config));
-    args.extend(widevine_switch(
+    args.extend(camera_switches(
       &profile.version,
-      &crate::app_dirs::data_dir(),
+      Path::new(profile_path),
+      config,
     ));
 
     apply_launch_args(&mut args, &custom_launch_args);
@@ -3150,7 +3462,8 @@ impl WayfernManager {
           }
           kill_browser_process(pid);
         }
-        return Err(e);
+        let (launch_result, _) = Self::store_launch_result(profile, config, result_file.as_deref());
+        return Err(Self::with_refused_claim(e, launch_result.as_ref()));
       }
     };
     drop(child);
@@ -3160,6 +3473,30 @@ impl WayfernManager {
       profile.id,
       page_targets.len()
     );
+
+    let (launch_result, stored_profile) =
+      Self::store_launch_result(profile, config, result_file.as_deref());
+    // The browser names the identity it launched on; that is the one to check.
+    let verify_document = match launch_result
+      .as_ref()
+      .and_then(|result| result.identity_id.as_deref())
+    {
+      Some(identity_id) => {
+        let mut document = identity_document
+          .as_ref()
+          .and_then(|document| document.as_object().cloned())
+          .unwrap_or_default();
+        document.insert("identityId".to_string(), json!(identity_id));
+        if let Some(os) = launch_result
+          .as_ref()
+          .and_then(|result| result.operating_system.as_deref())
+        {
+          document.insert("operatingSystem".to_string(), json!(os));
+        }
+        Some(serde_json::Value::Object(document))
+      }
+      None => identity_document.clone(),
+    };
 
     // An identity-backed profile: the id, the user's overrides and the exit's
     // location are all the browser needs, and all the profile stores. The
@@ -3171,7 +3508,7 @@ impl WayfernManager {
       && !supports_wayfern_152(&profile.version)
       && config.identity_id.is_some()
       && config.fingerprint.is_some();
-    if let Some(document) = launch_identity.as_ref().filter(|_| identity_file.is_some()) {
+    if let Some(document) = verify_document.as_ref() {
       // The identity travelled on the command line. The browser never fails
       // its own launch over it (a refusal only logs), so the launcher checks,
       // and a browser running on the wrong device is closed rather than
@@ -3206,7 +3543,7 @@ impl WayfernManager {
         Ok(confirmation) => {
           if log_tap.dropped_overrides()
             && crate::cloud_auth::CLOUD_AUTH
-              .is_entitled_to_wayfern_token()
+              .can_use_cross_os_fingerprints()
               .await
           {
             log::warn!(
@@ -3496,6 +3833,7 @@ impl WayfernManager {
       profilePath: Some(profile_path.to_string()),
       url: url.map(|s| s.to_string()),
       cdp_port: Some(port),
+      stored_profile,
     })
   }
 
@@ -3663,6 +4001,15 @@ impl WayfernManager {
       .unwrap_or_default()
   }
 
+  /// The DevTools port of the browser running `profile`. An ephemeral or
+  /// password-protected profile runs from its RAM directory, not from its
+  /// path under the profiles dir, so the lookup goes by the path it ran with.
+  pub async fn cdp_port_for_profile(&self, profile: &BrowserProfile) -> Option<u16> {
+    let profiles_dir = crate::profile::ProfileManager::instance().get_profiles_dir();
+    let path = crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
+    self.get_cdp_port(&path.to_string_lossy()).await
+  }
+
   pub async fn get_cdp_port(&self, profile_path: &str) -> Option<u16> {
     let inner = self.inner.lock().await;
     let target_path = std::path::Path::new(profile_path)
@@ -3682,64 +4029,69 @@ impl WayfernManager {
     None
   }
 
+  /// The in-memory instance registered for a profile path, if any.
+  fn instance_for_path(
+    inner: &WayfernManagerInner,
+    target_path: &std::path::Path,
+  ) -> Option<WayfernLaunchResult> {
+    inner.instances.iter().find_map(|(id, instance)| {
+      let path = instance.profile_path.as_deref()?;
+      let instance_path = std::path::Path::new(path)
+        .canonicalize()
+        .unwrap_or_else(|_| std::path::Path::new(path).to_path_buf());
+      (instance_path == target_path).then(|| WayfernLaunchResult {
+        id: id.clone(),
+        processId: instance.process_id,
+        profilePath: instance.profile_path.clone(),
+        url: instance.url.clone(),
+        cdp_port: instance.cdp_port,
+        stored_profile: None,
+      })
+    })
+  }
+
+  /// The running browser of a profile. Process checks run without the
+  /// `inner` lock, so launch, stop and CDP calls never wait on them.
   pub async fn find_wayfern_by_profile(&self, profile_path: &str) -> Option<WayfernLaunchResult> {
-    use sysinfo::{ProcessRefreshKind, RefreshKind, System};
-
-    let mut inner = self.inner.lock().await;
-
-    // Canonicalize the target path for comparison
     let target_path = std::path::Path::new(profile_path)
       .canonicalize()
       .unwrap_or_else(|_| std::path::Path::new(profile_path).to_path_buf());
 
-    // Find the instance with the matching profile path
-    let mut found_id: Option<String> = None;
-    for (id, instance) in &inner.instances {
-      if let Some(path) = &instance.profile_path {
-        let instance_path = std::path::Path::new(path)
-          .canonicalize()
-          .unwrap_or_else(|_| std::path::Path::new(path).to_path_buf());
-        if instance_path == target_path {
-          found_id = Some(id.clone());
-          break;
-        }
-      }
-    }
+    let known = {
+      let inner = self.inner.lock().await;
+      Self::instance_for_path(&inner, &target_path)
+    };
 
-    // If we found an instance, verify the process is still running
-    if let Some(id) = found_id {
-      if let Some(instance) = inner.instances.get(&id) {
-        if let Some(pid) = instance.process_id {
-          let system = System::new_with_specifics(
-            RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+    if let Some(found) = known {
+      if let Some(pid) = found.processId {
+        if crate::proxy_storage::is_process_running(pid) {
+          return Some(found);
+        }
+        let mut inner = self.inner.lock().await;
+        let same_process = inner
+          .instances
+          .get(&found.id)
+          .is_some_and(|instance| instance.process_id == Some(pid));
+        if same_process {
+          log::info!(
+            "Browser exited profile={} pid={pid}",
+            profile_id_in_path(profile_path)
           );
-          let sysinfo_pid = sysinfo::Pid::from_u32(pid);
-
-          if system.process(sysinfo_pid).is_some() {
-            return Some(WayfernLaunchResult {
-              id: id.clone(),
-              processId: instance.process_id,
-              profilePath: instance.profile_path.clone(),
-              url: instance.url.clone(),
-              cdp_port: instance.cdp_port,
-            });
-          } else {
-            log::info!(
-              "Browser exited profile={} pid={pid}",
-              profile_id_in_path(profile_path)
-            );
-            inner.instances.remove(&id);
-            return None;
-          }
+          inner.instances.remove(&found.id);
         }
+        return None;
       }
     }
 
     // If not found in in-memory instances, scan system processes.
     // This handles the case where the GUI was restarted but Wayfern is still running.
-    if let Some((pid, found_profile_path, cdp_port)) =
-      Self::find_wayfern_process_by_profile(&target_path)
-    {
+    let scan_path = target_path.clone();
+    let scanned =
+      tokio::task::spawn_blocking(move || Self::find_wayfern_process_by_profile(&scan_path))
+        .await
+        .ok()
+        .flatten();
+    if let Some((pid, found_profile_path, cdp_port)) = scanned {
       // A browser seconds old is almost always one this app is still
       // launching: its instance is registered only once the launch finishes.
       let age_s = crate::proxy_storage::process_start_time(pid).map(|start| {
@@ -3748,6 +4100,15 @@ impl WayfernManager {
           .map(|now| now.as_secs().saturating_sub(start))
           .unwrap_or_default()
       });
+
+      let mut inner = self.inner.lock().await;
+      // A launch may have registered its browser while the scan ran.
+      if let Some(registered) = Self::instance_for_path(&inner, &target_path)
+        .filter(|registered| registered.processId.is_some())
+      {
+        return Some(registered);
+      }
+
       let level = if age_s.is_some_and(|age| age < 120) {
         log::Level::Debug
       } else {
@@ -3777,6 +4138,7 @@ impl WayfernManager {
         profilePath: Some(found_profile_path),
         url: None,
         cdp_port,
+        stored_profile: None,
       });
     }
 
@@ -3787,10 +4149,14 @@ impl WayfernManager {
   fn find_wayfern_process_by_profile(
     target_path: &std::path::Path,
   ) -> Option<(u32, String, Option<u16>)> {
-    use sysinfo::{ProcessRefreshKind, RefreshKind, System};
+    use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
     let system = System::new_with_specifics(
-      RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+      RefreshKind::nothing().with_processes(
+        ProcessRefreshKind::nothing()
+          .with_cmd(UpdateKind::OnlyIfNotSet)
+          .without_tasks(),
+      ),
     );
 
     let target_path_str = target_path.to_string_lossy();
@@ -3885,27 +4251,32 @@ impl WayfernManager {
 
   #[allow(dead_code)]
   pub async fn cleanup_dead_instances(&self) {
-    use sysinfo::{ProcessRefreshKind, RefreshKind, System};
-
-    let mut inner = self.inner.lock().await;
-    let mut dead_ids = Vec::new();
-
-    let system = System::new_with_specifics(
-      RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
-    );
-
-    for (id, instance) in &inner.instances {
-      if let Some(pid) = instance.process_id {
-        let pid = sysinfo::Pid::from_u32(pid);
-        if !system.processes().contains_key(&pid) {
-          dead_ids.push(id.clone());
-        }
-      }
+    let known: Vec<(String, u32)> = {
+      let inner = self.inner.lock().await;
+      inner
+        .instances
+        .iter()
+        .filter_map(|(id, instance)| instance.process_id.map(|pid| (id.clone(), pid)))
+        .collect()
+    };
+    let dead: Vec<(String, u32)> = known
+      .into_iter()
+      .filter(|(_, pid)| !crate::proxy_storage::is_process_running(*pid))
+      .collect();
+    if dead.is_empty() {
+      return;
     }
 
-    for id in dead_ids {
-      log::debug!("Removed dead browser instance id={id}");
-      inner.instances.remove(&id);
+    let mut inner = self.inner.lock().await;
+    for (id, pid) in dead {
+      if inner
+        .instances
+        .get(&id)
+        .is_some_and(|instance| instance.process_id == Some(pid))
+      {
+        log::debug!("Removed dead browser instance id={id}");
+        inner.instances.remove(&id);
+      }
     }
   }
 }
@@ -3925,6 +4296,11 @@ fn kill_browser_process(pid: u32) {
 
 static TOKEN_AT_LAUNCH: crate::log_streak::Streak =
   crate::log_streak::Streak::new(module_path!(), "Wayfern token at launch");
+
+/// Fingerprint views already read, keyed by browser version and the identity
+/// parameters. Process memory only: the device is never written to disk.
+static FINGERPRINT_VIEWS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, String>>> =
+  std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
 static WAYFERN_MANAGER: std::sync::LazyLock<WayfernManager> =
   std::sync::LazyLock::new(WayfernManager::new);
@@ -3968,6 +4344,27 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn an_early_exit_names_the_last_lines_the_browser_printed_redacted() {
+    let lines = vec![
+      "first".to_string(),
+      "[1:2:1023/171839.224:ERROR:chrome_browser_main.cc(1)] Cannot open C:\\Users\\PC\\AppData"
+        .to_string(),
+      "[1:2:1023/171839.225:FATAL:x.cc(2)] gone".to_string(),
+    ];
+    let said = last_said(&lines);
+    assert!(!said.contains("first"), "{said}");
+    assert!(
+      said.contains(":ERROR:") && said.contains(":FATAL:"),
+      "{said}"
+    );
+    assert!(
+      !said.contains("PC"),
+      "a user folder must not reach the log: {said}"
+    );
+    assert_eq!(last_said(&[]), "");
+  }
 
   #[test]
   fn launch_args_default_and_round_trip() {
@@ -4903,6 +5300,9 @@ mod tests {
       camera_crop: crop.map(str::to_string),
       ..Default::default()
     };
+    let profile = tempfile::tempdir().unwrap();
+    let camera_switches =
+      |version: &str, config: &WayfernConfig| camera_switches(version, profile.path(), config);
     assert!(camera_switches("151.0.7922.76", &config(Some(&path), None)).is_empty());
     assert!(camera_switches("152.0.7977.64", &config(None, Some("0,0,10,10"))).is_empty());
     assert_eq!(
@@ -4928,22 +5328,31 @@ mod tests {
   }
 
   #[test]
-  fn widevine_travels_only_when_a_cdm_has_been_provisioned() {
-    let root = tempfile::tempdir().unwrap();
-    assert_eq!(widevine_switch("152.0.7977.64", root.path()), None);
-    let dir = root.path().join("WidevineCdm");
-    std::fs::create_dir_all(&dir).unwrap();
+  fn the_camera_source_travels_with_the_profile() {
+    let chosen_on = tempfile::tempdir().unwrap();
+    let file = chosen_on.path().join("frame.png");
+    std::fs::write(&file, b"frame").unwrap();
+    let path = file.to_string_lossy().to_string();
+    let profile = tempfile::tempdir().unwrap();
+
+    assert_eq!(camera_source(profile.path(), &path), path);
+    let carried = profile.path().join(CARRIED_CAMERA_DIR).join("frame.png");
+    assert_eq!(std::fs::read(&carried).unwrap(), b"frame");
+
+    // Another machine has neither the folder nor the file, only the profile.
+    drop(chosen_on);
     assert_eq!(
-      widevine_switch("152.0.7977.64", root.path()),
-      None,
-      "an empty directory is not a provisioned CDM"
+      camera_source(profile.path(), &path),
+      carried.to_string_lossy().to_string()
     );
-    std::fs::write(dir.join("manifest.json"), b"{}").unwrap();
-    assert_eq!(widevine_switch("151.0.7922.76", root.path()), None);
     assert_eq!(
-      widevine_switch("152.0.7977.64", root.path()),
-      Some(format!("--wayfern-widevine-cdm-dir={}", dir.display())),
-      "a provisioned directory is passed even when its payload is missing, so the browser reports it"
+      camera_source(profile.path(), r"C:\Users\me\Pictures\frame.png"),
+      carried.to_string_lossy().to_string(),
+      "a path written on Windows names the same copy"
+    );
+    assert_eq!(
+      camera_source(profile.path(), "/nope/other.png"),
+      "/nope/other.png"
     );
   }
 
@@ -5165,6 +5574,29 @@ mod tests {
     );
     child.kill().await.unwrap();
     server.abort();
+  }
+
+  #[tokio::test]
+  async fn a_browser_that_never_opens_cdp_is_reported_in_time() {
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = closed.local_addr().unwrap().port();
+    drop(closed);
+    let mut child = cdp_test_process();
+    let pid = child.id().unwrap();
+    let error = tokio::time::timeout(
+      Duration::from_secs(10),
+      WayfernManager::new().wait_for_cdp_ready_within(
+        port,
+        &mut child,
+        &BrowserLogTap::default(),
+        Duration::from_secs(1),
+      ),
+    )
+    .await
+    .expect("the wait ends at its limit")
+    .unwrap_err();
+    assert_eq!(code_of(&error.to_string()), "WAYFERN_NOT_RESPONDING");
+    force_kill_process(pid);
   }
 
   #[tokio::test]
@@ -5497,6 +5929,22 @@ mod tests {
     );
     assert!(tap.dropped_overrides());
     assert!(tap.identity_refusal().is_none());
+
+    let settled = BrowserLogTap::default();
+    settled.push(
+      "[WARNING] Wayfern launch identity: dropping 3 override(s); this plan does not \
+       include custom fingerprints. The identity is applied as derived."
+        .to_string(),
+    );
+    assert!(!settled.dropped_overrides());
+
+    let unknown = BrowserLogTap::default();
+    unknown.push(
+      "[WARNING] Wayfern launch identity: dropping the stored profile's custom values \
+       for this launch; the plan is not known yet. The identity is applied as derived."
+        .to_string(),
+    );
+    assert!(unknown.dropped_overrides());
   }
 
   #[test]
@@ -5706,5 +6154,37 @@ mod tests {
       fit_window_to_work_area((800, 600), Some((3840, 2160))),
       (800, 600)
     );
+  }
+
+  #[tokio::test]
+  #[serial_test::serial]
+  async fn an_ephemeral_profile_finds_the_browser_running_from_its_ram_dir() {
+    let root = tempfile::tempdir().unwrap();
+    std::env::set_var("DONUTBROWSER_EPHEMERAL_ROOT", root.path());
+    let profile = BrowserProfile {
+      id: uuid::Uuid::new_v4(),
+      browser: "wayfern".to_string(),
+      ephemeral: true,
+      ..Default::default()
+    };
+    let id = profile.id.to_string();
+    let ram_dir = crate::ephemeral_dirs::create_ephemeral_dir(&id).unwrap();
+
+    let manager = WayfernManager::new();
+    manager.inner.lock().await.instances.insert(
+      "launch".to_string(),
+      WayfernInstance {
+        process_id: Some(1),
+        profile_path: Some(ram_dir.to_string_lossy().into_owned()),
+        url: None,
+        cdp_port: Some(9333),
+        log_tap: BrowserLogTap::default(),
+      },
+    );
+
+    assert_eq!(manager.cdp_port_for_profile(&profile).await, Some(9333));
+
+    crate::ephemeral_dirs::remove_ephemeral_dir(&id);
+    std::env::remove_var("DONUTBROWSER_EPHEMERAL_ROOT");
   }
 }
