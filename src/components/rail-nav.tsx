@@ -3,7 +3,6 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import { FaDownload } from "react-icons/fa";
 import { FiWifi } from "react-icons/fi";
 import { GoGear, GoKebabHorizontal } from "react-icons/go";
@@ -23,6 +22,7 @@ import {
 } from "react-icons/lu";
 import { useInputModality } from "@/hooks/use-input-modality";
 import { launchDonutClone } from "@/lib/donut-physics";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import { MOTION_SPRING_POSITION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Logo } from "./icons/logo";

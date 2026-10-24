@@ -562,11 +562,12 @@ impl SettingsManager {
           uuid::Uuid::new_v4().simple(),
           uuid::Uuid::new_v4().simple()
         );
-        let _ = std::fs::create_dir_all(
-          token_file.parent().unwrap_or(std::path::Path::new(".")),
-        );
+        let _ = std::fs::create_dir_all(token_file.parent().unwrap_or(std::path::Path::new(".")));
         if std::fs::write(&token_file, &generated).is_ok() {
-          log::info!("Automation token self-provisioned path={}", token_file.display());
+          log::info!(
+            "Automation token self-provisioned path={}",
+            token_file.display()
+          );
           return Ok(Some(generated));
         }
       }
@@ -579,9 +580,11 @@ impl SettingsManager {
   /// executable (portable deploy layout).
   #[cfg(feature = "free")]
   fn free_portable_token_path() -> Option<std::path::PathBuf> {
-    std::env::current_exe()
-      .ok()
-      .and_then(|exe| exe.parent().map(|dir| dir.join("config").join("automation-token.txt")))
+    std::env::current_exe().ok().and_then(|exe| {
+      exe
+        .parent()
+        .map(|dir| dir.join("config").join("automation-token.txt"))
+    })
   }
 
   #[cfg(not(feature = "free"))]
