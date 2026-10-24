@@ -30,12 +30,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm must be on PATH BEFORE setup-node: its `cache: pnpm` resolves
+      # the store through the pnpm executable and fails with
+      # "Unable to locate executable file: pnpm" otherwise.
+      - run: npm install -g pnpm@12.8.1
+
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
-
-      - run: npm install -g pnpm@12.8.1
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -56,7 +59,18 @@ jobs:
       - name: Create portable bundle
         shell: pwsh
         run: |
-          $src = "src-tauri\target\x86_64-pc-windows-msvc\release"
+          # CARGO_TARGET_DIR redirects cargo output away from src-tauri\target,
+          # and the exact triple subdir depends on whether --target was passed;
+          # pick whichever candidate actually holds the binary.
+          $cands = @(
+            "src-tauri\target\x86_64-pc-windows-msvc\release",
+            "src-tauri\target\release",
+            "$env:CARGO_TARGET_DIR\x86_64-pc-windows-msvc\release",
+            "$env:CARGO_TARGET_DIR\release"
+          )
+          $src = $cands | Where-Object { Test-Path "$_\donutbrowser.exe" } | Select-Object -First 1
+          if (-not $src) { throw "donutbrowser.exe not found in: $($cands -join ', ')" }
+          "bundle source: $src"
           $dst = "DonutFree-portable"
           mkdir $dst -Force | Out-Null
 
