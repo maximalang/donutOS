@@ -39,6 +39,26 @@ if not exist "%DST%\config\automation-token.txt" (
 
 copy /y "%~dp0donut-freectl.cmd" "%DST%\" >nul
 copy /y "%~dp0donut-freectl.ps1" "%DST%\" >nul
+rem Watchdog ships with the deploy so its two operating modes (on-demand /
+rem -AlwaysOn) reach the instance instead of drifting from a hand-copied file.
+copy /y "%~dp0donut-watchdog.ps1" "%DST%\" >nul
+rem Retire stale exe artifacts from older deploys: raw cargo-name binaries and
+rem .bak leftovers no current deploy step owns (observed in the wild:
+rem donutbrowser.stale-20241019.exe.bak). The shipped set is DonutFree.exe
+rem (freshly copied above) + donut-proxy.exe + xray.exe + donut-xray.exe.
+for %%F in ("%DST%\donutbrowser*.exe" "%DST%\*.exe.bak") do (
+  if exist "%%~F" (
+    del /q "%%~F"
+    echo Retired stale artifact: %%~nxF
+  )
+)
+for %%F in ("%DST%\*.exe") do (
+  if /i not "%%~nxF"=="DonutFree.exe" if /i not "%%~nxF"=="donut-proxy.exe" if /i not "%%~nxF"=="xray.exe" if /i not "%%~nxF"=="donut-xray.exe" (
+    del /q "%%~F"
+    echo Retired stale artifact: %%~nxF
+  )
+)
+
 > "%DST%\version.txt" echo donut-free 0.34.0 built %date% %time%
 
 echo DEPLOY_OK: %DST%
