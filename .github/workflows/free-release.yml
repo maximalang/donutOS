@@ -28,36 +28,28 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
 
-      - name: Install pnpm
-        run: npm install -g pnpm@12.8.1
+      - run: npm install -g pnpm@12.8.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Copy proxy binary (dev)
-        run: pnpm copy-proxy-binary
+      - run: pnpm copy-proxy-binary:release
 
-      - name: Build free app
-        run: pnpm tauri build --features free
+      - run: pnpm tauri build --features free
         env:
           PROFILE: release
 
@@ -68,53 +60,44 @@ jobs:
           $dst = "DonutFree-portable"
           mkdir $dst -Force | Out-Null
 
-          # Copy binaries
           Copy-Item "$src\donutbrowser.exe" "$dst\DonutFree.exe" -Force
           Copy-Item "$src\donut-proxy.exe" "$dst\" -ErrorAction SilentlyContinue
           Copy-Item "$src\xray.exe" "$dst\" -ErrorAction SilentlyContinue
-          Copy-Item "$src\donut-xray.exe" "$dst\" -ErrorAction SilentlyContinue
 
-          # Copy resources
           if (Test-Path "$src\resources") {
             Copy-Item "$src\resources" "$dst\" -Recurse -Force
           }
 
-          # Portable marker
           New-Item "$dst\.portable" -Force | Out-Null
+          mkdir "$dst\config" -Force | Out-Null
+          ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')) | Set-Content "$dst\config\automation-token.txt"
 
-          # Create zip
           Compress-Archive -Path $dst -DestinationPath "DonutFree-portable-x64.zip" -Force
-          ls -lah DonutFree-portable-x64.zip
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: donut-free-portable
           path: DonutFree-portable-x64.zip
           retention-days: 7
 
-      - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v1
         with:
           files: DonutFree-portable-x64.zip
           tag_name: "free-${{ github.run_number }}"
           name: "DonutFree Build ${{ github.run_number }}"
           body: |
-            Automated free-build from main branch.
+            Automated free-build from main.
             
-            **Changes in this build:**
-            - Commit: ${{ github.sha }}
-            
-            **What's inside:**
+            **Includes:**
             - Portable Windows x64 executable
-            - Proxy and xray binaries included
-            - No vendor cloud integration (all local)
+            - Proxy and xray binaries
+            - No vendor cloud integration (local only)
+            - Automation-ready config with bearer token
             
             **Quick start:**
-            1. Extract the zip
+            1. Extract zip
             2. Run `DonutFree.exe`
-            3. MCP server on `http://localhost:10109/v1/mcp`
+            3. MCP: `http://localhost:10109/v1/mcp`
           draft: false
           prerelease: false
         env:
