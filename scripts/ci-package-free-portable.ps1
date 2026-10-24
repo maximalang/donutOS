@@ -65,8 +65,20 @@ if (Test-Path "$rel/donut-xray.exe") {
   Copy-Item "$rel/donut-xray.exe" (Join-Path $stage "donut-xray.exe")
 }
 
-Require "$rel/resources/licenses/Xray-core-LICENSE.txt" "bundled resources"
-Copy-Item -Recurse "$rel/resources" (Join-Path $stage "resources")
+# tauri.conf maps binaries/xray-LICENSE.txt -> licenses/Xray-core-LICENSE.txt.
+# Windows CI builds do not stage target/release/resources (only installers embed
+# them), so fall back to the download-xray.mjs staging copy of the license.
+$targetResources = "$rel/resources"
+$targetLicense = "$targetResources/licenses/Xray-core-LICENSE.txt"
+$stagedLicense = "src-tauri/binaries/xray-LICENSE.txt"
+if (Test-Path $targetLicense) {
+  Copy-Item -Recurse $targetResources (Join-Path $stage "resources")
+} elseif (Test-Path $stagedLicense) {
+  New-Item -ItemType Directory -Force -Path (Join-Path $stage "resources/licenses") | Out-Null
+  Copy-Item $stagedLicense (Join-Path $stage "resources/licenses/Xray-core-LICENSE.txt")
+} else {
+  throw "portable package incomplete: Xray-core license not found at $targetLicense or $stagedLicense"
+}
 
 # .portable keeps all data next to the exe instead of %LOCALAPPDATA%.
 Set-Content -Path (Join-Path $stage ".portable") -Value "" -NoNewline
