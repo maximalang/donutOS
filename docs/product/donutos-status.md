@@ -70,6 +70,51 @@ grep -n FREE_HIDDEN_PAGES src/components/rail-nav.tsx    # :254 {cookieBot, agen
 
 Absolute paths: repo `C:\Users\max\donut-free`; snapshot dir `C:\Users\max\donut-free\.wip-snapshots\20261025-feat-local-automation\`; this file `C:\Users\max\donut-free\docs\product\donutos-status.md`.
 
-## 5. Next phase (recommendation, not executed)
+## 5. Phase 1 — executed (2026-10-25)
 
-The branch tip is an ancestor of `main`, so continue from `main` (which already has the CI workflow and server-mode docs absent here): branch off `main`, `git checkout wip/local-automation-20261025 -- src-tauri/src/local_store.rs src-tauri/src/recipes_local.rs docs/product/local-engines.md` (plus re-apply the `mcp_server.rs` hunk or cherry-pick the tracked patch), register the modules, then run the local-engines.md gates (`cargo test` with and without `--features free`; `npm run build`). The `cargo = [features] free = []` gate exists at `src-tauri/Cargo.toml:240`.
+The recommendation above was executed the same day. `main` was merged into
+`feat/local-automation` (merge `76600b71`), the WIP evolved into five local
+modules wired behind the `free` feature, and the result is committed on
+`feat/local-automation`:
+
+- `local_store.rs` — JSON store: held-mutex read-modify-write, atomic write,
+  corrupt-document aside (`.json.corrupt`)
+- `automation_time.rs` — weekly/once/interval fire math, tz + DST handling
+- `cookie_bot_local.rs` — local cookie-bot engine; a queued single
+  `run_executor` (spawned once at setup) breaks the async type cycle
+  `start_run -> execute_warming -> MCP dispatch -> run_cookie_bot_now ->
+  start_run`; warming steps run through `McpServer::call_tool`
+- `agent_schedules_local.rs` — schedule CRUD, firing, local history, webhooks
+- `recipes_local.rs` — local recipe CRUD + run-now replay
+- `mcp_server.rs` — `call_tool` programmatic door, so engine steps run with
+  exact MCP tool semantics (no second browser driver)
+- free wiring in `lib.rs` / `recipes.rs` / `cookie_bot.rs` /
+  `agent_schedules.rs`; `rail-nav.tsx` shows the cookie-bot and agent pages
+
+### Verification (all run in this session)
+
+| Gate | Result |
+| --- | --- |
+| `cargo test --features free --lib` (full free suite) | **1533 passed; 0 failed; 4 ignored** (386 s) |
+| Engine unit tests (agent_schedules_local, local_store, automation_time, cookie_bot_local) | 42 passed; 0 failed |
+| `pnpm exec tsc --noEmit` | exit 0 |
+| Superset audit vs snapshot `wip/local-automation-20261025` | 44 snapshot-unique lines, all superseded implementations/comments; `local-engines.md` and `mcp_server.rs` byte-identical |
+| `version_updater` under free | fixed: asserts are cfg-gated — the free build keeps the vendor version refresh off by design |
+| Vendor suite without free (`cargo test --lib`) | **1480 passed; 0 failed; 4 ignored** (40 s) |
+| Lefthook commit gate (biome, typos, `cargo fmt`, `clippy --all-targets --all-features -D warnings`, vendor `cargo test --lib`) | green on the feature commit `38bdc8b9` (14 files, +3742/−4) |
+
+### Committed
+
+`38bdc8b9 feat(free): local automation engines — schedules, cookie-bot, recipes`
+on `feat/local-automation` (local only; not pushed, per the owner's local-first
+priority). The pre-commit clippy pass caught 9 engine surfaces not wired to
+their Tauri commands — all 15 cookie-bot wire commands now run locally.
+
+### Not yet verified (next phase)
+
+- Runtime: the app has not been launched with the engines active — no real
+  schedule fire, no real cookie-bot warming run through a live profile.
+- `pnpm build` / full `tauri build` of the app has not been run.
+- Build target: recent builds landed in `src-tauri/target` on C: (~16 GB);
+  the historical target `D:/ZDownloads/donut-free-target` is not wired into
+  HEAD's `.cargo/config.toml`. Cleanup of the C: copy is pending.
