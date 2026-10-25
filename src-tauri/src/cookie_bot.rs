@@ -819,7 +819,13 @@ fn base() -> String {
 }
 
 /// Every enrolment the caller can see.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn list_schedules(scope: Option<&str>) -> Result<CookieBotScheduleList, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::list_schedules(scope).await;
+  }
+
   let query = scope
     .map(|s| vec![("scope".to_string(), s.to_string())])
     .unwrap_or_default();
@@ -841,7 +847,13 @@ pub async fn list_schedules(scope: Option<&str>) -> Result<CookieBotScheduleList
 ///
 /// "Not enrolled" is a state the UI renders, not a failure it reports, so the
 /// 404 is folded into `Ok(None)` here rather than at every call site.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn get_schedule(profile_id: &str) -> Result<Option<CookieBotSchedule>, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::get_schedule(profile_id).await;
+  }
+
   let result: Result<ScheduleEnvelope, CookieBotError> = request(
     reqwest::Method::GET,
     format!("{}/schedules/{}", base(), urlencoding::encode(profile_id)),
@@ -875,11 +887,16 @@ struct ScheduleEnvelope {
 /// PUT is refused with the teammate's name and time, and the same PUT with the
 /// flag set goes through. Two operators colliding into a silent nightly 409 is
 /// exactly what that costs to avoid.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn save_schedule(
   profile_id: &str,
   input: &CookieBotScheduleInput,
   acknowledge_conflict: bool,
 ) -> Result<CookieBotScheduleSaved, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::save_schedule(profile_id, input, acknowledge_conflict).await;
+  }
   let mut body = serde_json::to_value(input).map_err(|e| {
     CookieBotError(cloud_errors::transport_failure(&format!(
       "encode schedule: {e}"
@@ -1120,7 +1137,13 @@ fn record_own_schedules(enrolled: &mut Option<HashSet<String>>, list: &CookieBot
 
 /// Turn the bot off for this profile. Safe to repeat: deleting an enrolment
 /// that is already gone succeeds with `deleted: false`.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn delete_schedule(profile_id: &str) -> Result<CookieBotScheduleDeleted, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::delete_schedule(profile_id).await;
+  }
+
   let deleted: CookieBotScheduleDeleted = request(
     reqwest::Method::DELETE,
     format!("{}/schedules/{}", base(), urlencoding::encode(profile_id)),
@@ -1134,12 +1157,23 @@ pub async fn delete_schedule(profile_id: &str) -> Result<CookieBotScheduleDelete
 }
 
 /// Ask, without writing anything, who else already warms this profile.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn check_conflicts(
   profile_id: &str,
   run_at_minute: Option<u16>,
   timezone: Option<&str>,
   days_mask: Option<u8>,
 ) -> Result<CookieBotConflictCheck, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::check_conflicts(
+      profile_id,
+      run_at_minute,
+      timezone,
+      days_mask,
+    )
+    .await;
+  }
   let mut query = vec![("profile_id".to_string(), profile_id.to_string())];
   if let Some(minute) = run_at_minute {
     query.push(("run_at_minute".to_string(), minute.to_string()));
@@ -1162,12 +1196,17 @@ pub async fn check_conflicts(
 }
 
 /// One page of run history, newest first.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn list_runs(
   profile_id: Option<&str>,
   scope: Option<&str>,
   limit: Option<u32>,
   before: Option<&str>,
 ) -> Result<CookieBotRunPage, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::list_runs(profile_id, scope, limit, before).await;
+  }
   let mut query = Vec::new();
   if let Some(id) = profile_id {
     query.push(("profile_id".to_string(), id.to_string()));
@@ -1197,10 +1236,15 @@ pub async fn list_runs(
 /// The preset and the site list come from the stored schedule, so this carries
 /// no behaviour of its own — an unenrolled profile is a 404, not an implicit
 /// enrolment with client-chosen defaults.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn run_now(
   profile_id: &str,
   max_minutes: Option<u32>,
 ) -> Result<CookieBotRunStarted, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::run_now(profile_id, max_minutes).await;
+  }
   let mut body = serde_json::Map::new();
   body.insert(
     "profile_id".to_string(),
@@ -1226,7 +1270,13 @@ pub async fn run_now(
 /// still up, so the run stays `running` rather than being marked cancelled
 /// under a live browser — retiring a row while something is still writing the
 /// cookie jar is the two-writer case the profile lock exists to prevent.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn cancel_run(run_id: &str) -> Result<CookieBotRun, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::cancel_run(run_id).await;
+  }
+
   let envelope: RunEnvelope = request(
     reqwest::Method::DELETE,
     format!("{}/runs/{}", base(), urlencoding::encode(run_id)),
@@ -1244,7 +1294,13 @@ struct RunEnvelope {
 }
 
 /// The intensities the server offers today.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn list_presets() -> Result<CookieBotPresetList, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::list_presets().await;
+  }
+
   request(
     reqwest::Method::GET,
     format!("{}/presets", base()),
@@ -1280,7 +1336,13 @@ struct UserTemplateDeleted {
 }
 
 /// Every site list this user has saved, most recently edited first.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn list_user_templates() -> Result<Vec<CookieBotUserTemplate>, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::list_user_templates().await;
+  }
+
   let envelope: UserTemplateListEnvelope = request(
     reqwest::Method::GET,
     format!("{}/user-templates", base()),
@@ -1293,10 +1355,15 @@ pub async fn list_user_templates() -> Result<Vec<CookieBotUserTemplate>, CookieB
 }
 
 /// Save a new one.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn create_user_template(
   name: &str,
   sites: &[String],
 ) -> Result<CookieBotUserTemplate, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::create_user_template(name, sites).await;
+  }
   let body = serde_json::json!({ "name": name, "sites": sites });
   let envelope: UserTemplateEnvelope = request(
     reqwest::Method::POST,
@@ -1315,11 +1382,16 @@ pub async fn create_user_template(
 /// a rename that had to carry the whole site list is a rename that silently
 /// reverts an edit made to it from another device in the meantime. Sending an
 /// omitted field as `null` would defeat that, so each is skipped when absent.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn update_user_template(
   id: &str,
   name: Option<&str>,
   sites: Option<&[String]>,
 ) -> Result<CookieBotUserTemplate, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::update_user_template(id, name, sites).await;
+  }
   let mut body = serde_json::Map::new();
   if let Some(name) = name {
     body.insert(
@@ -1347,7 +1419,13 @@ pub async fn update_user_template(
 ///
 /// Safe to repeat: deleting a list that is already gone answers `false` rather
 /// than 404, which is what makes a retry after a dropped response harmless.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn delete_user_template(id: &str) -> Result<bool, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::delete_user_template(id).await;
+  }
+
   let deleted: UserTemplateDeleted = request(
     reqwest::Method::DELETE,
     format!("{}/user-templates/{}", base(), urlencoding::encode(id)),
@@ -1421,7 +1499,13 @@ pub async fn delete_cookie_bot_user_template(id: String) -> Result<bool, String>
 }
 
 /// Per-member and per-profile spend for a calendar month (`YYYY-MM`).
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn team_usage(period: Option<&str>) -> Result<CookieBotUsage, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::team_usage(period).await;
+  }
+
   let query = period
     .map(|p| vec![("period".to_string(), p.to_string())])
     .unwrap_or_default();
@@ -1439,7 +1523,13 @@ pub async fn team_usage(period: Option<&str>) -> Result<CookieBotUsage, CookieBo
 ///
 /// Being refused a launch must not be the only way to learn a limit exists,
 /// which is what this route has been for as long as nothing called it.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn remote_hours_quota() -> Result<RemoteHoursQuota, CookieBotError> {
+  #[cfg(feature = "free")]
+  {
+    return crate::cookie_bot_local::remote_hours_quota().await;
+  }
+
   request(
     reqwest::Method::GET,
     format!(

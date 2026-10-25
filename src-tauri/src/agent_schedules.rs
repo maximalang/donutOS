@@ -63,13 +63,23 @@ async fn call(
     .map_err(|e| failure(action, e))
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn list_agent_schedules() -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::list().await;
+  }
   call("list", reqwest::Method::GET, base(), None).await
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn create_agent_schedule(schedule: Value) -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::create(schedule).await;
+  }
   let schedule = checked_body(schedule)?;
   let created = call("create", reqwest::Method::POST, base(), Some(schedule)).await?;
   log::info!(
@@ -79,8 +89,13 @@ pub async fn create_agent_schedule(schedule: Value) -> Result<Value, String> {
   Ok(created)
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn update_agent_schedule(id: String, patch: Value) -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::update(&id, patch).await;
+  }
   let patch = checked_body(patch)?;
   call(
     "update",
@@ -91,15 +106,25 @@ pub async fn update_agent_schedule(id: String, patch: Value) -> Result<Value, St
   .await
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn delete_agent_schedule(id: String) -> Result<(), String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::delete(&id).await;
+  }
   call("delete", reqwest::Method::DELETE, url_for(&id, "")?, None).await?;
   log::info!("Schedule deleted schedule={id}");
   Ok(())
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn run_agent_schedule_now(id: String) -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::run_now(&id).await;
+  }
   call(
     "run_now",
     reqwest::Method::POST,
@@ -109,14 +134,24 @@ pub async fn run_agent_schedule_now(id: String) -> Result<Value, String> {
   .await
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn list_agent_schedule_runs(id: String) -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::runs(&id).await;
+  }
   call("runs", reqwest::Method::GET, url_for(&id, "/runs")?, None).await
 }
 
 /// Send a test email and webhook for the schedule `id`, as a failed run would.
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 #[tauri::command]
 pub async fn test_agent_schedule_notice(id: String) -> Result<Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::agent_schedules_local::test_notice(&id).await;
+  }
   call(
     "test_notice",
     reqwest::Method::POST,

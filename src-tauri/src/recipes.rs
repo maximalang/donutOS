@@ -70,14 +70,24 @@ fn base() -> String {
   format!("{}/api/agent/recipes", crate::cloud_auth::CLOUD_API_URL)
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn list_recipes() -> Result<Vec<AgentRecipe>, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::recipes_local::list_recipes().await;
+  }
   let list: RecipeList = request(reqwest::Method::GET, base(), None)
     .await
     .map_err(|e| failure("list", e))?;
   Ok(list.into_vec())
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn create_recipe(name: &str, steps: &[RecipeStep]) -> Result<AgentRecipe, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::recipes_local::create_recipe(name, steps).await;
+  }
   let (name, steps) = validate_recipe(name, steps)?;
   request(
     reqwest::Method::POST,
@@ -88,11 +98,16 @@ pub async fn create_recipe(name: &str, steps: &[RecipeStep]) -> Result<AgentReci
   .map_err(|e| failure("create", e))
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn update_recipe(
   id: &str,
   name: &str,
   steps: &[RecipeStep],
 ) -> Result<AgentRecipe, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::recipes_local::update_recipe(id, name, steps).await;
+  }
   let (name, steps) = validate_recipe(name, steps)?;
   request(
     reqwest::Method::PATCH,
@@ -103,7 +118,12 @@ pub async fn update_recipe(
   .map_err(|e| failure("update", e))
 }
 
+#[cfg_attr(feature = "free", allow(unreachable_code))]
 pub async fn delete_recipe(id: &str) -> Result<bool, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::recipes_local::delete_recipe(id).await;
+  }
   let outcome: Option<RecipeDeleted> = request(
     reqwest::Method::DELETE,
     format!("{}/{}", base(), urlencoding::encode(id)),
@@ -119,7 +139,10 @@ fn recipe_deleted(outcome: Option<RecipeDeleted>) -> bool {
   outcome.and_then(|reply| reply.deleted).unwrap_or(true)
 }
 
-fn validate_recipe(name: &str, steps: &[RecipeStep]) -> Result<(String, Vec<RecipeStep>), String> {
+pub(crate) fn validate_recipe(
+  name: &str,
+  steps: &[RecipeStep],
+) -> Result<(String, Vec<RecipeStep>), String> {
   let name = name.trim().to_string();
   if name.is_empty() {
     return Err(crate::backend_error("NAME_CANNOT_BE_EMPTY"));
@@ -195,6 +218,25 @@ pub async fn update_agent_recipe(
 #[tauri::command]
 pub async fn delete_agent_recipe(id: String) -> Result<bool, String> {
   delete_recipe(&id).await
+}
+
+/// Replay a recipe on a profile now. Free builds run it on this machine
+/// through the MCP tool surface; vendor builds have no such cloud route
+/// wired here yet.
+#[tauri::command]
+pub async fn run_agent_recipe_now(
+  recipe_id: String,
+  profile_id: String,
+) -> Result<serde_json::Value, String> {
+  #[cfg(feature = "free")]
+  {
+    return crate::recipes_local::run_recipe_now(&recipe_id, &profile_id).await;
+  }
+  #[cfg(not(feature = "free"))]
+  {
+    let _ = (recipe_id, profile_id);
+    Err(crate::backend_error("AGENT_RECIPE_NOT_FOUND"))
+  }
 }
 
 #[cfg(test)]

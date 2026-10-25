@@ -251,7 +251,9 @@ function ActiveIndicator() {
 }
 
 // Cloud-only pages: hidden in the free local build (no vendor account).
-const FREE_HIDDEN_PAGES = new Set<AppPage>(["cookieBot", "agent", "account"]);
+// The cookie-bot and agent pages answer from the local automation engines
+// in free builds; only the vendor-account page stays hidden there.
+const FREE_HIDDEN_PAGES = new Set<AppPage>(["account"]);
 
 interface RailItem {
   page: AppPage;

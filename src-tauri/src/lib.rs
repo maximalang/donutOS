@@ -151,21 +151,31 @@ mod window_decorations;
 // mod theme_detector; // removed: theme detection handled in webview via CSS prefers-color-scheme
 mod agent_console;
 mod agent_schedules;
+#[cfg(feature = "free")]
+mod agent_schedules_local;
+#[cfg(feature = "free")]
+mod automation_time;
 mod cloud_api;
 pub mod cloud_auth;
 mod cloud_errors;
 mod commercial_license;
 mod cookie_bot;
+#[cfg(feature = "free")]
+mod cookie_bot_local;
 mod cookie_manager;
 mod cookie_paste;
 pub mod events;
 mod local_storage;
+#[cfg(feature = "free")]
+mod local_store;
 mod mcp_integrations;
 mod mcp_remote;
 mod mcp_server;
 mod mcp_toolsets;
 mod mcp_views;
 mod navigation_watch;
+#[cfg(feature = "free")]
+mod recipes_local;
 mod tag_manager;
 pub mod team_activity;
 mod team_lock;
@@ -2572,6 +2582,14 @@ pub fn run_with_builder(
     );
 
   builder.setup(|app| {
+      // Free builds start the local automation schedulers (cookie-bot slots
+      // and agent schedules) alongside the app; one tick every 30 s each.
+      #[cfg(feature = "free")]
+      {
+        tauri::async_runtime::spawn(crate::agent_schedules_local::run_scheduler());
+        tauri::async_runtime::spawn(crate::cookie_bot_local::run_scheduler());
+        tauri::async_runtime::spawn(crate::cookie_bot_local::run_executor());
+      }
       // The home folder carries the OS user name, and this line is in every
       // log someone attaches to an issue.
       let data_dir = app_dirs::data_dir();
@@ -3720,6 +3738,7 @@ pub fn run_with_builder(
       recipes::create_agent_recipe,
       recipes::update_agent_recipe,
       recipes::delete_agent_recipe,
+      recipes::run_agent_recipe_now,
       agent_console::get_agent_console,
       agent_console::answer_agent_request,
       agent_console::dismiss_agent_request,
@@ -3955,6 +3974,9 @@ mod tests {
       // suite; the Integrations page mints and rotates but has no Forget
       // action yet.
       "forget_mcp_remote_credential",
+      // Local free-build recipe replay (free feature); surfaced through the
+      // Tauri command surface, the agent schedule engine calls the same core.
+      "run_agent_recipe_now",
     ];
 
     // Extract command names from the generate_handler! macro in this file

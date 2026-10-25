@@ -636,7 +636,12 @@ mod tests {
     assert!(save_result.is_ok(), "Should save old state successfully");
 
     let should_update_old = VersionUpdater::should_run_background_update();
+    // In the free local build the vendor version refresh is off by design,
+    // whatever the stored state says; the vendor build must still refresh.
+    #[cfg(not(feature = "free"))]
     assert!(should_update_old, "Should update when last update was old");
+    #[cfg(feature = "free")]
+    assert!(!should_update_old, "Free build keeps the refresh off");
 
     // Test with never updated (should update)
     let never_updated_state = BackgroundUpdateState {
@@ -651,10 +656,13 @@ mod tests {
     );
 
     let should_update_never = VersionUpdater::should_run_background_update();
+    #[cfg(not(feature = "free"))]
     assert!(
       should_update_never,
       "Should update when never updated before"
     );
+    #[cfg(feature = "free")]
+    assert!(!should_update_never, "Free build keeps the refresh off");
 
     // Clean up
     cleanup_state_file();

@@ -2410,6 +2410,42 @@ impl McpServer {
     &MCP_SERVER
   }
 
+  /// Call one tool by name, as a caller with no session and every toolset.
+  ///
+  /// This is the programmatic door the local automation engines (cookie-bot
+  /// executor, recipe replay) use, so their steps run with EXACTLY the
+  /// semantics of the MCP tools — the same Wayfern/Vellum paths, the same
+  /// rate limiter, the same human typing — instead of a second, drifting
+  /// browser driver. Errors come back as the tool's own message.
+  pub(crate) async fn call_tool(
+    &self,
+    name: &str,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, String> {
+    let request = McpRequest {
+      jsonrpc: "2.0".to_string(),
+      id: Some(serde_json::json!(1)),
+      method: "tools/call".to_string(),
+      params: Some(serde_json::json!({
+        "name": name,
+        "arguments": arguments,
+      })),
+    };
+    let response = self
+      .handle_request(
+        McpCaller {
+          session: None,
+          toolsets: None,
+        },
+        request,
+      )
+      .await;
+    match response.error {
+      Some(error) => Err(error.message),
+      None => Ok(response.result.unwrap_or(serde_json::Value::Null)),
+    }
+  }
+
   /// Hand the engine the app handle every tool needs, once, at startup.
   pub async fn attach_app_handle(&self, app_handle: AppHandle) {
     let mut inner = self.inner.lock().await;
