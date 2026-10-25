@@ -68,7 +68,7 @@ impl BrowserVersionManager {
 
   /// Get list of browsers supported on the current platform
   pub fn get_supported_browsers(&self) -> Vec<String> {
-    let all_browsers = vec!["wayfern"];
+    let all_browsers = vec!["wayfern", "chromium"];
 
     all_browsers
       .into_iter()
@@ -114,6 +114,14 @@ impl BrowserVersionManager {
     &self,
     browser: &str,
   ) -> Result<BrowserReleaseTypes, Box<dyn std::error::Error + Send + Sync>> {
+    if browser == "chromium" {
+      // The open engine ships from a pinned Chrome for Testing build: the
+      // stable channel is exactly that version, offline-safe.
+      return Ok(BrowserReleaseTypes {
+        stable: Some(Self::CHROMIUM_PINNED_VERSION.to_string()),
+      });
+    }
+
     if browser != "wayfern" {
       return Err(format!("Unsupported browser: {browser}").into());
     }
@@ -172,6 +180,7 @@ impl BrowserVersionManager {
     // Fetch fresh versions from API
     let fresh_versions = match browser {
       "wayfern" => self.fetch_wayfern_versions(true).await?,
+      "chromium" => vec![Self::CHROMIUM_PINNED_VERSION.to_string()],
       _ => return Err(format!("Unsupported browser: {browser}").into()),
     };
 
@@ -289,6 +298,11 @@ impl BrowserVersionManager {
   }
 
   /// Get download information for a specific browser and version
+  /// Chrome for Testing builds the open `chromium` engine ships from. Pinned
+  /// so installs stay reproducible; the archive URL is derived per platform in
+  /// `get_download_info`.
+  pub const CHROMIUM_PINNED_VERSION: &str = "158.0.8123.0";
+
   pub fn get_download_info(
     &self,
     browser: &str,
@@ -320,6 +334,31 @@ impl BrowserVersionManager {
           url: format!("https://download.wayfern.com/{filename}"),
           filename,
           is_archive,
+        })
+      }
+      "chromium" => {
+        // Chrome for Testing: the open engine. Pinned public archives, no
+        // account, no entitlement — every CDP domain is unmetered on it.
+        let platform_path = match (os.as_str(), arch.as_str()) {
+          ("windows", "x64") | ("windows", "arm64") => "win64/chrome-win64.zip",
+          ("macos", "arm64") => "mac-arm64/chrome-mac-arm64.zip",
+          ("macos", "x64") => "mac-x64/chrome-mac.zip",
+          ("linux", "x64") => "linux64/chrome-linux64.zip",
+          ("linux", "arm64") => "linux-arm64/chrome-linux-arm64.zip",
+          _ => {
+            return Err(format!(
+              "Unsupported platform/architecture for Chromium: {os}/{arch}"
+            )
+            .into())
+          }
+        };
+        let url = format!(
+          "https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform_path}"
+        );
+        Ok(DownloadInfo {
+          filename: platform_path.rsplit('/').next().unwrap_or("chrome.zip").to_string(),
+          url,
+          is_archive: true,
         })
       }
       _ => Err(format!("Unsupported browser: {browser}").into()),
@@ -385,6 +424,35 @@ pub async fn get_browser_release_types(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn chromium_downloads_from_the_pinned_public_archive() {
+    let service = BrowserVersionManager::instance();
+    let info = service
+      .get_download_info("chromium", BrowserVersionManager::CHROMIUM_PINNED_VERSION)
+      .expect("chromium download info resolves");
+    assert!(info.is_archive);
+    assert!(info
+      .url
+      .starts_with("https://storage.googleapis.com/chrome-for-testing-public/"));
+    assert!(info.url.contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
+  }
+
+  #[test]
+  fn chromium_is_a_supported_browser() {
+    assert!(BrowserVersionManager::instance()
+      .get_supported_browsers()
+      .contains(&"chromium".to_string()));
+  }
+
+  #[tokio::test]
+  async fn chromium_release_types_are_pinned_offline() {
+    let releases = BrowserVersionManager::instance()
+      .get_browser_release_types("chromium")
+      .await
+      .expect("chromium release types");
+    assert_eq!(releases.stable, Some(BrowserVersionManager::CHROMIUM_PINNED_VERSION.to_string()));
+  }
 
   #[tokio::test]
   async fn test_browser_version_manager_creation() {

@@ -681,6 +681,20 @@ async fn execute_warming(
   let mut failed: u32 = 0;
   let mut outcome: Option<String> = None;
 
+  // Scroll is vendor-only on the vendor engine: that build meters the
+  // automation commands behind a paid-plan entitlement its cloud mints. The
+  // open Chromium engine has no such gate, so a chromium profile scrolls as
+  // part of its warming even in the free build.
+  let scroll_allowed = !cfg!(feature = "free")
+    || crate::profile::ProfileManager::instance()
+      .list_profiles()
+      .map(|profiles| {
+        profiles
+          .iter()
+          .any(|p| p.id.to_string() == profile_id && p.browser == "chromium")
+      })
+      .unwrap_or(false);
+
   if call_tool("run_profile", json!({ "profile_id": profile_id }))
     .await
     .is_err()
@@ -706,11 +720,7 @@ async fn execute_warming(
       } else if !dwell(&flag, 2_000, 6_000).await {
         outcome = Some("cancelled".to_string());
         break;
-      // Scroll is vendor-only: the vendor browser build gates it (and other
-      // automation commands) behind a paid-plan entitlement token its cloud
-      // mints. Free warming counts the site on navigate + dwell alone — the
-      // page loads and cookies land either way.
-      } else if !cfg!(feature = "free")
+      } else if scroll_allowed
         && call_tool(
           "scroll",
           json!({ "profile_id": profile_id, "direction": "down", "pages": 1 }),

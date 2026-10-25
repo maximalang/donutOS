@@ -865,7 +865,7 @@ impl AgentContext {
   /// The engine is read from the profile HERE, at the point of use, never
   /// cached: a profile updated to 152 gets the native path on its next call.
   pub(crate) fn new(profile: BrowserProfile, target: CdpTarget) -> Self {
-    let engine = Engine::for_version(&profile.version);
+    let engine = Engine::for_profile(&profile.browser, &profile.version);
     Self {
       profile,
       target,
@@ -2934,7 +2934,7 @@ impl McpServer {
             },
             "browser": {
               "type": "string",
-              "enum": ["wayfern"],
+              "enum": ["wayfern", "chromium"],
               "description": "Browser engine to use"
             },
             "proxy_id": {
@@ -5661,7 +5661,7 @@ impl McpServer {
       })?;
 
     // Check if it's a Wayfern profile
-    if profile.browser != "wayfern" {
+    if profile.browser != "wayfern" && profile.browser != "chromium" {
       return Err(McpError {
         code: -32000,
         message: "MCP only supports Wayfern profiles".to_string(),
@@ -5723,7 +5723,7 @@ impl McpServer {
       })?;
 
     // Check if it's a Wayfern profile
-    if profile.browser != "wayfern" {
+    if profile.browser != "wayfern" && profile.browser != "chromium" {
       return Err(McpError {
         code: -32000,
         message: "MCP only supports Wayfern profiles".to_string(),
@@ -5848,7 +5848,7 @@ impl McpServer {
       })?;
 
     // Check if it's a Wayfern profile
-    if profile.browser != "wayfern" {
+    if profile.browser != "wayfern" && profile.browser != "chromium" {
       return Err(McpError {
         code: -32000,
         message: "MCP only supports Wayfern profiles".to_string(),
@@ -5962,7 +5962,7 @@ impl McpServer {
         lines.push(format!("{profile_id}: not found"));
         continue;
       };
-      if profile.browser != "wayfern" {
+      if profile.browser != "wayfern" && profile.browser != "chromium" {
         lines.push(format!(
           "{profile_id}: unsupported browser (MCP supports Wayfern)"
         ));
@@ -6580,7 +6580,7 @@ impl McpServer {
       })?;
 
     // Check if it's a Wayfern profile
-    if profile.browser != "wayfern" {
+    if profile.browser != "wayfern" && profile.browser != "chromium" {
       return Err(McpError {
         code: -32000,
         message: "MCP only supports Wayfern profiles".to_string(),
@@ -8758,7 +8758,7 @@ impl McpServer {
         data: None,
       })?;
 
-    if profile.browser != "wayfern" {
+    if profile.browser != "wayfern" && profile.browser != "chromium" {
       return Err(McpError {
         code: -32000,
         message: "MCP only supports Wayfern profiles".to_string(),
@@ -9558,7 +9558,7 @@ impl McpServer {
     // browser types through Vellum, which paces the keys itself, so the plan
     // below is only built for the fallback engine.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_version(&profile.version).is_wayfern() && !instant;
+    let humanized = Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
     // (TYPING_TOO_LONG), and the focus step below empties the field when
@@ -10033,7 +10033,7 @@ impl McpServer {
 
     // Engine first, then budgets, then the page: see handle_type_text.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_version(&profile.version).is_wayfern() && !instant;
+    let humanized = Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
     // (TYPING_TOO_LONG), and the focus step below empties the field when
@@ -13600,7 +13600,7 @@ mod tests {
         .unwrap_or_else(|| panic!("{handler} must exist"));
       let body = &rest[..rest.find("\n  async fn ").unwrap_or(rest.len())];
       let engine = body
-        .find("Engine::for_version(&profile.version)")
+        .find("Engine::for_profile(&profile.browser, &profile.version)")
         .unwrap_or_else(|| panic!("{handler} must read the engine off the profile"));
       let budget = body
         .find("vellum_typing_budget(")

@@ -151,7 +151,7 @@ function consistencyFromErrorParams(
   };
 }
 
-type BrowserTypeString = "wayfern";
+export type BrowserTypeString = "wayfern" | "chromium";
 
 interface PendingUrl {
   id: string;

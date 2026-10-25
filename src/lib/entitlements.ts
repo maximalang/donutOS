@@ -1,4 +1,5 @@
 import type { CloudUser, Entitlements } from "@/types";
+import { isFreeBuildSync } from "@/lib/free-build";
 
 const DEFAULT_REQUESTS_PER_HOUR = 100;
 
@@ -23,6 +24,30 @@ const NONE: Entitlements = {
   remoteInteractive: false,
   remoteControl: false,
   scheduledAutomation: false,
+  profileLimit: 0,
+  requestsPerHour: 0,
+  remoteBrowserHours: 0,
+};
+
+/**
+ * The local product's own capability set. In the free build there is no
+ * vendor account to read entitlements from — the product itself is the
+ * source: automation runs on the open Chromium engine, fingerprints are
+ * local, the cookie bot and schedules run on the local engines, and
+ * "backup" is the local profile export plus self-hosted sync. Remote-fleet
+ * hours stay 0: there is no vendor fleet, and no local replacement ships
+ * for it yet.
+ */
+const LOCAL_PRODUCT: Entitlements = {
+  active: true,
+  browserAutomation: true,
+  crossOsFingerprints: true,
+  cloudBackup: true,
+  teamCollaboration: false,
+  cookieBot: true,
+  remoteInteractive: false,
+  remoteControl: false,
+  scheduledAutomation: true,
   profileLimit: 0,
   requestsPerHour: 0,
   remoteBrowserHours: 0,
@@ -125,7 +150,13 @@ export function getEntitlements(
       remoteBrowserHours: server.remoteBrowserHours ?? 0,
     };
   }
-  if (!user) return NONE;
+  if (!user) {
+    // The local product owes no explanation to the vendor's plan matrix:
+    // every local engine the build ships is unlocked by default, with the
+    // sync/backup surface routing to local export and self-hosted sync.
+    if (isFreeBuildSync()) return LOCAL_PRODUCT;
+    return NONE;
+  }
 
   const active =
     user.plan !== "free" &&

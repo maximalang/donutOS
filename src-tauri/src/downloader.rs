@@ -171,6 +171,8 @@ impl Downloader {
     _download_info: &DownloadInfo,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match browser_type {
+      // The open engine's archives are pinned public URLs: nothing to resolve.
+      BrowserType::Chromium => Ok(_download_info.url.clone()),
       BrowserType::Wayfern => {
         // For Wayfern, get the download URL from version.json
         let version_info = self

@@ -76,6 +76,17 @@ impl Engine {
     }
   }
 
+  /// The engine a profile gets, by browser family first: an open Chromium
+  /// install is never the native Wayfern engine, whatever its version number
+  /// says, so it always takes the plain-CDP fallback paths.
+  pub fn for_profile(browser: &str, version: &str) -> Self {
+    if browser == "chromium" {
+      Self::Fallback
+    } else {
+      Self::for_version(version)
+    }
+  }
+
   /// Serde default for results the browser produced: they are, by definition,
   /// the native engine's.
   fn wayfern() -> Self {
@@ -1610,6 +1621,15 @@ pub(crate) mod test_support {
 mod tests {
   use super::vellum;
   use super::*;
+
+  #[test]
+  fn an_open_chromium_profile_takes_the_fallback_paths_whatever_its_version() {
+    // 158 > 152: by version alone this would look native; the browser family
+    // decides, and chromium never rides the metered native domains.
+    assert_eq!(Engine::for_profile("chromium", "158.0.8123.0"), Engine::Fallback);
+    assert_eq!(Engine::for_profile("wayfern", "155.0.8059.79"), Engine::Wayfern);
+    assert_eq!(Engine::for_profile("wayfern", "141.0.7390.0"), Engine::Fallback);
+  }
 
   #[test]
   fn the_engine_follows_the_profile_version() {

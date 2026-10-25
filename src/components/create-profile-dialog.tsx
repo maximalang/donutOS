@@ -83,6 +83,7 @@ import { getOSDisplayName, getOSIcon } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
 import { MOTION_EASE_OUT } from "@/lib/motion";
 import { startPagesFromText } from "@/lib/start-pages";
+import type { BrowserTypeString } from "@/app/page";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type {
@@ -121,7 +122,7 @@ interface CreateProfileDialogProps {
   onClose: () => void;
   onCreateProfile: (profileData: {
     name: string;
-    browserStr: "wayfern";
+    browserStr: BrowserTypeString;
     version: string;
     releaseType: string;
     proxyId?: string;
@@ -258,10 +259,10 @@ export function CreateProfileDialog({
       const releases = await invoke<BrowserReleaseTypes>(
         "get_browser_release_types",
         {
-          browserStr: "wayfern",
+          browserStr: "chromium",
         },
       );
-      await loadDownloadedVersions("wayfern");
+      await loadDownloadedVersions("chromium");
       if (versionRequestRef.current === request) {
         setReleaseTypes(releases.stable ? { stable: releases.stable } : {});
       }
@@ -536,7 +537,7 @@ export function CreateProfileDialog({
     try {
       await onCreateProfile({
         name: profileName.trim(),
-        browserStr: "wayfern",
+        browserStr: "chromium",
         version: creatableVersion,
         releaseType: "stable",
         proxyId: isVpnSelection ? undefined : selectedProxyId,

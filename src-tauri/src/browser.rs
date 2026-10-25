@@ -18,12 +18,16 @@ pub struct ProxySettings {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BrowserType {
   Wayfern,
+  /// Open Chromium (Chrome for Testing): the engine the product ships with.
+  /// No vendor account, no metered domains — every CDP path is unmetered.
+  Chromium,
 }
 
 impl BrowserType {
   pub fn as_str(&self) -> &'static str {
     match self {
       BrowserType::Wayfern => "wayfern",
+      BrowserType::Chromium => "chromium",
     }
   }
 
@@ -32,12 +36,14 @@ impl BrowserType {
   pub fn display_name(&self) -> &'static str {
     match self {
       BrowserType::Wayfern => "Wayfern",
+      BrowserType::Chromium => "Chromium",
     }
   }
 
   pub fn from_str(s: &str) -> Result<Self, String> {
     match s {
       "wayfern" => Ok(BrowserType::Wayfern),
+      "chromium" => Ok(BrowserType::Chromium),
       _ => Err(format!("Unknown browser type: {s}")),
     }
   }
@@ -382,7 +388,121 @@ impl BrowserFactory {
   pub fn create_browser(&self, browser_type: BrowserType) -> Box<dyn Browser> {
     match browser_type {
       BrowserType::Wayfern => Box::new(WayfernBrowser::new()),
+      BrowserType::Chromium => Box::new(ChromiumBrowser),
     }
+  }
+}
+
+/// The open engine: Chrome for Testing launched as a plain Chromium. Nothing
+/// about it is vendor-metered, so every automation path that speaks plain CDP
+/// — `Input.dispatch*`, `Runtime.evaluate`, the lot — works on it.
+pub struct ChromiumBrowser;
+
+#[allow(dead_code)]
+fn chromium_executable_candidates(install_dir: &Path) -> Vec<PathBuf> {
+  const NAMES: [&str; 2] = ["chrome.exe", "chromium.exe"];
+  let dirs = [
+    install_dir.to_path_buf(),
+    install_dir.join("chrome-win64"),
+    install_dir.join("chrome-win"),
+    install_dir.join("bin"),
+  ];
+  dirs
+    .iter()
+    .flat_map(|dir| NAMES.iter().map(move |name| dir.join(name)))
+    .collect()
+}
+
+impl Browser for ChromiumBrowser {
+  fn get_executable_path(&self, install_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    #[cfg(target_os = "windows")]
+    {
+      for candidate in chromium_executable_candidates(install_dir) {
+        if candidate.is_file() && is_pe_executable(&candidate) {
+          return Ok(candidate);
+        }
+      }
+      return Err("chrome.exe not found in the install directory".into());
+    }
+    #[cfg(target_os = "linux")]
+    {
+      let candidate = install_dir.join("chrome-linux64").join("chrome");
+      if candidate.is_file() {
+        return Ok(candidate);
+      }
+      let flat = install_dir.join("chrome");
+      if flat.is_file() {
+        return Ok(flat);
+      }
+      Err("chrome not found in the install directory".into())
+    }
+    #[cfg(target_os = "macos")]
+    {
+      let candidate = install_dir
+        .join("Google Chrome for Testing.app")
+        .join("Contents")
+        .join("MacOS")
+        .join("Google Chrome for Testing");
+      if candidate.is_file() {
+        return Ok(candidate);
+      }
+      Err("Chrome for Testing app not found in the install directory".into())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+      let _ = install_dir;
+      Err("Unsupported platform".into())
+    }
+  }
+
+  fn create_launch_args(
+    &self,
+    profile_path: &str,
+    proxy_settings: Option<&ProxySettings>,
+    url: Option<String>,
+    remote_debugging_port: Option<u16>,
+    headless: bool,
+  ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    // Plain Chromium arguments; nothing here depends on a vendor build.
+    let mut args = vec![
+      format!("--user-data-dir={}", profile_path),
+      "--no-default-browser-check".to_string(),
+      "--disable-background-mode".to_string(),
+      "--disable-component-update".to_string(),
+      "--disable-session-crashed-bubble".to_string(),
+      "--hide-crash-restore-bubble".to_string(),
+      "--disable-infobars".to_string(),
+      "--no-first-run".to_string(),
+    ];
+
+    if let Some(port) = remote_debugging_port {
+      args.push("--remote-debugging-address=127.0.0.1".to_string());
+      args.push(format!("--remote-debugging-port={port}"));
+    }
+
+    if headless {
+      args.push("--headless=new".to_string());
+      args.push("--disable-gpu".to_string());
+    }
+
+    if let Some(proxy) = proxy_settings {
+      args.push(format!("--proxy-server=http://{}:{}", proxy.host, proxy.port));
+    }
+
+    if let Some(url) = url {
+      args.push(url);
+    }
+
+    Ok(args)
+  }
+
+  fn is_version_downloaded(&self, version: &str, binaries_dir: &Path) -> bool {
+    let install_dir = binaries_dir.join("chromium").join(version);
+    self.get_executable_path(&install_dir).is_ok()
+  }
+
+  fn prepare_executable(&self, _executable_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
   }
 }
 
@@ -498,6 +618,44 @@ static BROWSER_FACTORY: std::sync::LazyLock<BrowserFactory> =
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn chromium_type_round_trips() {
+    let browser = BrowserType::from_str("chromium").expect("chromium parses");
+    assert_eq!(browser.as_str(), "chromium");
+    assert_eq!(browser.display_name(), "Chromium");
+  }
+
+  #[test]
+  fn chromium_launch_args_carry_debug_port_and_headless() {
+    let args = ChromiumBrowser
+      .create_launch_args(
+        "C:\\profiles\\p1",
+        None,
+        None,
+        Some(4499),
+        true,
+      )
+      .expect("chromium launch args");
+    assert!(args.contains(&"--user-data-dir=C:\\profiles\\p1".to_string()));
+    assert!(args.contains(&"--remote-debugging-port=4499".to_string()));
+    assert!(args.contains(&"--remote-debugging-address=127.0.0.1".to_string()));
+    assert!(args.contains(&"--headless=new".to_string()));
+  }
+
+  #[test]
+  fn chromium_version_is_not_downloaded_from_an_empty_dir() {
+    let dir = std::env::temp_dir().join(format!(
+      "donut-chromium-test-{}",
+      std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    assert!(!ChromiumBrowser.is_version_downloaded("158.0.8123.0", &dir));
+    let _ = std::fs::remove_dir_all(&dir);
+  }
 
   #[cfg(target_os = "macos")]
   #[test]
