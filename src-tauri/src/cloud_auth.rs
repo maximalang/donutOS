@@ -1359,7 +1359,15 @@ impl CloudAuthManager {
   /// so gating the bot on automation refused a Solo customer the one feature
   /// their plan is sold on, and answered 402 while their scheduled runs kept
   /// working server-side.
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn can_use_cookie_bot(&self) -> bool {
+    #[cfg(feature = "free")]
+    {
+      // Free local build: the cookie bot warms profiles on this machine,
+      // with no account plan involved.
+      return true;
+    }
+
     self
       .entitlements()
       .await

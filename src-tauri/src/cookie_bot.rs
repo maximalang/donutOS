@@ -605,11 +605,21 @@ pub struct CookieBotUsage {
 
 /// [`bot_precondition`] for this device as it is now: also refused while the
 /// account syncs with its own server, which the bot's hosts cannot reach.
+#[cfg(not(feature = "free"))]
 pub fn run_precondition(profile: &BrowserProfile) -> Result<(), String> {
   if let Some(refusal) = crate::sync::account_server::cloud_run_refusal() {
     return Err(refusal);
   }
   bot_precondition(profile, &exit_reachability(profile))
+}
+
+/// Free builds warm profiles on this machine through the local engine: there
+/// is no cloud lease, so the vendor preconditions — a cloud account, a
+/// sync-enabled profile, a leaseable remote exit — do not apply.
+#[cfg(feature = "free")]
+pub fn run_precondition(profile: &BrowserProfile) -> Result<(), String> {
+  let _ = profile;
+  Ok(())
 }
 
 /// Whether this profile could ever be warmed by the bot.
@@ -618,6 +628,9 @@ pub fn run_precondition(profile: &BrowserProfile) -> Result<(), String> {
 /// the client cannot see — but a profile that can never qualify should never
 /// reach a confirm dialog, an hour of quota or a remote host. Returns the
 /// `{"code":…}` string a Tauri command surfaces directly.
+// Vendor-only caller (run_precondition) is compiled out in free builds;
+// the function stays for the vendor path and its tests.
+#[cfg_attr(feature = "free", allow(dead_code))]
 pub fn bot_precondition(
   profile: &BrowserProfile,
   exit: &crate::remote_exit::ExitReachability,
@@ -791,6 +804,8 @@ impl CookieBotScheduleInput {
   }
 }
 
+// Only reachable from the vendor branch of run_precondition; dead in free.
+#[cfg_attr(feature = "free", allow(dead_code))]
 fn error(code: &str, params: &[(&str, &str)]) -> String {
   let mut object = serde_json::Map::new();
   object.insert(
@@ -1864,6 +1879,20 @@ mod tests {
     let err = bot_precondition(&profile, &ExitReachability::Remote)
       .expect_err("a local-only profile must be refused");
     assert_eq!(code_of(&err), "COOKIE_BOT_REQUIRES_CLOUD_SYNC");
+  }
+
+  #[cfg(feature = "free")]
+  #[test]
+  fn free_run_precondition_allows_local_only_profiles() {
+    // Free warming is local: a profile with no cloud sync must still enrol
+    // and run. This exact gate regressed as COOKIE_BOT_REQUIRES_CLOUD_SYNC
+    // when the vendor remote-run precondition leaked into the free path.
+    let mut profile = eligible_profile();
+    profile.sync_mode = SyncMode::Disabled;
+    assert!(
+      run_precondition(&profile).is_ok(),
+      "a local-only profile must be enrolable in free builds"
+    );
   }
 
   #[test]

@@ -500,7 +500,17 @@ async fn start_run(
       doc.runs.push(run.clone());
       Ok::<CookieBotRun, CookieBotError>(run)
     })
-    .map_err(|e| {
+    .map_err(|e: String| {
+      // A deliberate refusal from the update — a run already in progress —
+      // round-trips through the store's flat String error. Hand it back as
+      // the typed refusal instead of masking it as a schedule failure.
+      if e.contains("COOKIE_BOT_RUN_IN_PROGRESS") {
+        return CookieBotError(crate::cloud_errors::BackendFailure {
+          status: 409,
+          code: "COOKIE_BOT_RUN_IN_PROGRESS".to_string(),
+          params: Default::default(),
+        });
+      }
       log::error!("Cookie-bot run store write failed: {e}");
       invalid("COOKIE_BOT_INVALID_SCHEDULE")
     })?;
@@ -696,12 +706,17 @@ async fn execute_warming(
       } else if !dwell(&flag, 2_000, 6_000).await {
         outcome = Some("cancelled".to_string());
         break;
-      } else if call_tool(
-        "scroll",
-        json!({ "profile_id": profile_id, "direction": "down", "pages": 1 }),
-      )
-      .await
-      .is_err()
+      // Scroll is vendor-only: the vendor browser build gates it (and other
+      // automation commands) behind a paid-plan entitlement token its cloud
+      // mints. Free warming counts the site on navigate + dwell alone — the
+      // page loads and cookies land either way.
+      } else if !cfg!(feature = "free")
+        && call_tool(
+          "scroll",
+          json!({ "profile_id": profile_id, "direction": "down", "pages": 1 }),
+        )
+        .await
+        .is_err()
       {
         failed += 1;
       } else if !dwell(&flag, 1_000, 3_000).await {
@@ -1008,6 +1023,35 @@ pub(crate) async fn delete_user_template(id: &str) -> Result<bool, CookieBotErro
   Ok(removed)
 }
 
+/// Runs left `running` by a previous process can never finish: their warming
+/// executor died with the app. Mark them failed once at startup, or the stale
+/// row blocks every future run for the profile.
+fn reconcile_orphans(doc: &mut CookieBotDoc, now: String) -> u32 {
+  let mut count = 0u32;
+  for run in doc.runs.iter_mut() {
+    if status_rank(&run.status) == 0 {
+      run.status = "failed".to_string();
+      run.ended_at = Some(now.clone());
+      run.outcome_code = Some("app_restarted".to_string());
+      count += 1;
+    }
+  }
+  count
+}
+
+fn reconcile_orphan_runs() {
+  match doc_store().update(|doc| {
+    let count = reconcile_orphans(doc, now_iso());
+    Ok::<u32, CookieBotError>(count)
+  }) {
+    Ok(count) if count > 0 => {
+      log::info!("Cookie-bot reconciled {count} orphan run(s) left by a previous process");
+    }
+    Ok(_) => {}
+    Err(e) => log::warn!("Cookie-bot orphan reconciliation failed: {e}"),
+  }
+}
+
 /// The single warming executor: one run at a time, in start order. Spawned
 /// once at app setup (free builds only).
 pub(crate) async fn run_executor() {
@@ -1018,6 +1062,7 @@ pub(crate) async fn run_executor() {
     .take()
     .expect("run_executor spawned twice");
   log::info!("Cookie-bot local executor started");
+  reconcile_orphan_runs();
   while let Some(job) = receiver.recv().await {
     execute_warming(
       job.run_id,
@@ -1136,6 +1181,53 @@ mod tests {
   use super::*;
   use crate::cookie_bot::{CookieBotScheduleInput, CookieBotSlot};
   use chrono::TimeZone;
+
+  #[test]
+  fn an_app_restart_fails_the_runs_it_left_running() {
+    let mut doc = CookieBotDoc {
+      runs: vec![
+        test_run("running"),
+        test_run("failed"),
+        test_run("succeeded"),
+      ],
+      ..Default::default()
+    };
+    let count = reconcile_orphans(&mut doc, "2026-10-25T12:00:00Z".to_string());
+    assert_eq!(count, 1, "only the non-terminal run is an orphan");
+    assert_eq!(doc.runs[0].status, "failed");
+    assert_eq!(doc.runs[0].outcome_code.as_deref(), Some("app_restarted"));
+    assert_eq!(doc.runs[0].ended_at.as_deref(), Some("2026-10-25T12:00:00Z"));
+    assert_eq!(doc.runs[1].status, "failed", "terminal runs stay untouched");
+    assert_eq!(doc.runs[1].outcome_code, None);
+    assert_eq!(doc.runs[2].status, "succeeded", "terminal runs stay untouched");
+  }
+
+  fn test_run(status: &str) -> CookieBotRun {
+    CookieBotRun {
+      id: uuid::Uuid::new_v4().to_string(),
+      profile_id: "02f0bab1-0000-0000-0000-000000000000".to_string(),
+      profile_name: Some("t".to_string()),
+      user_id: None,
+      email: None,
+      team_id: None,
+      trigger: "manual".to_string(),
+      status: status.to_string(),
+      scheduled_for: "2026-10-25T11:00:00Z".to_string(),
+      dispatch_after: None,
+      started_at: Some("2026-10-25T11:00:00Z".to_string()),
+      ended_at: None,
+      max_minutes: 10,
+      chunks_total: 1,
+      chunk_index: 1,
+      sites_total: 1,
+      sites_visited: 0,
+      sites_failed: 0,
+      consent_dismissed: 0,
+      billed_seconds: 0,
+      outcome_code: None,
+      session_id: None,
+    }
+  }
 
   fn at(test: &str) -> DateTime<Utc> {
     let _ = test;

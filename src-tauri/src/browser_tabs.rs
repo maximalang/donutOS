@@ -38,7 +38,11 @@ pub async fn local_port(profile: &BrowserProfile) -> Option<u16> {
   if !crate::browser_runner::browser_is_running_for(&profile.id.to_string()) {
     return None;
   }
-  let path = profile.get_profile_data_path(&ProfileManager::instance().get_profiles_dir());
+  // Same path the launcher registered the instance under — see cdp_target.
+  let path = crate::ephemeral_dirs::get_effective_profile_path(
+    profile,
+    &ProfileManager::instance().get_profiles_dir(),
+  );
   crate::wayfern_manager::WayfernManager::instance()
     .get_cdp_port(&path.to_string_lossy())
     .await

@@ -241,7 +241,11 @@ pub async fn resolve(profile: &BrowserProfile) -> Result<CdpTarget, ResolveError
 /// The debugging port a locally launched browser registered for this profile.
 async fn local_cdp_port(profile: &BrowserProfile, patience: Patience) -> Option<u16> {
   let profiles_dir = crate::profile::manager::ProfileManager::instance().get_profiles_dir();
-  let profile_path = profile.get_profile_data_path(&profiles_dir);
+  // The launcher registers the instance under the effective profile path —
+  // the ephemeral dir for ephemeral or password-protected profiles — so the
+  // lookup must use the same path or the CDP port is never found.
+  let profile_path =
+    crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
   let profile_path_str = profile_path.to_string_lossy().to_string();
 
   // Port info is written once the process is up, so a tool called straight
