@@ -5425,7 +5425,7 @@ mod tests {
   fn every_browser_refusal_reaches_the_frontend_as_its_own_code() {
     for (message, expected) in [
       (
-        "Custom fingerprints require a Donut Browser plan that includes them.",
+        "Custom fingerprints require a donutOS plan that includes them.",
         "WAYFERN_CUSTOM_FINGERPRINT_REQUIRES_PLAN",
       ),
       (

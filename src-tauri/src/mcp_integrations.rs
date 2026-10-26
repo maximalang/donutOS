@@ -1,4 +1,4 @@
-//! MCP client installer: writes the Donut Browser server entry into the global
+//! MCP client installer: writes the donutOS server entry into the global
 //! config of twenty-two AI clients and reads it back for the Integrations page.
 //!
 //! The endpoint lives under `CLOUD_API_URL`, needs a bearer credential and is

@@ -32,6 +32,24 @@ revalidation). Instead patch ONLY the CDP refusal branch:
 - The gate function itself stays intact → background validation untouched →
   no crash; verified stable with browser alive >60 s after patch.
 
+## 155.0.8059.79 — caller-branch patch (deployed 26.10)
+
+Same refusal-site shape as 154, located by signature (call → status fn →
+`test eax` → `je allow` → `cmp eax,2` → lea-pair loading the refusal string,
+`mov ebx,0x36` = its length). Hunt scripts: scratch `hunt155_callsites.py`
+(find status fn via `WAYFERN_TOKEN`+`wayfern-token` xrefs, then its call
+sites with the branch pattern).
+
+- File: `data/binaries/wayfern/155.0.8059.79/chrome.dll` (backup: `chrome.dll.orig`)
+- Offset: `0x40a381b` (call site VA 0x1840a4214; status fn VA 0x184b84ff0)
+- Original: `0f 84 23 01 00 00` (je 0x1840a4344 — allow when gate==0)
+- Patched:  `e9 24 01 00 00 90` (jmp 0x1840a4344 — always allow)
+- Refusal string VA 0x19384ca68, len 0x36; status fn had 18 call sites, same
+  count as 154's — structural match beyond the byte pattern.
+- The free build now REFUSES vendor Wayfern downloads (`downloader.rs`) and
+  skips the startup version refresh (`version_updater.rs`), so an unpatched
+  engine can no longer arrive silently.
+
 ## Rules
 
 - NEVER let the app update/replace engines: free build pins everything

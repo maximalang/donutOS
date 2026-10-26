@@ -587,13 +587,13 @@ pub async fn cdp_endpoint(session_id: &str) -> Result<CdpEndpoint, RemoteSession
 fn unsupported_descriptor(endpoint: &CdpEndpoint) -> Option<String> {
   if !endpoint.auth.is_empty() && endpoint.auth != AUTH_BEARER {
     return Some(format!(
-      "this version cannot attach to a remote browser using {:?} authentication; update Donut Browser",
+      "this version cannot attach to a remote browser using {:?} authentication; update donutOS",
       endpoint.auth
     ));
   }
   if !endpoint.protocol.is_empty() && endpoint.protocol != PROTOCOL_CDP_RELAY_1 {
     return Some(format!(
-      "this version does not speak {:?}; update Donut Browser",
+      "this version does not speak {:?}; update donutOS",
       endpoint.protocol
     ));
   }
@@ -1977,7 +1977,7 @@ mod tests {
     };
     assert!(unsupported_descriptor(&ticketed)
       .expect("an unknown auth scheme must be refused")
-      .contains("update Donut Browser"));
+      .contains("update donutOS"));
 
     let future_protocol = CdpEndpoint {
       auth: AUTH_BEARER.to_string(),

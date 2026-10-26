@@ -153,7 +153,7 @@ pub struct McpRequest {
 
 const PROTOCOL_VERSION: &str = "2025-11-25";
 
-const INITIALIZE_INSTRUCTIONS: &str = "Donut Browser MCP server. Use tools/list to discover the browser tools. A person watches your work in Donut: call get_human_updates when you start and between steps, report_progress during longer jobs, ask_human when you are unsure, and request_human_help when a page needs a person. When a Donut tool fails in a way you cannot explain, or you need something it cannot do, tell the Donut team with send_feedback. A call refused with AGENT_PAUSED or PROFILE_HELD_BY_HUMAN means the person is in control; do not retry it until get_human_updates shows the pause or hold is gone.";
+const INITIALIZE_INSTRUCTIONS: &str = "donutOS MCP server. Use tools/list to discover the browser tools. A person watches your work in Donut: call get_human_updates when you start and between steps, report_progress during longer jobs, ask_human when you are unsure, and request_human_help when a page needs a person. When a Donut tool fails in a way you cannot explain, or you need something it cannot do, tell the Donut team with send_feedback. A call refused with AGENT_PAUSED or PROFILE_HELD_BY_HUMAN means the person is in control; do not retry it until get_human_updates shows the pause or hold is gone.";
 
 const PLAN_WITHOUT_AUTOMATION: &str = " This account's plan does not include browser automation: tools that launch, drive or read a browser are refused with PLAN_REQUIRED. Managing profiles, groups, proxies, VPNs and extensions works.";
 
@@ -223,10 +223,10 @@ fn cdp_error(error: CdpError) -> McpError {
 ///
 /// A desktop the server will not give a Wayfern token, because another desktop
 /// on the account is the primary one, launches the engine without a token, and
-/// the engine then refuses every command as "requires a paid Donut Browser
+/// the engine then refuses every command as "requires a paid donutOS
 /// plan", which is false for a paying account.
 fn explain_engine_refusal(mut error: McpError, device_refusal: Option<String>) -> McpError {
-  if error.message.contains("requires a paid Donut Browser plan") {
+  if error.message.contains("requires a paid donutOS plan") {
     if let Some(reason) = device_refusal {
       error.message = reason;
     }
@@ -4411,6 +4411,62 @@ impl McpServer {
           "required": []
         }),
       },
+      // Recipes. The local engine owns them in this build; the tools mirror
+      // the in-app agent console surface.
+      McpTool {
+        name: "list_recipes".to_string(),
+        description: "List saved automation recipes with their id, name, and step count".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {},
+          "required": []
+        }),
+      },
+      McpTool {
+        name: "run_recipe".to_string(),
+        description: "Replay a saved automation recipe on a profile now. A stopped profile is started automatically".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "recipe_id": {
+              "type": "string",
+              "description": "Recipe id from list_recipes"
+            },
+            "profile_id": {
+              "type": "string",
+              "description": "Target profile id or name"
+            }
+          },
+          "required": ["recipe_id", "profile_id"]
+        }),
+      },
+      McpTool {
+        name: "create_recipe".to_string(),
+        description: "Save a new automation recipe: a name plus an ordered list of steps".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Recipe name" },
+            "steps": {
+              "type": "array",
+              "description": "Ordered steps; each step is the tool-call object the agent console records",
+              "items": { "type": "object" }
+            }
+          },
+          "required": ["name", "steps"]
+        }),
+      },
+      McpTool {
+        name: "delete_recipe".to_string(),
+        description: "Delete a saved automation recipe by id".to_string(),
+        input_schema: serde_json::json!({
+          "type": "object",
+          "properties": {
+            "recipe_id": { "type": "string", "description": "Recipe id from list_recipes" }
+          },
+          "required": ["recipe_id"]
+        }),
+      },
       // Cookie bot. Every one of these is a proxy onto Donut cloud, which owns
       // the schedule and the browsing behaviour; the tools carry only the
       // user's own choices.
@@ -4859,7 +4915,7 @@ impl McpServer {
       },
       McpTool {
         name: "send_feedback".to_string(),
-        description: "Send feedback about Donut Browser to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach the recent app logs, which help with bugs and never contain profile names, visited URLs or credentials. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
+        description: "Send feedback about donutOS to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach the recent app logs, which help with bugs and never contain profile names, visited URLs or credentials. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -5081,6 +5137,21 @@ impl McpServer {
       .cloned()
       .unwrap_or(serde_json::json!({}));
 
+    // Common caller alias: agents guess "stop_profile" for the kill tool.
+    let tool_name = if tool_name == "stop_profile" {
+      "kill_profile"
+    } else {
+      tool_name
+    };
+
+    // A stopped profile is started on demand for browser-driving tools. The
+    // vendor product kept its sessions alive in the cloud; local callers —
+    // agents, schedules — expect `navigate` to bring the profile up instead
+    // of failing. Management and read-only tools never trigger a launch.
+    if let Some(ident) = arguments.get("profile_id").and_then(|v| v.as_str()) {
+      self.auto_launch_for_tool(tool_name, ident).await;
+    }
+
     // Log only the tool name and the profile_id arg: arbitrary URLs / JS /
     // selectors can be sensitive.
     let profile_id = arguments
@@ -5180,6 +5251,17 @@ impl McpServer {
       "report_progress" => Self::handle_report_progress(caller, arguments),
       "send_feedback" => self.handle_send_feedback(caller, arguments).await,
       "list_profiles" => self.handle_list_profiles(arguments).await,
+      "list_recipes" => self.handle_list_recipes(arguments).await,
+      "run_recipe" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        self.handle_run_recipe(arguments).await
+      }
+      "create_recipe" => self.handle_create_recipe(arguments).await,
+      "delete_recipe" => self.handle_delete_recipe(arguments).await,
       "get_profile" => self.handle_get_profile(arguments).await,
       "run_profile" => {
         Self::require_capability(
@@ -5606,6 +5688,129 @@ impl McpServer {
     }
   }
 
+  async fn handle_list_recipes(
+    &self,
+    _arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let recipes = crate::recipes::list_recipes().await.map_err(|e| McpError {
+      code: -32000,
+      message: e,
+      data: None,
+    })?;
+    let lines: Vec<String> = recipes
+      .iter()
+      .map(|r| format!("{}: {} ({} steps)", r.id, r.name, r.steps.len()))
+      .collect();
+    let text = if lines.is_empty() {
+      "No recipes saved.".to_string()
+    } else {
+      format!("{} recipe(s):\n{}", lines.len(), lines.join("\n"))
+    };
+    Ok(serde_json::json!({
+      "content": [{ "type": "text", "text": text }]
+    }))
+  }
+
+  async fn handle_run_recipe(
+    &self,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let recipe_id = arguments
+      .get("recipe_id")
+      .and_then(|v| v.as_str())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing recipe_id".to_string(),
+        data: None,
+      })?
+      .to_string();
+    let profile_id = arguments
+      .get("profile_id")
+      .and_then(|v| v.as_str())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing profile_id".to_string(),
+        data: None,
+      })?
+      .to_string();
+    let report = crate::recipes::run_agent_recipe_now(recipe_id, profile_id)
+      .await
+      .map_err(|e| McpError {
+        code: -32000,
+        message: e,
+        data: None,
+      })?;
+    Ok(serde_json::json!({
+      "content": [{
+        "type": "text",
+        "text": format!("Recipe run report:\n{report}")
+      }]
+    }))
+  }
+
+  async fn handle_create_recipe(
+    &self,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let name = arguments
+      .get("name")
+      .and_then(|v| v.as_str())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing name".to_string(),
+        data: None,
+      })?;
+    let steps = arguments
+      .get("steps")
+      .and_then(|v| v.as_array())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing steps array".to_string(),
+        data: None,
+      })?;
+    let recipe = crate::recipes::create_recipe(name, steps)
+      .await
+      .map_err(|e| McpError {
+        code: -32000,
+        message: e,
+        data: None,
+      })?;
+    Ok(serde_json::json!({
+      "content": [{
+        "type": "text",
+        "text": format!("Recipe saved: {} ({} steps)", recipe.id, recipe.steps.len())
+      }]
+    }))
+  }
+
+  async fn handle_delete_recipe(
+    &self,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let recipe_id = arguments
+      .get("recipe_id")
+      .and_then(|v| v.as_str())
+      .ok_or_else(|| McpError {
+        code: -32602,
+        message: "Missing recipe_id".to_string(),
+        data: None,
+      })?
+      .to_string();
+    let deleted = crate::recipes::delete_recipe(&recipe_id)
+      .await
+      .map_err(|e| McpError {
+        code: -32000,
+        message: e,
+        data: None,
+      })?;
+    Ok(serde_json::json!({
+      "content": [{
+        "type": "text",
+        "text": if deleted { "Recipe deleted".to_string() } else { "Recipe was not found".to_string() }
+      }]
+    }))
+  }
+
   async fn handle_list_profiles(
     &self,
     arguments: &serde_json::Value,
@@ -5897,6 +6102,67 @@ impl McpServer {
         "text": format!("Browser profile '{}' stopped successfully", profile.name)
       }]
     }))
+  }
+
+  /// Bring a stopped profile up for a browser-driving tool call. Lifecycle
+  /// tools (run/kill/batch) and read-only or management tools are excluded:
+  /// a status query must never open a browser window.
+  async fn auto_launch_for_tool(&self, tool_name: &str, ident: &str) {
+    const LIFECYCLE_TOOLS: [&str; 5] = [
+      "run_profile",
+      "kill_profile",
+      "batch_run_profiles",
+      "batch_stop_profiles",
+      "close_tab",
+    ];
+    const MANAGEMENT_PREFIXES: [&str; 9] = [
+      "get_", "list_", "create_", "delete_", "update_", "import_", "detect_", "assign_", "bulk_",
+    ];
+    if LIFECYCLE_TOOLS.contains(&tool_name)
+      || MANAGEMENT_PREFIXES.iter().any(|p| tool_name.starts_with(p))
+    {
+      return;
+    }
+    let Ok(profiles) = ProfileManager::instance().list_profiles() else {
+      return;
+    };
+    let Some(profile) = profiles
+      .iter()
+      .find(|p| p.id.to_string() == ident || p.name == ident)
+    else {
+      return;
+    };
+    if profile.process_id.is_some() {
+      return;
+    }
+    let app_handle = {
+      let inner = self.inner.lock().await;
+      match inner.app_handle.as_ref() {
+        Some(handle) => handle.clone(),
+        None => return,
+      }
+    };
+    if let Err(e) = crate::team_lock::acquire_team_lock_if_needed(profile).await {
+      log::warn!(
+        "MCP auto-launch refused profile={} err=\"{e}\"",
+        profile.name
+      );
+      return;
+    }
+    log::info!("MCP auto-launch profile={} tool={tool_name}", profile.name);
+    if let Err(e) = crate::browser_runner::launch_browser_profile_impl(
+      app_handle,
+      profile.clone(),
+      None,
+      crate::browser_runner::LaunchOptions::automation(None, false),
+    )
+    .await
+    {
+      log::warn!(
+        "MCP auto-launch failed profile={} err=\"{e}\"",
+        profile.name
+      );
+    }
   }
 
   async fn handle_batch_run_profiles(
@@ -11230,13 +11496,12 @@ mod tests {
 
   #[test]
   fn an_engine_plan_refusal_is_explained_by_a_device_refusal() {
-    let engine = || {
-      McpError {
+    let engine = || McpError {
       code: -32000,
-      message: r#"CDP error: {"code":-32000,"message":"Browser automation requires a paid Donut Browser plan."}"#
-        .to_string(),
+      message:
+        r#"CDP error: {"code":-32000,"message":"Browser automation requires a paid donutOS plan."}"#
+          .to_string(),
       data: None,
-    }
     };
     let device = "Browser automation is restricted to your primary device. Log out other devices to use it here.";
     assert_eq!(

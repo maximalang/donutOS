@@ -940,7 +940,7 @@ fn mcp_remote_key_label() -> String {
     .map(|h| h.trim().to_string())
     .filter(|h| !h.is_empty())
     .unwrap_or_else(|| "this computer".to_string());
-  format!("Donut Browser on {host}")
+  format!("donutOS on {host}")
     .chars()
     .take(MAX_LABEL_CHARS)
     .collect()
@@ -1067,7 +1067,7 @@ const BRIDGE_URL_MARKER: &str = "const MCP_URL = ";
 /// template with two placeholders rather than a `format!` string so the
 /// JavaScript braces stay readable.
 const CLAUDE_DESKTOP_BRIDGE_JS: &str = r##"#!/usr/bin/env node
-// Bridges Claude Desktop's stdio transport to Donut Browser's streamable HTTP endpoint.
+// Bridges Claude Desktop's stdio transport to donutOS's streamable HTTP endpoint.
 const http = require("http");
 const https = require("https");
 const readline = require("readline");
@@ -1219,10 +1219,10 @@ fn add_mcp_to_claude_desktop_internal(target: &mcp_integrations::McpTarget) -> R
   let manifest = serde_json::json!({
     "manifest_version": "0.3",
     "name": "donut-browser",
-    "display_name": "Donut Browser",
+    "display_name": "donutOS",
     "version": env!("CARGO_PKG_VERSION"),
-    "description": "Control Donut Browser profiles, proxies, and automation via MCP",
-    "author": { "name": "Donut Browser" },
+    "description": "Control donutOS profiles, proxies, and automation via MCP",
+    "author": { "name": "donutOS" },
     "tools_generated": true,
     "server": {
       "type": "node",
@@ -2364,7 +2364,7 @@ fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::E
   // Bootstrap labels only — the frontend pushes localized labels via
   // `update_tray_menu` on mount and on language change, and the menu is only
   // opened after a minimize-to-tray (post-mount), so these are never shown.
-  let show_item = MenuItemBuilder::with_id("tray_show", "Show Donut Browser").build(app)?;
+  let show_item = MenuItemBuilder::with_id("tray_show", "Show donutOS").build(app)?;
   let quit_item = MenuItemBuilder::with_id("tray_quit", "Quit").build(app)?;
   let tray_menu = MenuBuilder::new(app)
     .item(&show_item)
@@ -2391,7 +2391,7 @@ fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::E
   TrayIconBuilder::with_id("main")
     .icon(tray_image)
     .icon_as_template(cfg!(target_os = "macos"))
-    .tooltip("Donut Browser")
+    .tooltip("donutOS")
     .menu(&tray_menu)
     .show_menu_on_left_click(false)
     .on_menu_event(|app_handle, event| match event.id().as_ref() {
@@ -2405,7 +2405,7 @@ fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::E
     .on_tray_icon_event(|tray, event| {
       // Click events are not delivered on Linux (AppIndicator/SNI only drives
       // the menu), so left-click-to-restore is macOS/Windows only — Linux users
-      // restore via the "Show Donut Browser" menu item.
+      // restore via the "Show donutOS" menu item.
       if let TrayIconEvent::Click {
         button: MouseButton::Left,
         button_state: MouseButtonState::Up,
@@ -2682,7 +2682,7 @@ pub fn run_with_builder(
       }
       #[allow(unused_variables)]
       let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("Donut Browser")
+        .title("donutOS")
         .inner_size(880.0, 500.0)
         .min_inner_size(640.0, 400.0)
         .resizable(true)
@@ -3855,7 +3855,7 @@ mod tests {
 
   #[test]
   fn a_command_line_yields_the_links_and_files_it_carries() {
-    let exe = "C:/Program Files/Donut Browser/donutbrowser.exe".to_string();
+    let exe = "C:/Program Files/donutOS/donutbrowser.exe".to_string();
 
     // The executable's own path leads every command line and is not a target,
     // even on a machine where that path happens to exist.
@@ -3919,9 +3919,9 @@ mod tests {
   #[test]
   fn the_key_label_names_this_machine_and_fits_the_servers_cap() {
     let label = super::mcp_remote_key_label();
-    assert!(label.starts_with("Donut Browser on "), "{label}");
+    assert!(label.starts_with("donutOS on "), "{label}");
     assert!(label.chars().count() <= 80, "{label}");
-    assert!(label.len() > "Donut Browser on ".len(), "{label}");
+    assert!(label.len() > "donutOS on ".len(), "{label}");
   }
 
   #[test]

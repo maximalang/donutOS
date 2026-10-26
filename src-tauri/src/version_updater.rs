@@ -137,9 +137,17 @@ impl VersionUpdater {
     should_update
   }
 
+  #[cfg_attr(feature = "free", allow(unreachable_code))]
   pub async fn check_and_run_startup_update(
     &self,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Free local build: engines are pinned to PATCHED binaries
+    // (docs/engine-patches.md). A vendor manifest refresh is network noise
+    // and invites downloading an unpatched engine that kills automation.
+    #[cfg(feature = "free")]
+    {
+      return Ok(());
+    }
     // Always check for updates on launch
     if let Some(ref app_handle) = self.app_handle {
       match self

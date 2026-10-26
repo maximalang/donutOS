@@ -152,6 +152,15 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
     ],
   ),
   (
+    "recipes",
+    &[
+      "list_recipes",
+      "run_recipe",
+      "create_recipe",
+      "delete_recipe",
+    ],
+  ),
+  (
     "remote",
     &[
       "run_profile_remote",
@@ -164,8 +173,9 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
 ];
 
 /// Toolsets whose tools Donut cloud serves, not this desktop. Known here so
-/// a selection that names them keeps them.
-pub const CLOUD_TOOLSETS: &[&str] = &["recipes"];
+/// a selection that names them keeps them. Empty since recipes moved onto
+/// the local engine; kept for the wire format.
+pub const CLOUD_TOOLSETS: &[&str] = &[];
 
 /// The toolsets a person can add to core, in display order.
 pub fn optional_toolsets() -> Vec<&'static str> {

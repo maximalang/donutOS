@@ -82,6 +82,7 @@ import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { translateBackendError } from "@/lib/backend-errors";
 import { getOSDisplayName, getOSIcon } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
+import { isLocalProductBuild } from "@/lib/entitlements";
 import { MOTION_EASE_OUT } from "@/lib/motion";
 import { startPagesFromText } from "@/lib/start-pages";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
@@ -251,42 +252,75 @@ export function CreateProfileDialog({
     downloadedVersionsMap,
   } = useBrowserDownload();
 
-  const loadReleaseTypes = useCallback(async () => {
-    const request = ++versionRequestRef.current;
-    setIsLoadingReleaseTypes(true);
-    setReleaseTypesError(false);
-    try {
-      const releases = await invoke<BrowserReleaseTypes>(
-        "get_browser_release_types",
-        {
-          browserStr: "chromium",
-        },
-      );
-      await loadDownloadedVersions("chromium");
-      if (versionRequestRef.current === request) {
-        setReleaseTypes(releases.stable ? { stable: releases.stable } : {});
+  const wayfernVersions = downloadedVersionsMap.wayfern ?? [];
+  const chromiumVersions = downloadedVersionsMap.chromium ?? [];
+  // Default engine: the newest installed (patched) Wayfern — it carries the
+  // full fingerprint stack. A fresh install without one falls back to the
+  // open Chromium engine.
+  const [engineOverride, setEngineOverride] = useState<
+    "wayfern" | "chromium" | null
+  >(null);
+  const engine =
+    engineOverride ?? (wayfernVersions.length > 0 ? "wayfern" : "chromium");
+  const showEngineSelector =
+    wayfernVersions.length > 0 && chromiumVersions.length > 0;
+  const downloadedVersions =
+    engine === "wayfern" ? wayfernVersions : chromiumVersions;
+
+  const loadReleaseTypes = useCallback(
+    async (engine: "wayfern" | "chromium") => {
+      const request = ++versionRequestRef.current;
+      setIsLoadingReleaseTypes(true);
+      setReleaseTypesError(false);
+      // The local build pins Wayfern to installed (patched) binaries — there
+      // is no manifest to consult and downloads are refused.
+      if (engine === "wayfern" && isLocalProductBuild()) {
+        try {
+          const downloaded = await loadDownloadedVersions("wayfern");
+          if (versionRequestRef.current === request) {
+            setReleaseTypes(downloaded.length ? { stable: downloaded[0] } : {});
+            setReleaseTypesError(downloaded.length === 0);
+          }
+        } finally {
+          if (versionRequestRef.current === request)
+            setIsLoadingReleaseTypes(false);
+        }
+        return;
       }
-    } catch (error) {
-      console.error("Failed to load Chromium release types:", error);
       try {
-        const downloaded = await loadDownloadedVersions("chromium");
+        const releases = await invoke<BrowserReleaseTypes>(
+          "get_browser_release_types",
+          {
+            browserStr: engine,
+          },
+        );
+        await loadDownloadedVersions(engine);
         if (versionRequestRef.current === request) {
-          setReleaseTypes(downloaded.length ? { stable: downloaded[0] } : {});
-          setReleaseTypesError(downloaded.length === 0);
+          setReleaseTypes(releases.stable ? { stable: releases.stable } : {});
         }
       } catch (error) {
-        console.error("Failed to load downloaded Chromium versions:", error);
-        if (versionRequestRef.current === request) setReleaseTypesError(true);
+        console.error(`Failed to load ${engine} release types:`, error);
+        try {
+          const downloaded = await loadDownloadedVersions(engine);
+          if (versionRequestRef.current === request) {
+            setReleaseTypes(downloaded.length ? { stable: downloaded[0] } : {});
+            setReleaseTypesError(downloaded.length === 0);
+          }
+        } catch (error) {
+          console.error(`Failed to load downloaded ${engine} versions:`, error);
+          if (versionRequestRef.current === request) setReleaseTypesError(true);
+        }
+      } finally {
+        if (versionRequestRef.current === request)
+          setIsLoadingReleaseTypes(false);
       }
-    } finally {
-      if (versionRequestRef.current === request)
-        setIsLoadingReleaseTypes(false);
-    }
-  }, [loadDownloadedVersions]);
+    },
+    [loadDownloadedVersions],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
-    void loadReleaseTypes();
+    void loadReleaseTypes(engine);
     void invoke<{ id: string; name: string; extension_ids: string[] }[]>(
       "list_extension_groups",
     )
@@ -302,15 +336,14 @@ export function CreateProfileDialog({
     return () => {
       versionRequestRef.current += 1;
     };
-  }, [isOpen, loadReleaseTypes]);
+  }, [isOpen, loadReleaseTypes, engine]);
 
-  const downloadedVersions = downloadedVersionsMap.chromium ?? [];
   const latestVersion = releaseTypes.stable;
   const creatableVersion =
     latestVersion && downloadedVersions.includes(latestVersion)
       ? latestVersion
       : downloadedVersions[0];
-  const downloading = isBrowserDownloading("chromium");
+  const downloading = isBrowserDownloading(engine);
   const isCreateDisabled =
     !profileName.trim() ||
     !creatableVersion ||
@@ -537,7 +570,7 @@ export function CreateProfileDialog({
     try {
       await onCreateProfile({
         name: profileName.trim(),
-        browserStr: "chromium",
+        browserStr: engine,
         version: creatableVersion,
         releaseType: "stable",
         proxyId: isVpnSelection ? undefined : selectedProxyId,
@@ -774,6 +807,35 @@ export function CreateProfileDialog({
               {allowance !== null &&
                 ` ${t("templates.allowanceLeft", { count: maxCount })}`}
             </motion.p>
+          )}
+
+          {showEngineSelector && (
+            <motion.div
+              data-slot="profile-engine-selector"
+              className="flex flex-wrap items-center gap-1.5 px-2"
+              {...rise(0.03)}
+            >
+              <span className="sr-only">{t("createProfile.engine.label")}</span>
+              {(["wayfern", "chromium"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={engine === option}
+                  onClick={() => setEngineOverride(option)}
+                  disabled={isCreating}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors motion-reduce:transition-none",
+                    engine === option
+                      ? "border-transparent bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {option === "wayfern"
+                    ? t("createProfile.engine.wayfern")
+                    : t("createProfile.engine.chromium")}
+                </button>
+              ))}
+            </motion.div>
           )}
 
           <motion.div
@@ -1039,7 +1101,7 @@ export function CreateProfileDialog({
                 aria-hidden="true"
               />
               {t("createProfile.version.downloading", {
-                browser: "Chromium",
+                browser: engine === "wayfern" ? "Wayfern" : "Chromium",
                 version: latestVersion,
               })}
             </motion.p>
@@ -1063,7 +1125,7 @@ export function CreateProfileDialog({
                   {t("createProfile.version.fetchError")}
                 </p>
                 <Button
-                  onClick={() => void loadReleaseTypes()}
+                  onClick={() => void loadReleaseTypes(engine)}
                   size="sm"
                   variant="soft"
                   className="h-7 rounded-md text-xs"

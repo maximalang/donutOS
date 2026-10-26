@@ -78,8 +78,44 @@ pub(crate) async fn delete_recipe(id: &str) -> Result<bool, String> {
   })
 }
 
-/// Replay a recipe on a profile right now. The replay itself is spawned (a
-/// long recipe must not block the caller); the answer says what started.
+/// Runs recipes one at a time on a dedicated task. A replay drives MCP
+/// tools, and the run_recipe MCP tool reaches back into this module: a
+/// direct await chain would form a recursive future type that can never
+/// satisfy the Send bound. The channel breaks the cycle structurally.
+static RECIPE_RUNNER: OnceLock<tokio::sync::mpsc::UnboundedSender<(String, String)>> =
+  OnceLock::new();
+
+fn ensure_recipe_runner() -> &'static tokio::sync::mpsc::UnboundedSender<(String, String)> {
+  RECIPE_RUNNER.get_or_init(|| {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<(String, String)>();
+    tokio::spawn(async move {
+      while let Some((recipe_id, profile_id)) = rx.recv().await {
+        let Some(recipe) = store().read().into_iter().find(|r| r.id == recipe_id) else {
+          log::warn!("Recipe run skipped: recipe vanished id={recipe_id}");
+          continue;
+        };
+        let steps = recipe.steps.clone();
+        let log_name = recipe.name.clone();
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let replay: std::pin::Pin<
+          Box<dyn std::future::Future<Output = ReplaySummary> + Send>,
+        > = Box::pin(replay_steps(&profile_id, &steps, &cancel));
+        let summary = replay.await;
+        log::info!(
+          "Recipe replay finished recipe=\"{log_name}\" profile={profile_id} ok={} failed={} error={:?}",
+          summary.steps_ok,
+          summary.steps_failed,
+          summary.first_error
+        );
+      }
+    });
+    tx
+  })
+}
+
+/// Replay a recipe on a profile now. The replay itself runs on the recipe
+/// task (a long recipe must not block the caller); the answer says what
+/// started.
 pub(crate) async fn run_recipe_now(
   recipe_id: &str,
   profile_id: &str,
@@ -89,20 +125,8 @@ pub(crate) async fn run_recipe_now(
     .into_iter()
     .find(|recipe| recipe.id == recipe_id)
     .ok_or_else(|| crate::backend_error("AGENT_RECIPE_NOT_FOUND"))?;
-  let steps = recipe.steps.clone();
   let name = recipe.name.clone();
-  let log_name = name.clone();
-  let profile = profile_id.to_string();
-  tokio::spawn(async move {
-    let cancel = std::sync::atomic::AtomicBool::new(false);
-    let summary = replay_steps(&profile, &steps, &cancel).await;
-    log::info!(
-      "Recipe replay finished recipe=\"{log_name}\" profile={profile} ok={} failed={} error={:?}",
-      summary.steps_ok,
-      summary.steps_failed,
-      summary.first_error
-    );
-  });
+  let _ = ensure_recipe_runner().send((recipe_id.to_string(), profile_id.to_string()));
   Ok(serde_json::json!({
     "started": true,
     "recipeId": recipe_id,

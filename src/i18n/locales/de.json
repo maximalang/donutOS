@@ -136,16 +136,16 @@
       "title": "Standardbrowser",
       "setAsDefault": "Als Standardbrowser festlegen",
       "alreadyDefault": "Bereits Standardbrowser",
-      "description": "Als Standardbrowser öffnet Donut Browser Weblinks und lässt Sie wählen, welches Profil verwendet wird.",
-      "setSuccess": "Donut Browser ist jetzt Ihr Standardbrowser",
+      "description": "Als Standardbrowser öffnet donutOS Weblinks und lässt Sie wählen, welches Profil verwendet wird.",
+      "setSuccess": "donutOS ist jetzt Ihr Standardbrowser",
       "setFailed": "Der Standardbrowser konnte nicht festgelegt werden",
       "finishInSystemSettings": "In den Windows-Einstellungen abschließen",
-      "finishInSystemSettingsDescription": "Donut Browser ist registriert. Die Windows-Einstellungen sind geöffnet: Wählen Sie unter „Webbrowser“ Donut Browser aus, um den Vorgang abzuschließen."
+      "finishInSystemSettingsDescription": "donutOS ist registriert. Die Windows-Einstellungen sind geöffnet: Wählen Sie unter „Webbrowser“ donutOS aus, um den Vorgang abzuschließen."
     },
     "permissions": {
       "title": "Systemberechtigungen",
       "loading": "Berechtigungen werden geladen...",
-      "description": "Diese Berechtigungen erlauben Browsern, die aus Donut Browser gestartet werden, den Zugriff auf Systemressourcen. Jede Website fragt trotzdem einzeln nach Ihrer Erlaubnis.",
+      "description": "Diese Berechtigungen erlauben Browsern, die aus donutOS gestartet werden, den Zugriff auf Systemressourcen. Jede Website fragt trotzdem einzeln nach Ihrer Erlaubnis.",
       "microphone": "Mikrofon",
       "microphoneDescription": "Mikrofonzugriff für Browseranwendungen",
       "camera": "Kamera",
@@ -189,7 +189,7 @@
       "trialExpired": "Testphase abgelaufen",
       "trialExpiredDescription": "Die private Nutzung bleibt kostenlos. Für die kommerzielle Nutzung ist eine Lizenz erforderlich.",
       "subscriptionActive": "Abonniert: Tarif {{plan}}",
-      "subscriptionActiveDescription": "Ihr Abonnement für Donut Browser ist aktiv. Die kommerzielle Nutzung ist für die Laufzeit Ihres Tarifs lizenziert."
+      "subscriptionActiveDescription": "Ihr Abonnement für donutOS ist aktiv. Die kommerzielle Nutzung ist für die Laufzeit Ihres Tarifs lizenziert."
     },
     "advanced": {
       "title": "Erweitert",
@@ -202,7 +202,7 @@
       "copyLogsDescription": "Kopiert ein bereinigtes Paket der aktuellen Protokolle (bis zu 5 MB). Prüfen Sie es vor dem Teilen, da die Bereinigung nicht jede Art personenbezogener Daten erkennen kann."
     },
     "disableAutoUpdates": "Automatische App-Updates deaktivieren",
-    "disableAutoUpdatesDescription": "Verhindert, dass die App automatisch nach Updates für Donut Browser sucht und sie installiert. Browser-Updates sind davon nicht betroffen.",
+    "disableAutoUpdatesDescription": "Verhindert, dass die App automatisch nach Updates für donutOS sucht und sie installiert. Browser-Updates sind davon nicht betroffen.",
     "keepDecryptedProfilesInRam": "Entschlüsselte Profile im RAM behalten",
     "keepDecryptedProfilesInRamDescription": "Behält die entschlüsselte Kopie passwortgeschützter Profile zwischen den Starts im RAM, damit sie schneller starten. Die Kopie auf dem Datenträger bleibt in jedem Fall verschlüsselt.",
     "privacy": {
@@ -232,9 +232,9 @@
       "chooseTitle": "Ordner für das Datenverzeichnis auswählen",
       "move": "Verschieben",
       "willMoveTo": "Alles wird verschoben nach",
-      "moved": "Datenverzeichnis verschoben. Starten Sie Donut Browser neu, um es zu verwenden.",
+      "moved": "Datenverzeichnis verschoben. Starten Sie donutOS neu, um es zu verwenden.",
       "reading": "Datenverzeichnis wird gelesen...",
-      "restartRequired": "Starten Sie Donut Browser neu, um den neuen Speicherort zu verwenden. Bis dahin wird weiter der alte verwendet.",
+      "restartRequired": "Starten Sie donutOS neu, um den neuen Speicherort zu verwenden. Bis dahin wird weiter der alte verwendet.",
       "environmentOverride": "DONUTBROWSER_DATA_DIR ist gesetzt, daher verwendet die App diesen Speicherort, unabhängig von der Auswahl hier.",
       "missing": "Das ausgewählte Datenverzeichnis ist nicht vorhanden. Wenn es auf einem Wechseldatenträger liegt, schließen Sie diesen wieder an und starten Sie neu.",
       "useDefault": "Wieder den Standardspeicherort verwenden",
@@ -267,7 +267,7 @@
       "extensions": "Erweiterungen"
     },
     "newProfile": "Neu",
-    "donutLogo": "Logo von Donut Browser",
+    "donutLogo": "Logo von donutOS",
     "scrollGroupsLeft": "Gruppen nach links scrollen",
     "scrollGroupsRight": "Gruppen nach rechts scrollen"
   },
@@ -514,6 +514,11 @@
       "reached": "Ihr Tarif erlaubt {{limit}} neue Profile pro Stunde. Das nächste können Sie in etwa {{minutes}} Min. erstellen.",
       "warningTitle": "Sie erstellen Profile zu schnell",
       "warning": "Bitte warten Sie einen Moment. Zu viele neue Profile in einer Stunde führen zu einer vorübergehenden Sperre von 24 Stunden oder mehr, in der Sie keine neuen Identitäten erzeugen können. Wenn Sie ein höheres Stundenlimit brauchen, unterstützen Sie Donut mit einem kostenpflichtigen Tarif."
+    },
+    "engine": {
+      "label": "Browser-Engine",
+      "wayfern": "Wayfern — Fingerabdrücke",
+      "chromium": "Chromium — offen"
     }
   },
   "deleteDialog": {
@@ -1544,7 +1549,7 @@
     "launchHook": {
       "title": "Start-Hook-URL",
       "label": "Start-Hook-URL",
-      "description": "Donut Browser sendet bei jedem Start des Profils eine GET-Anfrage an diese URL.",
+      "description": "donutOS sendet bei jedem Start des Profils eine GET-Anfrage an diese URL.",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "Geben Sie eine gültige http://- oder https://-URL ein."
     },
@@ -2124,7 +2129,7 @@
   },
   "wayfernTerms": {
     "title": "Nutzungsbedingungen von Wayfern",
-    "description": "Bevor Sie Donut Browser verwenden, müssen Sie die Nutzungsbedingungen von Wayfern lesen und ihnen zustimmen.",
+    "description": "Bevor Sie donutOS verwenden, müssen Sie die Nutzungsbedingungen von Wayfern lesen und ihnen zustimmen.",
     "reviewLabel": "Bitte lesen Sie die Nutzungsbedingungen unter:",
     "agreeNotice": "Mit einem Klick auf „Ich stimme zu“ erklären Sie sich an diese Bedingungen gebunden.",
     "acceptButton": "Ich stimme zu",
@@ -2135,7 +2140,7 @@
   "commercialTrial": {
     "title": "Kommerzielle Testphase abgelaufen",
     "description": "Ihre zweiwöchige kommerzielle Testphase ist beendet.",
-    "body": "Wenn Sie Donut Browser geschäftlich nutzen, benötigen Sie für die weitere Nutzung eine kommerzielle Lizenz. Für die private Nutzung bleibt die App weiterhin kostenlos.",
+    "body": "Wenn Sie donutOS geschäftlich nutzen, benötigen Sie für die weitere Nutzung eine kommerzielle Lizenz. Für die private Nutzung bleibt die App weiterhin kostenlos.",
     "understandButton": "Verstanden",
     "failed": "Die Bestätigung konnte nicht gespeichert werden",
     "tryAgain": "Bitte versuchen Sie es erneut"
@@ -2143,10 +2148,10 @@
   "permissionDialog": {
     "titleMicrophone": "Mikrofonzugriff erforderlich",
     "titleCamera": "Kamerazugriff erforderlich",
-    "descMicrophone": "Donut Browser benötigt Zugriff auf Ihr Mikrofon, um Mikrofonfunktionen in Webbrowsern zu ermöglichen. Jede Website, die Ihr Mikrofon nutzen möchte, fragt trotzdem einzeln nach Ihrer Erlaubnis.",
-    "descCamera": "Donut Browser benötigt Zugriff auf Ihre Kamera, um Kamerafunktionen in Webbrowsern zu ermöglichen. Jede Website, die Ihre Kamera nutzen möchte, fragt trotzdem einzeln nach Ihrer Erlaubnis.",
-    "grantedMicrophone": "Berechtigung erteilt! Browser, die aus Donut Browser gestartet werden, können jetzt auf Ihr Mikrofon zugreifen.",
-    "grantedCamera": "Berechtigung erteilt! Browser, die aus Donut Browser gestartet werden, können jetzt auf Ihre Kamera zugreifen.",
+    "descMicrophone": "donutOS benötigt Zugriff auf Ihr Mikrofon, um Mikrofonfunktionen in Webbrowsern zu ermöglichen. Jede Website, die Ihr Mikrofon nutzen möchte, fragt trotzdem einzeln nach Ihrer Erlaubnis.",
+    "descCamera": "donutOS benötigt Zugriff auf Ihre Kamera, um Kamerafunktionen in Webbrowsern zu ermöglichen. Jede Website, die Ihre Kamera nutzen möchte, fragt trotzdem einzeln nach Ihrer Erlaubnis.",
+    "grantedMicrophone": "Berechtigung erteilt! Browser, die aus donutOS gestartet werden, können jetzt auf Ihr Mikrofon zugreifen.",
+    "grantedCamera": "Berechtigung erteilt! Browser, die aus donutOS gestartet werden, können jetzt auf Ihre Kamera zugreifen.",
     "notGrantedMicrophone": "Berechtigung nicht erteilt. Klicken Sie auf die Schaltfläche unten, um Zugriff auf Ihr Mikrofon anzufordern.",
     "notGrantedCamera": "Berechtigung nicht erteilt. Klicken Sie auf die Schaltfläche unten, um Zugriff auf Ihre Kamera anzufordern.",
     "doneButton": "Fertig",
@@ -2266,7 +2271,7 @@
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "Donut Browser konnte nicht aktualisiert werden",
+      "updateFailed": "donutOS konnte nicht aktualisiert werden",
       "restartFailed": "Neustart fehlgeschlagen",
       "updateReady": "Update bereit, zum Anwenden neu starten",
       "manualDownloadRequired": "Manueller Download erforderlich",
@@ -2360,7 +2365,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "Wichtig: Dieses Passwort lässt sich nicht wiederherstellen",
-      "forgetWarningBody": "Donut Browser kann dieses Passwort weder zurücksetzen noch wiederherstellen oder umgehen. Wenn Sie es vergessen, verlieren Sie dauerhaft den Zugriff auf die Daten dieses Profils."
+      "forgetWarningBody": "donutOS kann dieses Passwort weder zurücksetzen noch wiederherstellen oder umgehen. Wenn Sie es vergessen, verlieren Sie dauerhaft den Zugriff auf die Daten dieses Profils."
     },
     "modes": {
       "set": "Festlegen",
@@ -2443,20 +2448,20 @@
     "dnsRulesSaveFailed": "Die DNS-Regeln konnten nicht gespeichert werden.",
     "dnsRulesExportFailed": "Die DNS-Regeln konnten nicht exportiert werden.",
     "fingerprintMatchFailed": "Der Fingerprint konnte nicht an den Proxy angepasst werden.",
-    "proxySidecarVersionMismatch": "Einige Dateien von Donut Browser stammen aus unterschiedlichen Versionen. Installieren Sie das neueste Update erneut; Ihre Profile bleiben dabei erhalten.",
+    "proxySidecarVersionMismatch": "Einige Dateien von donutOS stammen aus unterschiedlichen Versionen. Installieren Sie das neueste Update erneut; Ihre Profile bleiben dabei erhalten.",
     "updateProfilesRunning": "Stoppen Sie alle laufenden Profile, bevor Sie das Update installieren.",
-    "updatePreparationFailed": "Donut Browser konnte einen Netzwerkprozess im Hintergrund nicht sicher beenden. Starten Sie Ihren Computer neu und versuchen Sie das Update dann erneut.",
+    "updatePreparationFailed": "donutOS konnte einen Netzwerkprozess im Hintergrund nicht sicher beenden. Starten Sie Ihren Computer neu und versuchen Sie das Update dann erneut.",
     "wayfernTermsRequired": "Akzeptieren Sie die Nutzungsbedingungen von Wayfern, um Wayfern zu verwenden.",
     "apiPortUnavailable": "Der API-Server konnte keinen freien Port finden.",
     "mcpAgentUnknown": "Dieser MCP-Client wird nicht unterstützt.",
-    "mcpAgentInstallFailed": "Donut Browser konnte dem MCP-Client nicht hinzugefügt werden: {{detail}}",
-    "mcpAgentRemoveFailed": "Donut Browser konnte nicht aus dem MCP-Client entfernt werden: {{detail}}",
+    "mcpAgentInstallFailed": "donutOS konnte dem MCP-Client nicht hinzugefügt werden: {{detail}}",
+    "mcpAgentRemoveFailed": "donutOS konnte nicht aus dem MCP-Client entfernt werden: {{detail}}",
     "vlessConfigInvalid": "Der Freigabelink ist ungültig.",
     "xrayUnavailable": "Xray-core ist auf diesem System nicht verfügbar.",
     "xrayUnsupportedOs": "VLESS-, VMess-, Trojan- und Hysteria2-Proxys erfordern macOS 12 oder neuer.",
     "xrayStartFailed": "Xray-core konnte nicht gestartet werden.",
-    "cloudNotSignedIn": "Melden Sie sich bei Ihrem Donut Browser-Konto an, um dies zu nutzen.",
-    "cloudUnreachable": "Die Server von Donut Browser sind nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "cloudNotSignedIn": "Melden Sie sich bei Ihrem donutOS-Konto an, um dies zu nutzen.",
+    "cloudUnreachable": "Die Server von donutOS sind nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     "cloudRequestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es gleich noch einmal.",
     "remoteRateLimited": "Zu viele Anfragen. Warten Sie einen Moment und versuchen Sie es erneut.",
     "remoteNoCapacity": "Derzeit ist kein entfernter Host frei. Versuchen Sie es in einigen Minuten erneut.",
@@ -2532,7 +2537,7 @@
     "profileExportFailed": "Dieses Profil konnte nicht exportiert werden. {{detail}}",
     "profileExportTooLarge": "Dieses Profil ist zu groß für den Export. Löschen Sie einen Teil seiner Browserdaten und versuchen Sie es erneut.",
     "profileImportFailed": "Dieses Archiv konnte nicht gelesen werden. {{detail}}",
-    "profileImportTooNew": "Dieses Archiv wurde von einer neueren Version von Donut Browser erstellt. Aktualisieren Sie die App und versuchen Sie es erneut.",
+    "profileImportTooNew": "Dieses Archiv wurde von einer neueren Version von donutOS erstellt. Aktualisieren Sie die App und versuchen Sie es erneut.",
     "profileImportUnsafeArchive": "Dieses Archiv versucht, außerhalb des Profilordners zu schreiben, und wurde daher abgelehnt.",
     "recordingAlreadyRunning": "Es läuft bereits eine Aufzeichnung. Stoppen Sie sie, bevor Sie eine neue starten.",
     "profileNotRunning": "Der Browser dieses Profils läuft nicht. Starten Sie ihn zuerst.",
@@ -2692,7 +2697,7 @@
       "importProfileHint": "Profile aus einem anderen Tool übernehmen",
       "keyboardShortcuts": "Tastenkürzel",
       "keyboardShortcutsHint": "Alle Tastenkürzel anzeigen",
-      "about": "Über Donut Browser",
+      "about": "Über donutOS",
       "aboutHint": "Version und App-Informationen",
       "trash": "Papierkorb",
       "trashHint": "Gelöschte Profile wiederherstellen",
@@ -2816,7 +2821,7 @@
       "stopProfile": "{{name}} stoppen",
       "profileInfo": "Info: {{name}}",
       "createProfile": "Profil erstellen",
-      "about": "Über Donut Browser"
+      "about": "Über donutOS"
     }
   },
   "shortcuts": {
@@ -2838,13 +2843,13 @@
     "openTotp": "2FA-Code aus einem Schlüssel"
   },
   "closeConfirm": {
-    "title": "Donut Browser schließen?",
+    "title": "donutOS schließen?",
     "description": "Möchten Sie die App in den Infobereich verschieben oder beenden?",
     "minimize": "In den Infobereich minimieren",
     "quit": "Beenden"
   },
   "tray": {
-    "show": "Donut Browser anzeigen",
+    "show": "donutOS anzeigen",
     "quit": "Beenden"
   },
   "onboarding": {
@@ -2865,13 +2870,13 @@
       "finish": "Fertig"
     },
     "thankYou": {
-      "title": "Danke, dass Sie sich für Donut Browser entschieden haben",
+      "title": "Danke, dass Sie sich für donutOS entschieden haben",
       "body": "Wir hoffen, dass Ihr Surfen damit privater wird: Jede Identität bleibt für sich, und nichts verlässt Ihren Rechner. Viel Spaß.",
       "cta": "Lossurfen"
     }
   },
   "welcome": {
-    "title": "Willkommen bei Donut Browser",
+    "title": "Willkommen bei donutOS",
     "tagline": "Ein Open-Source-Anti-Detect-Browser, mit dem Sie viele Identitäten gleichzeitig verwalten.",
     "skip": "Überspringen",
     "next": "Weiter",
@@ -2915,7 +2920,7 @@
     },
     "license": {
       "title": "Lizenzierung",
-      "body": "Donut Browser ist Open Source und kostenlos nutzbar.",
+      "body": "donutOS ist Open Source und kostenlos nutzbar.",
       "agree": "Verstanden",
       "personalTitle": "Private Nutzung",
       "personalDesc": "Für immer kostenlos.",

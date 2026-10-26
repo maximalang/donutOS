@@ -397,7 +397,7 @@ export function AccountPage({
                       {localBuild ? (
                         <>
                           <h2 className="text-sm font-semibold">
-                            Donut Browser
+                            donutOS
                           </h2>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("account.localProduct")}

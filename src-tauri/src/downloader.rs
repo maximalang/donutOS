@@ -1163,6 +1163,16 @@ pub async fn download_browser(
   browser_str: String,
   version: String,
 ) -> Result<String, String> {
+  // The local build runs PATCHED Wayfern binaries (docs/engine-patches.md):
+  // a freshly downloaded vendor build is unpatched and silently refuses CDP
+  // automation. Chromium downloads stay open — that engine needs no patch.
+  #[cfg(feature = "free")]
+  {
+    if browser_str == "wayfern" {
+      log::warn!("Wayfern download refused (free build: unpatched engine) version={version}");
+      return Err("Wayfern downloads are disabled in the free build: a fresh vendor binary is unpatched and would disable automation. Use an installed (patched) engine or add it manually.".to_string());
+    }
+  }
   let downloader = Downloader::instance();
   let browser = Plain(&browser_str).to_string();
   let requested = Plain(&version).to_string();

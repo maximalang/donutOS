@@ -136,16 +136,16 @@
       "title": "Varsayılan Tarayıcı",
       "setAsDefault": "Varsayılan Tarayıcı Olarak Ayarla",
       "alreadyDefault": "Zaten Varsayılan Tarayıcı",
-      "description": "Varsayılan olarak ayarlandığında, Donut Browser web bağlantılarını yönetir ve hangi profilin kullanılacağını seçmenize olanak tanır.",
-      "setSuccess": "Donut Browser artık varsayılan tarayıcınız",
+      "description": "Varsayılan olarak ayarlandığında, donutOS web bağlantılarını yönetir ve hangi profilin kullanılacağını seçmenize olanak tanır.",
+      "setSuccess": "donutOS artık varsayılan tarayıcınız",
       "setFailed": "Varsayılan tarayıcı ayarlanamadı",
       "finishInSystemSettings": "Windows Ayarları'nda tamamlayın",
-      "finishInSystemSettingsDescription": "Donut Browser kaydedildi. Windows Ayarları açıldı: tamamlamak için Web tarayıcısı bölümünden Donut Browser'ı seçin."
+      "finishInSystemSettingsDescription": "donutOS kaydedildi. Windows Ayarları açıldı: tamamlamak için Web tarayıcısı bölümünden donutOS'ı seçin."
     },
     "permissions": {
       "title": "Sistem İzinleri",
       "loading": "İzinler yükleniyor...",
-      "description": "Bu izinler, Donut Browser'dan başlatılan tarayıcıların sistem kaynaklarına erişmesine olanak tanır. Her web sitesi yine de sizden ayrı ayrı izin isteyecektir.",
+      "description": "Bu izinler, donutOS'dan başlatılan tarayıcıların sistem kaynaklarına erişmesine olanak tanır. Her web sitesi yine de sizden ayrı ayrı izin isteyecektir.",
       "microphone": "Mikrofon",
       "microphoneDescription": "Tarayıcı uygulamaları için mikrofon erişimi",
       "camera": "Kamera",
@@ -189,7 +189,7 @@
       "trialExpired": "Deneme süresi doldu",
       "trialExpiredDescription": "Kişisel kullanım ücretsiz kalır. Ticari kullanım lisans gerektirir.",
       "subscriptionActive": "Abone — {{plan}} planı",
-      "subscriptionActiveDescription": "Donut Browser aboneliğiniz etkin. Ticari kullanım, planınızın süresi boyunca lisanslıdır."
+      "subscriptionActiveDescription": "donutOS aboneliğiniz etkin. Ticari kullanım, planınızın süresi boyunca lisanslıdır."
     },
     "advanced": {
       "title": "Gelişmiş",
@@ -202,7 +202,7 @@
       "copyLogsDescription": "Son günlüklerin hassas verileri ayıklanmış bir paketini kopyalar (en fazla 5 MB). Ayıklama her tür kişisel veriyi belirleyemeyeceğinden paylaşmadan önce inceleyin."
     },
     "disableAutoUpdates": "Uygulama Otomatik Güncellemelerini Devre Dışı Bırak",
-    "disableAutoUpdatesDescription": "Uygulamanın Donut Browser güncellemelerini otomatik olarak denetlemesini ve yüklemesini engelleyin. Tarayıcı güncellemeleri bundan etkilenmez.",
+    "disableAutoUpdatesDescription": "Uygulamanın donutOS güncellemelerini otomatik olarak denetlemesini ve yüklemesini engelleyin. Tarayıcı güncellemeleri bundan etkilenmez.",
     "keepDecryptedProfilesInRam": "Şifresi Çözülmüş Profilleri RAM'de Tut",
     "keepDecryptedProfilesInRamDescription": "Daha hızlı başlatma için parola korumalı profillerin şifresi çözülmüş RAM kopyasını başlatmalar arasında koruyun. Diskteki kopya her durumda şifreli kalır.",
     "privacy": {
@@ -232,9 +232,9 @@
       "chooseTitle": "Veri dizini için bir klasör seçin",
       "move": "Taşı",
       "willMoveTo": "Her şey buraya taşınır",
-      "moved": "Veri dizini taşındı. Kullanmak için Donut Browser'ı yeniden başlatın.",
+      "moved": "Veri dizini taşındı. Kullanmak için donutOS'ı yeniden başlatın.",
       "reading": "Veri dizini okunuyor…",
-      "restartRequired": "Yeni konumu kullanmak için Donut Browser'ı yeniden başlatın. O zamana kadar eski konumdan çalışır.",
+      "restartRequired": "Yeni konumu kullanmak için donutOS'ı yeniden başlatın. O zamana kadar eski konumdan çalışır.",
       "environmentOverride": "DONUTBROWSER_DATA_DIR tanımlı; burada ne seçilirse seçilsin uygulama o konumu kullanır.",
       "missing": "Seçilen veri dizini yok. Çıkarılabilir bir sürücüdeyse tekrar takıp yeniden başlatın.",
       "useDefault": "Yeniden varsayılan konumu kullan",
@@ -267,7 +267,7 @@
       "extensions": "Uzantılar"
     },
     "newProfile": "Yeni",
-    "donutLogo": "Donut Browser logosu",
+    "donutLogo": "donutOS logosu",
     "scrollGroupsLeft": "Grupları sola kaydır",
     "scrollGroupsRight": "Grupları sağa kaydır"
   },
@@ -514,6 +514,11 @@
       "reached": "Planınız saatte {{limit}} yeni profile izin verir. Bir sonrakini yaklaşık {{minutes}} dk sonra oluşturabilirsiniz.",
       "warningTitle": "Profilleri çok hızlı oluşturuyorsunuz",
       "warning": "Lütfen biraz bekleyin. Bir saatte çok fazla profil oluşturmak, 24 saat veya daha uzun süren geçici bir engele yol açar; bu süre boyunca yeni kimlik oluşturamazsınız. Daha yüksek bir saatlik sınıra ihtiyacınız varsa, Donut'u ücretli bir planla desteklemeyi düşünün."
+    },
+    "engine": {
+      "label": "Tarayıcı motoru",
+      "wayfern": "Wayfern — parmak izleri",
+      "chromium": "Chromium — açık"
     }
   },
   "deleteDialog": {
@@ -1544,7 +1549,7 @@
     "launchHook": {
       "title": "Başlatma Kancası URL'si",
       "label": "Başlatma Kancası URL'si",
-      "description": "Donut Browser, profil her başlatıldığında bu URL'ye bir GET isteği gönderir.",
+      "description": "donutOS, profil her başlatıldığında bu URL'ye bir GET isteği gönderir.",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "Geçerli bir http:// veya https:// URL'si girin."
     },
@@ -2124,7 +2129,7 @@
   },
   "wayfernTerms": {
     "title": "Wayfern Şartlar ve Koşulları",
-    "description": "Donut Browser'ı kullanmadan önce Wayfern'ün Şartlar ve Koşullarını okuyup kabul etmelisiniz.",
+    "description": "donutOS'ı kullanmadan önce Wayfern'ün Şartlar ve Koşullarını okuyup kabul etmelisiniz.",
     "reviewLabel": "Lütfen Şartlar ve Koşulları şu adresten inceleyin:",
     "agreeNotice": "\"Kabul Ediyorum\"a tıklayarak bu şartlara bağlı kalmayı kabul edersiniz.",
     "acceptButton": "Kabul Ediyorum",
@@ -2135,7 +2140,7 @@
   "commercialTrial": {
     "title": "Ticari Deneme Süresi Doldu",
     "description": "2 haftalık ticari deneme süreniz sona erdi.",
-    "body": "Donut Browser'ı iş amaçlı kullanıyorsanız devam etmek için ticari lisans satın almanız gerekir. Kişisel kullanım için ücretsiz olarak kullanmaya devam edebilirsiniz.",
+    "body": "donutOS'ı iş amaçlı kullanıyorsanız devam etmek için ticari lisans satın almanız gerekir. Kişisel kullanım için ücretsiz olarak kullanmaya devam edebilirsiniz.",
     "understandButton": "Anladım",
     "failed": "Onay kaydedilemedi",
     "tryAgain": "Lütfen yeniden deneyin"
@@ -2143,10 +2148,10 @@
   "permissionDialog": {
     "titleMicrophone": "Mikrofon Erişimi Gerekli",
     "titleCamera": "Kamera Erişimi Gerekli",
-    "descMicrophone": "Donut Browser, web tarayıcılarında mikrofon işlevini etkinleştirmek için mikrofonunuza erişmelidir. Mikrofonunuzu kullanmak isteyen her web sitesi yine de sizden ayrıca izin isteyecektir.",
-    "descCamera": "Donut Browser, web tarayıcılarında kamera işlevini etkinleştirmek için kameranıza erişmelidir. Kameranızı kullanmak isteyen her web sitesi yine de sizden ayrıca izin isteyecektir.",
-    "grantedMicrophone": "İzin verildi! Donut Browser'dan başlatılan tarayıcılar artık mikrofonunuza erişebilir.",
-    "grantedCamera": "İzin verildi! Donut Browser'dan başlatılan tarayıcılar artık kameranıza erişebilir.",
+    "descMicrophone": "donutOS, web tarayıcılarında mikrofon işlevini etkinleştirmek için mikrofonunuza erişmelidir. Mikrofonunuzu kullanmak isteyen her web sitesi yine de sizden ayrıca izin isteyecektir.",
+    "descCamera": "donutOS, web tarayıcılarında kamera işlevini etkinleştirmek için kameranıza erişmelidir. Kameranızı kullanmak isteyen her web sitesi yine de sizden ayrıca izin isteyecektir.",
+    "grantedMicrophone": "İzin verildi! donutOS'dan başlatılan tarayıcılar artık mikrofonunuza erişebilir.",
+    "grantedCamera": "İzin verildi! donutOS'dan başlatılan tarayıcılar artık kameranıza erişebilir.",
     "notGrantedMicrophone": "İzin verilmedi. Mikrofonunuza erişim istemek için aşağıdaki düğmeye tıklayın.",
     "notGrantedCamera": "İzin verilmedi. Kameranıza erişim istemek için aşağıdaki düğmeye tıklayın.",
     "doneButton": "Bitti",
@@ -2266,7 +2271,7 @@
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "Donut Browser güncellenemedi",
+      "updateFailed": "donutOS güncellenemedi",
       "restartFailed": "Yeniden başlatılamadı",
       "updateReady": "Güncelleme hazır, uygulamak için yeniden başlatın",
       "manualDownloadRequired": "Elle indirme gerekli",
@@ -2360,7 +2365,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "Önemli: bu parola kurtarılamaz",
-      "forgetWarningBody": "Donut Browser bu parolayı sıfırlayamaz, kurtaramaz veya atlayamaz. Unutursanız bu profilin verilerine erişimi kalıcı olarak kaybedersiniz."
+      "forgetWarningBody": "donutOS bu parolayı sıfırlayamaz, kurtaramaz veya atlayamaz. Unutursanız bu profilin verilerine erişimi kalıcı olarak kaybedersiniz."
     },
     "modes": {
       "set": "Belirle",
@@ -2443,20 +2448,20 @@
     "dnsRulesSaveFailed": "DNS kuralları kaydedilemedi.",
     "dnsRulesExportFailed": "DNS kuralları dışa aktarılamadı.",
     "fingerprintMatchFailed": "Parmak izi proxy'ye eşlenemedi.",
-    "proxySidecarVersionMismatch": "Bazı Donut Browser dosyaları farklı sürümlere ait. En son güncellemeyi yeniden yükleyin; profilleriniz güvende kalır.",
+    "proxySidecarVersionMismatch": "Bazı donutOS dosyaları farklı sürümlere ait. En son güncellemeyi yeniden yükleyin; profilleriniz güvende kalır.",
     "updateProfilesRunning": "Güncellemeyi yüklemeden önce çalışan tüm profilleri durdurun.",
-    "updatePreparationFailed": "Donut Browser arka plandaki bir ağ işlemini güvenli şekilde durduramadı. Bilgisayarınızı yeniden başlatıp güncellemeyi tekrar deneyin.",
+    "updatePreparationFailed": "donutOS arka plandaki bir ağ işlemini güvenli şekilde durduramadı. Bilgisayarınızı yeniden başlatıp güncellemeyi tekrar deneyin.",
     "wayfernTermsRequired": "Wayfern'ü kullanmak için Wayfern Hüküm ve Koşullarını kabul edin.",
     "apiPortUnavailable": "API sunucusu kullanılabilir bir bağlantı noktası bulamadı.",
     "mcpAgentUnknown": "Bu MCP istemcisi desteklenmiyor.",
-    "mcpAgentInstallFailed": "Donut Browser MCP istemcisine eklenemedi: {{detail}}",
-    "mcpAgentRemoveFailed": "Donut Browser MCP istemcisinden kaldırılamadı: {{detail}}",
+    "mcpAgentInstallFailed": "donutOS MCP istemcisine eklenemedi: {{detail}}",
+    "mcpAgentRemoveFailed": "donutOS MCP istemcisinden kaldırılamadı: {{detail}}",
     "vlessConfigInvalid": "Paylaşım bağlantısı geçersiz.",
     "xrayUnavailable": "Xray-core bu sistemde kullanılamıyor.",
     "xrayUnsupportedOs": "VLESS, VMess, Trojan ve Hysteria2 proxy'leri macOS 12 veya daha yenisini gerektirir.",
     "xrayStartFailed": "Xray-core başlatılamadı.",
-    "cloudNotSignedIn": "Bunu kullanmak için Donut Browser hesabınıza giriş yapın.",
-    "cloudUnreachable": "Donut Browser sunucularına ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
+    "cloudNotSignedIn": "Bunu kullanmak için donutOS hesabınıza giriş yapın.",
+    "cloudUnreachable": "donutOS sunucularına ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
     "cloudRequestFailed": "İstek başarısız oldu. Birazdan tekrar deneyin.",
     "remoteRateLimited": "Çok fazla istek. Biraz bekleyip tekrar deneyin.",
     "remoteNoCapacity": "Şu anda boş uzak makine yok. Birkaç dakika sonra tekrar deneyin.",
@@ -2532,7 +2537,7 @@
     "profileExportFailed": "Bu profil dışa aktarılamadı. {{detail}}",
     "profileExportTooLarge": "Bu profil dışa aktarmak için fazla büyük. Gezinme verilerinin bir kısmını silip yeniden deneyin.",
     "profileImportFailed": "Bu arşiv okunamadı. {{detail}}",
-    "profileImportTooNew": "Bu arşiv Donut Browser'ın daha yeni bir sürümüyle yazıldı. Uygulamayı güncelleyip yeniden deneyin.",
+    "profileImportTooNew": "Bu arşiv donutOS'ın daha yeni bir sürümüyle yazıldı. Uygulamayı güncelleyip yeniden deneyin.",
     "profileImportUnsafeArchive": "Bu arşiv profil klasörünün dışına yazmaya çalıştığı için reddedildi.",
     "recordingAlreadyRunning": "Zaten bir kayıt sürüyor. Yenisine başlamadan önce durdurun.",
     "profileNotRunning": "Bu profilin tarayıcısı çalışmıyor. Önce başlatın.",
@@ -2692,7 +2697,7 @@
       "importProfileHint": "Başka bir araçtan profil getirin",
       "keyboardShortcuts": "Klavye kısayolları",
       "keyboardShortcutsHint": "Tüm kısayolları görüntüle",
-      "about": "Donut Browser Hakkında",
+      "about": "donutOS Hakkında",
       "aboutHint": "Sürüm ve uygulama bilgileri",
       "trash": "Çöp Kutusu",
       "trashHint": "Silinen profilleri geri yükle",
@@ -2816,7 +2821,7 @@
       "stopProfile": "{{name}} profilini durdur",
       "profileInfo": "Bilgi — {{name}}",
       "createProfile": "Profil oluştur",
-      "about": "Donut Browser Hakkında"
+      "about": "donutOS Hakkında"
     }
   },
   "shortcuts": {
@@ -2838,13 +2843,13 @@
     "openTotp": "Anahtardan 2FA kodu"
   },
   "closeConfirm": {
-    "title": "Donut Browser kapatılsın mı?",
+    "title": "donutOS kapatılsın mı?",
     "description": "Uygulamayı sistem tepsisine göndermek mi yoksa çıkmak mı istersiniz?",
     "minimize": "Tepsiye Küçült",
     "quit": "Çık"
   },
   "tray": {
-    "show": "Donut Browser'ı Göster",
+    "show": "donutOS'ı Göster",
     "quit": "Çık"
   },
   "onboarding": {
@@ -2865,13 +2870,13 @@
       "finish": "Bitir"
     },
     "thankYou": {
-      "title": "Donut Browser'ı seçtiğiniz için teşekkürler",
+      "title": "donutOS'ı seçtiğiniz için teşekkürler",
       "body": "Umarız gezinmenizi daha gizli hale getirmenize yardımcı olur — her kimlik kendine ait kalır ve hiçbir şey makinenizden dışarı çıkmaz. İyi kullanımlar.",
       "cta": "Gezinmeye başla"
     }
   },
   "welcome": {
-    "title": "Donut Browser'a Hoş Geldiniz",
+    "title": "donutOS'a Hoş Geldiniz",
     "tagline": "Aynı anda birçok kimliği yönetmek için açık kaynaklı bir anti-detect tarayıcı.",
     "skip": "Atla",
     "next": "İleri",
@@ -2915,7 +2920,7 @@
     },
     "license": {
       "title": "Lisanslama",
-      "body": "Donut Browser açık kaynaklıdır ve kullanımı ücretsizdir.",
+      "body": "donutOS açık kaynaklıdır ve kullanımı ücretsizdir.",
       "agree": "Anladım",
       "personalTitle": "Kişisel kullanım",
       "personalDesc": "Sonsuza dek ücretsiz.",
@@ -3516,7 +3521,7 @@
       "waitingTitle": "Ajanınız bekleniyor",
       "waitingBody": "Donut'u ajanınıza ekleyin, ardından aşağıdaki talimatları ajana yapıştırın; böylece çalışırken sizinle iletişim kurar.",
       "starterLabel": "Ajanınız için talimatlar",
-      "starter": "Donut araçlarıyla Donut Browser profillerimi kontrol edebilirsin. Başlarken ve adımlar arasında get_human_updates çağır; notlarımı oku ve hangi profilleri kullandığımı gör. Ne yapacağından emin değilsen bana ask_human ile sor. Bir sayfa bir insana ihtiyaç duyarsa, örneğin giriş, doğrulama veya ödeme için, request_human_help çağır ve profili sana geri verene kadar bekle. Uzun işler sırasında report_progress çağır ki ne kadar ilerlediğini göreyim.",
+      "starter": "Donut araçlarıyla donutOS profillerimi kontrol edebilirsin. Başlarken ve adımlar arasında get_human_updates çağır; notlarımı oku ve hangi profilleri kullandığımı gör. Ne yapacağından emin değilsen bana ask_human ile sor. Bir sayfa bir insana ihtiyaç duyarsa, örneğin giriş, doğrulama veya ödeme için, request_human_help çağır ve profili sana geri verene kadar bekle. Uzun işler sırasında report_progress çağır ki ne kadar ilerlediğini göreyim.",
       "starterCopied": "Talimatlar kopyalandı"
     },
     "request": {

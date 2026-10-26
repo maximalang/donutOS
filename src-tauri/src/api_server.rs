@@ -1897,7 +1897,7 @@ async fn create_profile(
           return Err((
             StatusCode::BAD_REQUEST,
             format!(
-              "No downloaded version of \"{}\" is available. Download the browser in Donut Browser first — this endpoint does not download browsers.",
+              "No downloaded version of \"{}\" is available. Download the browser in donutOS first — this endpoint does not download browsers.",
               request.browser
             ),
           ));
