@@ -6090,10 +6090,10 @@ impl McpServer {
         data: None,
       })?;
 
-    if browser != "wayfern" {
+    if browser != "wayfern" && browser != "chromium" {
       return Err(McpError {
         code: -32602,
-        message: "browser must be 'wayfern'".to_string(),
+        message: "browser must be 'wayfern' or 'chromium'".to_string(),
         data: None,
       });
     }
@@ -9558,7 +9558,8 @@ impl McpServer {
     // browser types through Vellum, which paces the keys itself, so the plan
     // below is only built for the fallback engine.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
+    let humanized =
+      Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
     // (TYPING_TOO_LONG), and the focus step below empties the field when
@@ -10033,7 +10034,8 @@ impl McpServer {
 
     // Engine first, then budgets, then the page: see handle_type_text.
     let profile = self.get_wayfern_profile(profile_id)?;
-    let humanized = Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
+    let humanized =
+      Engine::for_profile(&profile.browser, &profile.version).is_wayfern() && !instant;
 
     // PLANNED FIRST, before anything touches the page. The planner can refuse
     // (TYPING_TOO_LONG), and the focus step below empties the field when

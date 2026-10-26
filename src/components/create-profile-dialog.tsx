@@ -24,6 +24,7 @@ import {
   LuTrash2,
   LuTriangleAlert,
 } from "react-icons/lu";
+import type { BrowserTypeString } from "@/app/page";
 import { DnsServerField } from "@/components/dns-server-field";
 import { LoadingButton } from "@/components/loading-button";
 import { ProfileGlyph } from "@/components/profile-glyph";
@@ -83,7 +84,6 @@ import { getOSDisplayName, getOSIcon } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
 import { MOTION_EASE_OUT } from "@/lib/motion";
 import { startPagesFromText } from "@/lib/start-pages";
-import type { BrowserTypeString } from "@/app/page";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type {
@@ -267,15 +267,15 @@ export function CreateProfileDialog({
         setReleaseTypes(releases.stable ? { stable: releases.stable } : {});
       }
     } catch (error) {
-      console.error("Failed to load Wayfern release types:", error);
+      console.error("Failed to load Chromium release types:", error);
       try {
-        const downloaded = await loadDownloadedVersions("wayfern");
+        const downloaded = await loadDownloadedVersions("chromium");
         if (versionRequestRef.current === request) {
           setReleaseTypes(downloaded.length ? { stable: downloaded[0] } : {});
           setReleaseTypesError(downloaded.length === 0);
         }
       } catch (error) {
-        console.error("Failed to load downloaded Wayfern versions:", error);
+        console.error("Failed to load downloaded Chromium versions:", error);
         if (versionRequestRef.current === request) setReleaseTypesError(true);
       }
     } finally {
@@ -304,13 +304,13 @@ export function CreateProfileDialog({
     };
   }, [isOpen, loadReleaseTypes]);
 
-  const downloadedVersions = downloadedVersionsMap.wayfern ?? [];
+  const downloadedVersions = downloadedVersionsMap.chromium ?? [];
   const latestVersion = releaseTypes.stable;
   const creatableVersion =
     latestVersion && downloadedVersions.includes(latestVersion)
       ? latestVersion
       : downloadedVersions[0];
-  const downloading = isBrowserDownloading("wayfern");
+  const downloading = isBrowserDownloading("chromium");
   const isCreateDisabled =
     !profileName.trim() ||
     !creatableVersion ||
@@ -567,7 +567,7 @@ export function CreateProfileDialog({
   const handleDownload = async () => {
     if (!latestVersion) return;
     try {
-      await downloadBrowser("wayfern", latestVersion);
+      await downloadBrowser("chromium", latestVersion);
     } catch (error) {
       console.error("Failed to download Wayfern:", error);
     }
@@ -1039,7 +1039,7 @@ export function CreateProfileDialog({
                 aria-hidden="true"
               />
               {t("createProfile.version.downloading", {
-                browser: "Wayfern",
+                browser: "Chromium",
                 version: latestVersion,
               })}
             </motion.p>
@@ -1078,7 +1078,7 @@ export function CreateProfileDialog({
               >
                 <p className="flex-1">
                   {t("createProfile.version.needsDownload", {
-                    browser: "Wayfern",
+                    browser: "Chromium",
                     version: latestVersion,
                   })}
                 </p>
@@ -1096,7 +1096,7 @@ export function CreateProfileDialog({
                 className={cn(STATUS_CLASS, "text-warning-text")}
               >
                 {t("createProfile.platformUnavailable", {
-                  browser: "Wayfern",
+                  browser: "Chromium",
                 })}
               </p>
             ))
@@ -1265,7 +1265,7 @@ export function CreateProfileDialog({
                     {creatableVersion && (
                       <p className="text-xs text-muted-foreground">
                         {t("createProfile.version.available", {
-                          browser: "Wayfern",
+                          browser: "Chromium",
                           version: creatableVersion,
                         })}
                       </p>
@@ -1277,7 +1277,7 @@ export function CreateProfileDialog({
                         <div className={cn(STATUS_CLASS, "py-1.5 pr-1.5")}>
                           <p className="flex-1">
                             {t("createProfile.version.upgradeAvailable", {
-                              browser: "Wayfern",
+                              browser: "Chromium",
                               version: latestVersion,
                             })}
                           </p>

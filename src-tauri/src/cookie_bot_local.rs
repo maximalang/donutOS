@@ -35,10 +35,18 @@ use crate::local_store::LocalStore;
 use crate::mcp_server::McpServer;
 use chrono::{DateTime, Utc};
 use serde_json::json;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration as StdDuration;
+
+fn unsupported_local_team() -> CookieBotError {
+  CookieBotError(crate::cloud_errors::BackendFailure {
+    status: 403,
+    code: "COOKIE_BOT_TEAM_LOCAL_UNSUPPORTED".to_string(),
+    params: BTreeMap::new(),
+  })
+}
 
 // --- Limits and presets (published locally, same shape as the cloud's) ------
 
@@ -341,6 +349,9 @@ fn build_schedule(
 pub(crate) async fn list_schedules(
   scope: Option<&str>,
 ) -> Result<CookieBotScheduleList, CookieBotError> {
+  if scope == Some("team") {
+    return Err(unsupported_local_team());
+  }
   let mut schedules = doc_store().read().schedules;
   schedules.sort_by(|a, b| a.profile_name.cmp(&b.profile_name));
   Ok(CookieBotScheduleList {
@@ -813,6 +824,7 @@ pub(crate) async fn list_presets() -> Result<CookieBotPresetList, CookieBotError
 }
 
 /// Monthly bot-hours usage from the local run history. Pure over the doc.
+#[cfg_attr(feature = "free", allow(dead_code))]
 fn usage_for(doc: &CookieBotDoc, schedules: &[CookieBotSchedule], period: &str) -> CookieBotUsage {
   let month = if period.len() == 7 {
     period.to_string()
@@ -884,9 +896,8 @@ fn usage_for(doc: &CookieBotDoc, schedules: &[CookieBotSchedule], period: &str) 
   }
 }
 
-pub(crate) async fn team_usage(period: Option<&str>) -> Result<CookieBotUsage, CookieBotError> {
-  let doc = doc_store().read();
-  Ok(usage_for(&doc, &doc.schedules, period.unwrap_or("")))
+pub(crate) async fn team_usage(_period: Option<&str>) -> Result<CookieBotUsage, CookieBotError> {
+  Err(unsupported_local_team())
 }
 
 pub(crate) async fn remote_hours_quota() -> Result<RemoteHoursQuota, CookieBotError> {
@@ -1206,10 +1217,16 @@ mod tests {
     assert_eq!(count, 1, "only the non-terminal run is an orphan");
     assert_eq!(doc.runs[0].status, "failed");
     assert_eq!(doc.runs[0].outcome_code.as_deref(), Some("app_restarted"));
-    assert_eq!(doc.runs[0].ended_at.as_deref(), Some("2026-10-25T12:00:00Z"));
+    assert_eq!(
+      doc.runs[0].ended_at.as_deref(),
+      Some("2026-10-25T12:00:00Z")
+    );
     assert_eq!(doc.runs[1].status, "failed", "terminal runs stay untouched");
     assert_eq!(doc.runs[1].outcome_code, None);
-    assert_eq!(doc.runs[2].status, "succeeded", "terminal runs stay untouched");
+    assert_eq!(
+      doc.runs[2].status, "succeeded",
+      "terminal runs stay untouched"
+    );
   }
 
   fn test_run(status: &str) -> CookieBotRun {

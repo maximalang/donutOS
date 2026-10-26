@@ -88,8 +88,14 @@ import {
   canUseCookieBot,
   canUseRemoteControl,
   getEntitlements,
+  isLocalProductBuild,
   isTeamLauncher,
 } from "@/lib/entitlements";
+import {
+  detectFreeBuild,
+  freeBuildKnown,
+  isFreeBuildSync,
+} from "@/lib/free-build";
 import {
   ONBOARDING_TOUR_CLOSED_EVENT,
   ONBOARDING_TOUR_FINISHED_EVENT,
@@ -349,7 +355,21 @@ export default function Home() {
 
   // Cloud auth for cross-OS unlock
   const { user: cloudUser, loggedInAt: cloudLoggedInAt } = useCloudAuth();
-  const crossOsUnlocked = getEntitlements(cloudUser).crossOsFingerprints;
+  const [freeBuild, setFreeBuild] = useState(isFreeBuildSync());
+  // Nothing renders until the build flavour is known: every entitlement gate
+  // reads the detection cache synchronously, so a first paint with an
+  // unresolved cache would flash vendor PRO locks in the local product.
+  const [buildReady, setBuildReady] = useState(freeBuildKnown());
+  useEffect(() => {
+    void detectFreeBuild().then((free) => {
+      setFreeBuild(free);
+      setBuildReady(true);
+    });
+  }, []);
+  const localBuild =
+    freeBuild || isLocalProductBuild() || cloudUser?.id === "free-local";
+  const crossOsUnlocked =
+    getEntitlements(cloudUser).crossOsFingerprints || localBuild;
   // Shown once when the commercial trial runs out; modal, so it goes first.
   const commercialTrialModalOpen =
     !termsLoading &&
@@ -360,7 +380,8 @@ export default function Home() {
   // Bulk run/stop is a paid (browser automation) feature, matching the
   // /v1/profiles/batch/run API gate. Free/solo users see the bulk Run/Stop
   // actions disabled with a Pro badge.
-  const automationUnlocked = getEntitlements(cloudUser).browserAutomation;
+  const automationUnlocked =
+    getEntitlements(cloudUser).browserAutomation || localBuild;
   // The rail needs to show a live run from every page, so the shell subscribes
   // to the shared cookie-bot store too. It is a module singleton, so this costs
   // one more listener and no extra request. This is also what starts the event
@@ -369,7 +390,10 @@ export default function Home() {
     liveSessions: cookieBotLiveSessions,
     schedules: cookieBotSchedules,
     isLoading: cookieBotLoading,
-  } = useCookieBot(canUseCookieBot(cloudUser), cookieBotScopeFor(cloudUser));
+  } = useCookieBot(
+    canUseCookieBot(cloudUser) || localBuild,
+    cookieBotScopeFor(cloudUser),
+  );
 
   const [selfHostedSyncConfigured, setSelfHostedSyncConfigured] =
     useState(false);
@@ -380,7 +404,9 @@ export default function Home() {
       const hasConfig = Boolean(
         settings.sync_server_url && settings.sync_token,
       );
-      setSelfHostedSyncConfigured(hasConfig && !cloudUser);
+      setSelfHostedSyncConfigured(
+        hasConfig && (!cloudUser || cloudUser.id === "free-local"),
+      );
     } catch {
       setSelfHostedSyncConfigured(false);
     }
@@ -390,7 +416,8 @@ export default function Home() {
   // every plan until Solo, which buys 20 cloud backups and deliberately has no
   // fingerprint editing — so deriving sync from the fingerprint capability put a
   // Pro badge on the one feature a Solo customer is paying for.
-  const cloudBackupUnlocked = getEntitlements(cloudUser).cloudBackup;
+  const cloudBackupUnlocked =
+    getEntitlements(cloudUser).cloudBackup || localBuild;
   const syncUnlocked = cloudBackupUnlocked || selfHostedSyncConfigured;
 
   // Feature tips and the paid-plan welcome wait for a settled app: not the
@@ -2333,6 +2360,9 @@ export default function Home() {
       : currentPage === "import"
         ? t("pageTitle.import")
         : t(`pageTitle.${currentPage}`);
+
+  // Hold the first paint until the build flavour resolves (see buildReady).
+  if (!buildReady) return null;
 
   return (
     <ProfileGroupDragProvider

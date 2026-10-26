@@ -579,7 +579,7 @@ impl SettingsManager {
   /// Donut Free: `config/automation-token.txt` beside the running
   /// executable (portable deploy layout).
   #[cfg(feature = "free")]
-  fn free_portable_token_path() -> Option<std::path::PathBuf> {
+  pub(crate) fn free_portable_token_path() -> Option<std::path::PathBuf> {
     std::env::current_exe().ok().and_then(|exe| {
       exe
         .parent()

@@ -826,7 +826,11 @@
       "logoutConfirm": "您确定要退出登录吗？云同步将会停止。",
       "loginSuccess": "登录成功！",
       "logoutSuccess": "已成功退出登录。",
-      "server": "服务器"
+      "server": "服务器",
+      "selfHosted": {
+        "testConnection": "测试连接",
+        "disconnect": "断开"
+      }
     },
     "team": {
       "title": "团队",
@@ -2791,7 +2795,8 @@
       "teamNote": "团队的所有成员必须使用同一台服务器。",
       "saved": "同步服务器已保存。",
       "backToCloud": "已重新与 Donut 云同步。"
-    }
+    },
+    "localProduct": "本地模式 · 无云账号"
   },
   "shortcutsPage": {
     "title": "键盘快捷键",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "创建你的第一个配置文件",
-        "content": "点击这里创建您的第一个配置文件。浏览器请选择 Wayfern——推荐的、具备指纹保护的 Chromium。"
+        "content": "点击这里创建您的第一个配置文件。浏览器请选择 {{browser}}——推荐的、具备指纹保护的 Chromium。"
       },
       "dnsBlocking": {
         "title": "DNS 拦截",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "正在准备",
-      "descDownloading": "正在下载你的第一个浏览器（Wayfern）。此一次性设置在后台运行——请稍候。",
+      "descDownloading": "正在下载你的第一个浏览器（{{browser}}）。此一次性设置在后台运行——请稍候。",
       "descReady": "你的浏览器已就绪。来创建你的第一个配置文件吧。",
       "cta": "创建我的第一个配置文件",
       "downloading": "正在下载…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "在远程机器上通宵养号。",
+    "description": "按计划在本地预热配置文件。运行时设备需保持开机；计划和历史记录保留在本设备上。",
     "tabs": {
       "overview": "概览",
       "schedule": "计划",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot 在远程机器上通宵养号，无需开着你的电脑也能保住 Cookie 和历史记录。"
+      "hint": "计划在本设备本地运行，设备关机时暂停。"
     },
     "empty": {
       "title": "尚未加入任何配置文件",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} 分钟"
     },
     "hours": {
-      "label": "远程时长",
-      "remaining": "{{total}} 小时中还剩 {{remaining}} 小时",
+      "label": "本地运行预算",
+      "remaining": "剩余 {{remaining}} 小时 / 共 {{total}}",
       "remainingOf": "/ {{total}} 小时",
       "used": "{{total}} 小时中已用 {{used}} 小时",
-      "resets": "{{date}} 重置",
+      "resets": "年度周期于 {{date}} 结束",
       "exhausted": "远程时长已用完。计划仍然保留，将在下个周期恢复。",
       "exhaustedOn": "远程时长已用完。计划仍然保留，将于 {{date}} 恢复。",
       "estimate": "每周约 {{hours}} 小时 · 本周期还剩 {{remaining}} 小时",
       "estimateOverBudget": "每周约需 {{hours}} 小时，但只剩 {{remaining}} 小时",
-      "estimateOnly": "每周约 {{hours}} 小时"
+      "estimateOnly": "每周约 {{hours}} 小时",
+      "localRemaining": "已使用本地预算 {{remaining}} 小时；每年可用 {{total}} 小时。"
     },
     "enrolled": {
       "columnProfile": "配置文件",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "配置文件来自与运行它的主机不同的操作系统",
       "cancelledByUser": "已手动停止",
       "unknown": "未知原因（{{code}}）"
-    }
+    },
+    "localDescription": "按计划在本地预热配置文件。运行时设备需保持开机；计划和历史记录保留在本设备上。"
   },
   "prelaunchGate": {
     "titleBlocked": "启动已阻止",

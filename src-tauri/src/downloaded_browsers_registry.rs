@@ -1543,7 +1543,14 @@ pub async fn ensure_active_browsers_downloaded(
   let version_manager = crate::browser_version_manager::BrowserVersionManager::instance();
   let mut downloaded = Vec::new();
 
-  for browser in &["wayfern"] {
+  // The local product ships the open Chromium engine; the vendor build keeps
+  // its own browser. First run downloads whichever the product actually runs.
+  #[cfg(feature = "free")]
+  let browsers: &[&str] = &["chromium"];
+  #[cfg(not(feature = "free"))]
+  let browsers: &[&str] = &["wayfern"];
+
+  for browser in browsers {
     // Check if any version is already downloaded
     let existing = registry.get_downloaded_versions(browser);
     if !existing.is_empty() {

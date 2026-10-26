@@ -257,9 +257,18 @@ impl Downloader {
     // Every browser asset is published with a `<asset>.sha256` sidecar. Fetch
     // it before the transfer starts: an asset nobody can verify costs one small
     // request to reject here, or a wasted gigabyte to reject later.
-    let expected_sha256 = self
-      .fetch_expected_archive_checksum(&download_url, browser_type.display_name(), version)
-      .await?;
+    let expected_sha256 = match browser_type {
+      BrowserType::Chromium => {
+        // Chrome for Testing publishes no sidecar; the pinned public
+        // archive's digest ships with the build. Verification stays strict.
+        crate::browser_version_manager::BrowserVersionManager::CHROMIUM_PINNED_SHA256.to_string()
+      }
+      _ => {
+        self
+          .fetch_expected_archive_checksum(&download_url, browser_type.display_name(), version)
+          .await?
+      }
+    };
 
     let file_path = self
       .stream_download(

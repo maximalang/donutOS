@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { detectFreeBuild } from "@/lib/free-build";
 import type { CloudAuthState, CloudUser } from "@/types";
 
 /**
@@ -29,26 +30,17 @@ const FREE_LOCAL_USER: CloudUser = {
     active: true,
     browserAutomation: true,
     crossOsFingerprints: true,
-    cloudBackup: false,
+    cloudBackup: true,
     teamCollaboration: false,
-    cookieBot: false,
+    cookieBot: true,
     remoteInteractive: false,
     remoteControl: false,
-    scheduledAutomation: false,
+    scheduledAutomation: true,
     profileLimit: 0,
     requestsPerHour: 1_000_000,
     remoteBrowserHours: 0,
   },
 };
-
-/** Resolved once per app run; false in stock builds and on any failure. */
-let freeBuildPromise: Promise<boolean> | null = null;
-function isFreeBuild(): Promise<boolean> {
-  if (!freeBuildPromise) {
-    freeBuildPromise = invoke<boolean>("free_build_enabled").catch(() => false);
-  }
-  return freeBuildPromise;
-}
 
 interface UseCloudAuthReturn {
   user: CloudUser | null;
@@ -67,15 +59,14 @@ export function useCloudAuth(): UseCloudAuthReturn {
 
   const loadUser = useCallback(async () => {
     try {
-      const state = await invoke<CloudAuthState | null>("cloud_get_user");
-      if (!state && (await isFreeBuild())) {
-        // Free local build with no cloud login: expose the local user so the
-        // UI unlocks local capabilities instead of showing the login upsell.
+      const freeBuild = await detectFreeBuild();
+      if (freeBuild) {
         setAuthState({
           user: FREE_LOCAL_USER,
           logged_in_at: new Date().toISOString(),
         });
       } else {
+        const state = await invoke<CloudAuthState | null>("cloud_get_user");
         setAuthState(state);
       }
     } catch (error) {
@@ -119,7 +110,7 @@ export function useCloudAuth(): UseCloudAuthReturn {
   );
 
   const logout = useCallback(async () => {
-    if (await isFreeBuild()) {
+    if (await detectFreeBuild()) {
       // Local build: nothing to sign out of; keep the local session.
       return;
     }

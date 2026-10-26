@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   LuArrowRight,
@@ -30,6 +30,7 @@ import { useInputModality } from "@/hooks/use-input-modality";
 import { usePermissions } from "@/hooks/use-permissions";
 import { translateBackendError } from "@/lib/backend-errors";
 import { getBrowserDisplayName } from "@/lib/browser-utils";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import { getCurrentOS } from "@/lib/platform";
 
 type WelcomeStep = "intro" | "license" | "permissions" | "setup";
@@ -187,8 +188,15 @@ export function WelcomeDialog({
 
   // Track the required browser's download + extraction the whole time the
   // dialog is open, so progress is live by the time the user reaches setup.
-  const setup = useBrowserSetup("wayfern", isOpen);
-  const browserName = getBrowserDisplayName("wayfern");
+  // The local product ships the open Chromium engine; the vendor build keeps
+  // Wayfern. Detection is async, so start from the sync cache and settle.
+  const [freeBuild, setFreeBuild] = useState<boolean>(isFreeBuildSync());
+  useEffect(() => {
+    void detectFreeBuild().then(setFreeBuild);
+  }, []);
+  const browserKind = freeBuild ? "chromium" : "wayfern";
+  const setup = useBrowserSetup(browserKind, isOpen);
+  const browserName = getBrowserDisplayName(browserKind);
 
   const requestPermissions = useCallback(async () => {
     setRequesting(true);
@@ -491,7 +499,9 @@ export function WelcomeDialog({
                         ? t("welcome.ready.descReady")
                         : setup.phase === "extracting"
                           ? t("welcome.ready.descExtracting")
-                          : t("welcome.ready.descDownloading")}
+                          : t("welcome.ready.descDownloading", {
+                              browser: browserName,
+                            })}
                     </p>
                   </div>
 

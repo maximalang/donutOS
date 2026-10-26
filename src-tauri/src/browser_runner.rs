@@ -342,7 +342,7 @@ impl BrowserRunner {
     gate: &crate::launch_gate::FingerprintGate,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error + Send + Sync>> {
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if profile.browser == "wayfern" || profile.browser == "chromium" {
       let launch_started = std::time::Instant::now();
       let _launch_in_progress = crate::wayfern_identity_storage::yield_to_launch().await;
       let converted;
@@ -579,83 +579,91 @@ impl BrowserRunner {
       wayfern_config.proxy = Some(proxy_url);
 
       let mut updated_profile = profile.clone();
-      let randomize_requested = wayfern_config.randomize_fingerprint_on_launch == Some(true);
-      let needs_device = crate::wayfern_identity_storage::stored_shape(&wayfern_config)
-        == crate::wayfern_identity_storage::StoredShape::Empty;
-      let fingerprint_generated = randomize_requested || needs_device;
-      if fingerprint_generated {
-        // Create a config copy without the existing fingerprint to force generation of a new one
-        let mut config_for_generation = wayfern_config.clone();
-        config_for_generation.fingerprint = None;
+      // Fingerprint identity is the vendor engine's device identity:
+      // generated, stored, and applied by the Wayfern binary. The open
+      // Chromium engine carries none of that machinery yet, so a chromium
+      // launch skips straight to the browser.
+      let mut fingerprint_generated = false;
+      if profile.browser == "wayfern" {
+        let randomize_requested = wayfern_config.randomize_fingerprint_on_launch == Some(true);
+        let needs_device = crate::wayfern_identity_storage::stored_shape(&wayfern_config)
+          == crate::wayfern_identity_storage::StoredShape::Empty;
+        fingerprint_generated = randomize_requested || needs_device;
+        if fingerprint_generated {
+          // Create a config copy without the existing fingerprint to force generation of a new one
+          let mut config_for_generation = wayfern_config.clone();
+          config_for_generation.fingerprint = None;
 
-        // A failed generation fails the launch on purpose: continuing would
-        // start the browser on whatever device it drew for itself, unmanaged
-        // and unrecorded, while the UI still reports a successful launch. For
-        // an anti-detect product a silently wrong device is worse than no
-        // launch at all, because nothing tells the user to stop using it.
-        //
-        // Structured rather than prose, because the most common failure is the
-        // browser refusing a generation outright. That has to reach the user as
-        // an explanation; a raw CDP string is not one, and the frontend only
-        // translates a coded error.
-        let generated = self
-          .wayfern_manager
-          .generate_fingerprint_config(&app_handle, profile, &config_for_generation)
-          .await
-          .map_err(|e| {
-            crate::wayfern_manager::wayfern_failure(
-              &e.to_string(),
-              "WAYFERN_FINGERPRINT_GENERATION_FAILED",
-              config_for_generation.os.as_deref(),
-            )
-          })?;
+          // A failed generation fails the launch on purpose: continuing would
+          // start the browser on whatever device it drew for itself, unmanaged
+          // and unrecorded, while the UI still reports a successful launch. For
+          // an anti-detect product a silently wrong device is worse than no
+          // launch at all, because nothing tells the user to stop using it.
+          //
+          // Structured rather than prose, because the most common failure is the
+          // browser refusing a generation outright. That has to reach the user as
+          // an explanation; a raw CDP string is not one, and the frontend only
+          // translates a coded error.
+          let generated = self
+            .wayfern_manager
+            .generate_fingerprint_config(&app_handle, profile, &config_for_generation)
+            .await
+            .map_err(|e| {
+              crate::wayfern_manager::wayfern_failure(
+                &e.to_string(),
+                "WAYFERN_FINGERPRINT_GENERATION_FAILED",
+                config_for_generation.os.as_deref(),
+              )
+            })?;
 
-        let geolocation_applied = generated.geolocation_applied;
+          let geolocation_applied = generated.geolocation_applied;
 
-        // Update the config with the new device for launching. An identity
-        // stores the id and the location only; a legacy browser stores the
-        // whole payload.
-        let is_identity = generated.identity_id.is_some();
-        wayfern_config.identity_id = generated.identity_id.clone();
-        wayfern_config.location = generated.location.clone();
-        wayfern_config.identity_baseline = None;
-        wayfern_config.fingerprint = if is_identity {
-          None
-        } else {
-          Some(generated.fingerprint.clone())
-        };
+          // Update the config with the new device for launching. An identity
+          // stores the id and the location only; a legacy browser stores the
+          // whole payload.
+          let is_identity = generated.identity_id.is_some();
+          wayfern_config.identity_id = generated.identity_id.clone();
+          wayfern_config.location = generated.location.clone();
+          wayfern_config.identity_baseline = None;
+          wayfern_config.fingerprint = if is_identity {
+            None
+          } else {
+            Some(generated.fingerprint.clone())
+          };
 
-        // Save the updated device to the profile so it persists.
-        let mut updated_wayfern_config = updated_profile.wayfern_config.clone().unwrap_or_default();
-        updated_wayfern_config.identity_id = generated.identity_id;
-        updated_wayfern_config.location = generated.location;
-        updated_wayfern_config.identity_baseline = None;
-        updated_wayfern_config.fingerprint = if is_identity {
-          None
-        } else {
-          Some(generated.fingerprint)
-        };
-        // Preserve the randomize flag so it persists across launches
-        updated_wayfern_config.randomize_fingerprint_on_launch =
-          wayfern_config.randomize_fingerprint_on_launch;
-        // Preserve the OS setting so it's used for future fingerprint generation
-        if wayfern_config.os.is_some() {
-          updated_wayfern_config.os = wayfern_config.os.clone();
+          // Save the updated device to the profile so it persists.
+          let mut updated_wayfern_config =
+            updated_profile.wayfern_config.clone().unwrap_or_default();
+          updated_wayfern_config.identity_id = generated.identity_id;
+          updated_wayfern_config.location = generated.location;
+          updated_wayfern_config.identity_baseline = None;
+          updated_wayfern_config.fingerprint = if is_identity {
+            None
+          } else {
+            Some(generated.fingerprint)
+          };
+          // Preserve the randomize flag so it persists across launches
+          updated_wayfern_config.randomize_fingerprint_on_launch =
+            wayfern_config.randomize_fingerprint_on_launch;
+          // Preserve the OS setting so it's used for future fingerprint generation
+          if wayfern_config.os.is_some() {
+            updated_wayfern_config.os = wayfern_config.os.clone();
+          }
+          // Record which routing this fresh fingerprint's geolocation was built
+          // for (provenance only — nothing rewrites the fingerprint from it).
+          // Only when geolocation actually applied; otherwise leave it unset so a
+          // later on-demand match can tell the location was never resolved.
+          updated_wayfern_config.geo_proxy_signature = if geolocation_applied {
+            Some(crate::wayfern_manager::WayfernManager::geo_signature(
+              geo_proxy_signature_settings.as_ref(),
+              profile.vpn_id.as_deref(),
+              wayfern_config.geoip.as_ref(),
+            ))
+          } else {
+            None
+          };
+          updated_profile.wayfern_config = Some(updated_wayfern_config);
         }
-        // Record which routing this fresh fingerprint's geolocation was built
-        // for (provenance only — nothing rewrites the fingerprint from it).
-        // Only when geolocation actually applied; otherwise leave it unset so a
-        // later on-demand match can tell the location was never resolved.
-        updated_wayfern_config.geo_proxy_signature = if geolocation_applied {
-          Some(crate::wayfern_manager::WayfernManager::geo_signature(
-            geo_proxy_signature_settings.as_ref(),
-            profile.vpn_id.as_deref(),
-            wayfern_config.geoip.as_ref(),
-          ))
-        } else {
-          None
-        };
-        updated_profile.wayfern_config = Some(updated_wayfern_config);
       }
       // A non-randomize profile keeps its configured fingerprint verbatim, even
       // when its proxy/VPN routing has changed since the fingerprint was built.
@@ -733,29 +741,43 @@ impl BrowserRunner {
       let proxy_url = wayfern_config.proxy.as_deref();
 
       emit_launch_stage(profile, "starting", None);
-      let wayfern_result = self
-        .wayfern_manager
-        .launch_wayfern(
-          &app_handle,
-          &updated_profile,
-          &profile_path_str,
-          &wayfern_config,
-          url.as_deref(),
-          proxy_url,
-          profile.ephemeral,
-          &extension_paths,
-          remote_debugging_port,
-          headless,
-          kind,
-        )
-        .await
-        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-          // A refused apply reports itself as a structured error so the dialog
-          // can name the cause. Prefixing it would put English in front of the
-          // JSON the frontend parses, and the whole thing would reach the user
-          // as raw machine output.
-          crate::wrap_backend_error(e, "Failed to launch Wayfern").into()
-        })?;
+      let wayfern_result = if profile.browser == "chromium" {
+        self
+          .launch_chromium_process(
+            &updated_profile,
+            &profile_path_str,
+            url.as_deref(),
+            proxy_url,
+            &extension_paths,
+            remote_debugging_port,
+            headless,
+          )
+          .await?
+      } else {
+        self
+          .wayfern_manager
+          .launch_wayfern(
+            &app_handle,
+            &updated_profile,
+            &profile_path_str,
+            &wayfern_config,
+            url.as_deref(),
+            proxy_url,
+            profile.ephemeral,
+            &extension_paths,
+            remote_debugging_port,
+            headless,
+            kind,
+          )
+          .await
+          .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+            // A refused apply reports itself as a structured error so the dialog
+            // can name the cause. Prefixing it would put English in front of the
+            // JSON the frontend parses, and the whole thing would reach the user
+            // as raw machine output.
+            crate::wrap_backend_error(e, "Failed to launch Wayfern").into()
+          })?
+      };
 
       // Get the process ID from launch result
       let Some(process_id) = wayfern_result.processId.filter(|pid| *pid != 0) else {
@@ -794,7 +816,11 @@ impl BrowserRunner {
       }
       if let Some(worker_id) = xray_launch_guard.worker_id.as_deref() {
         if !crate::xray_worker_runner::set_browser_pid(worker_id, process_id) {
-          if let Err(error) = self.wayfern_manager.stop_wayfern(&wayfern_result.id).await {
+          if profile.browser == "chromium" {
+            let _ = std::process::Command::new("taskkill")
+              .args(["/PID", &process_id.to_string(), "/T", "/F"])
+              .status();
+          } else if let Err(error) = self.wayfern_manager.stop_wayfern(&wayfern_result.id).await {
             log::warn!(
               "Browser stop after launch error failed profile={} step=xray_owner err=\"{error}\"",
               profile.id
@@ -813,8 +839,13 @@ impl BrowserRunner {
         guard.worker_id = None;
       }
 
+      let browser_label = if updated_profile.browser == "chromium" {
+        "chromium"
+      } else {
+        "wayfern"
+      };
       let mut launched = format!(
-        "Browser launched profile={} pid={process_id} browser=wayfern version={} proxy={} vpn={} proxy_worker={}",
+        "Browser launched profile={} pid={process_id} browser={browser_label} version={} proxy={} vpn={} proxy_worker={}",
         updated_profile.id,
         crate::log_redaction::Plain(&updated_profile.version),
         profile.proxy_id.as_deref().unwrap_or("none"),
@@ -892,6 +923,84 @@ impl BrowserRunner {
     Err(format!("Unsupported browser type: {}", profile.browser).into())
   }
 
+  #[allow(clippy::too_many_arguments)]
+  /// Launch an open-Chromium profile: resolve the pinned install, build
+  /// plain Chromium arguments, spawn the process. None of the vendor
+  /// machinery applies — the result shape is the shared one so the caller
+  /// records it exactly as a Wayfern launch.
+  async fn launch_chromium_process(
+    &self,
+    profile: &BrowserProfile,
+    profile_path_str: &str,
+    url: Option<&str>,
+    proxy_url: Option<&str>,
+    extension_paths: &[String],
+    remote_debugging_port: Option<u16>,
+    headless: bool,
+  ) -> Result<crate::wayfern_manager::WayfernLaunchResult, Box<dyn std::error::Error + Send + Sync>>
+  {
+    use crate::browser::{create_browser, BrowserType};
+    let engine = create_browser(BrowserType::Chromium);
+    let install_dir = crate::app_dirs::binaries_dir()
+      .join(&profile.browser)
+      .join(&profile.version);
+    let executable = engine.get_executable_path(&install_dir).map_err(
+      |e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!(
+          "Chromium {} is not installed ({}); download it from Browsers first",
+          profile.version, e
+        )
+        .into()
+      },
+    )?;
+    let port = remote_debugging_port.unwrap_or_else(WayfernManager::find_free_port_sync);
+    let mut args = engine
+      .create_launch_args(
+        profile_path_str,
+        None,
+        url.map(|s| s.to_string()),
+        Some(port),
+        headless,
+      )
+      .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!("Failed to build Chromium arguments: {e}").into()
+      })?;
+
+    if let Some(proxy) = proxy_url {
+      args.push(format!("--proxy-server={proxy}"));
+    }
+    if !extension_paths.is_empty() {
+      args.push(format!("--load-extension={}", extension_paths.join(",")));
+    }
+    let child = std::process::Command::new(&executable)
+      .args(&args)
+      .spawn()
+      .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!("Failed to start {}: {e}", executable.display()).into()
+      })?;
+    let pid = child.id();
+    // Registration is awaited, never block_on'd: this function runs inside
+    // the async launch flow, and a nested runtime block would panic the task
+    // and abort the launch without a single log line.
+    let instance_id = WayfernManager::instance()
+      .register_open_engine_instance(profile_path_str, pid, port)
+      .await;
+    log::info!(
+      "Chromium launched profile={} pid={} port={} headless={}",
+      profile.id,
+      pid,
+      port,
+      headless
+    );
+    Ok(crate::wayfern_manager::WayfernLaunchResult {
+      id: instance_id,
+      processId: Some(pid),
+      profilePath: Some(profile_path_str.to_string()),
+      url: url.map(|s| s.to_string()),
+      cdp_port: Some(port),
+    })
+  }
+
   pub async fn open_url_in_existing_browser(
     &self,
     _app_handle: tauri::AppHandle,
@@ -900,7 +1009,7 @@ impl BrowserRunner {
     _internal_proxy_settings: Option<&ProxySettings>,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if profile.browser == "wayfern" || profile.browser == "chromium" {
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
         crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
@@ -1127,7 +1236,43 @@ impl BrowserRunner {
     profile: &BrowserProfile,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Handle Wayfern profiles using WayfernManager
-    if profile.browser == "wayfern" {
+    if profile.browser == "chromium" {
+      // The open engine keeps no session registry: the recorded PID is the
+      // truth. Stop the tree, run the same worker cleanup, clear the PID.
+      if let Some(pid) = profile.process_id.filter(|pid| *pid != 0) {
+        let killed = std::process::Command::new("taskkill")
+          .args(["/PID", &pid.to_string(), "/T", "/F"])
+          .status()
+          .map(|status| status.success())
+          .unwrap_or(false);
+        log::info!(
+          "Chromium stopped profile={} pid={pid} ok={killed}",
+          profile.id
+        );
+      }
+      let profile_id_str = profile.id.to_string();
+      if let Err(e) = PROXY_MANAGER
+        .stop_proxy_by_profile_id(app_handle.clone(), &profile_id_str)
+        .await
+      {
+        log::warn!("Proxy worker stop failed profile={profile_id_str} err=\"{e}\"");
+      }
+      if let Err(error) =
+        crate::xray_worker_runner::stop_xray_worker_by_profile_id(&profile_id_str).await
+      {
+        log::warn!("Xray worker stop failed profile={profile_id_str} err=\"{error}\"");
+      }
+      let mut stopped_profile = profile.clone();
+      stopped_profile.process_id = None;
+      self
+        .save_process_info(&stopped_profile)
+        .map_err(|e| format!("Failed to update profile: {e}"))?;
+      let _ = self
+        .downloaded_browsers_registry
+        .consolidate_browser_versions(&app_handle);
+      return Ok(());
+    }
+    if profile.browser == "wayfern" || profile.browser == "chromium" {
       let profiles_dir = self.profile_manager.get_profiles_dir();
       let profile_data_path =
         crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);

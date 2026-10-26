@@ -1,5 +1,13 @@
-import type { CloudUser, Entitlements } from "@/types";
 import { isFreeBuildSync } from "@/lib/free-build";
+import type { CloudUser, Entitlements } from "@/types";
+
+export function isLocalProductBuild(): boolean {
+  return isFreeBuildSync();
+}
+
+function localProductEntitlements(): Entitlements {
+  return { ...LOCAL_PRODUCT };
+}
 
 const DEFAULT_REQUESTS_PER_HOUR = 100;
 
@@ -123,6 +131,9 @@ const DEFAULT_PAID: Capabilities = {
 export function getEntitlements(
   user: CloudUser | null | undefined,
 ): Entitlements {
+  if (user?.id === "free-local" || isLocalProductBuild()) {
+    return localProductEntitlements();
+  }
   if (user?.entitlements) {
     const server = user.entitlements;
     // A backend (or a cached login) older than the current release omits these
@@ -151,13 +162,8 @@ export function getEntitlements(
     };
   }
   if (!user) {
-    // The local product owes no explanation to the vendor's plan matrix:
-    // every local engine the build ships is unlocked by default, with the
-    // sync/backup surface routing to local export and self-hosted sync.
-    if (isFreeBuildSync()) return LOCAL_PRODUCT;
     return NONE;
   }
-
   const active =
     user.plan !== "free" &&
     (user.subscriptionStatus === "active" || user.planPeriod === "lifetime");

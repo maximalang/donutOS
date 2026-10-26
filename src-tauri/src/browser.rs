@@ -422,7 +422,7 @@ impl Browser for ChromiumBrowser {
           return Ok(candidate);
         }
       }
-      return Err("chrome.exe not found in the install directory".into());
+      Err("chrome.exe not found in the install directory".into())
     }
     #[cfg(target_os = "linux")]
     {
@@ -486,7 +486,10 @@ impl Browser for ChromiumBrowser {
     }
 
     if let Some(proxy) = proxy_settings {
-      args.push(format!("--proxy-server=http://{}:{}", proxy.host, proxy.port));
+      args.push(format!(
+        "--proxy-server=http://{}:{}",
+        proxy.host, proxy.port
+      ));
     }
 
     if let Some(url) = url {
@@ -629,13 +632,7 @@ mod tests {
   #[test]
   fn chromium_launch_args_carry_debug_port_and_headless() {
     let args = ChromiumBrowser
-      .create_launch_args(
-        "C:\\profiles\\p1",
-        None,
-        None,
-        Some(4499),
-        true,
-      )
+      .create_launch_args("C:\\profiles\\p1", None, None, Some(4499), true)
       .expect("chromium launch args");
     assert!(args.contains(&"--user-data-dir=C:\\profiles\\p1".to_string()));
     assert!(args.contains(&"--remote-debugging-port=4499".to_string()));

@@ -826,7 +826,11 @@
       "logoutConfirm": "ログアウトしてもよろしいですか？クラウド同期が停止します。",
       "loginSuccess": "ログインに成功しました！",
       "logoutSuccess": "ログアウトしました。",
-      "server": "サーバー"
+      "server": "サーバー",
+      "selfHosted": {
+        "testConnection": "接続をテスト",
+        "disconnect": "切断"
+      }
     },
     "team": {
       "title": "チーム",
@@ -2791,7 +2795,8 @@
       "teamNote": "チームの全メンバーが同じサーバーを使用する必要があります。",
       "saved": "同期サーバーを保存しました。",
       "backToCloud": "再び Donut クラウドと同期しています。"
-    }
+    },
+    "localProduct": "ローカルモード · クラウドアカウントなし"
   },
   "shortcutsPage": {
     "title": "キーボードショートカット",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "最初のプロファイルを作成",
-        "content": "ここをクリックして最初のプロファイルを作成します。ブラウザには Wayfern を選んでください。フィンガープリント対策済みの推奨 Chromium です。"
+        "content": "ここをクリックして最初のプロファイルを作成します。ブラウザには {{browser}} を選んでください。フィンガープリント対策済みの推奨 Chromium です。"
       },
       "dnsBlocking": {
         "title": "DNS ブロック",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "準備しています",
-      "descDownloading": "最初のブラウザ（Wayfern）をダウンロードしています。この初回セットアップはバックグラウンドで実行されます。少々お待ちください。",
+      "descDownloading": "最初のブラウザ（{{browser}}）をダウンロードしています。この初回セットアップはバックグラウンドで実行されます。少々お待ちください。",
       "descReady": "ブラウザの準備ができました。最初のプロファイルを作成しましょう。",
       "cta": "最初のプロファイルを作成",
       "downloading": "ダウンロード中…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "リモートマシンで夜間にプロファイルをウォームアップします。",
+    "description": "スケジュールに沿ったプロファイルのローカル予熱。実行時刻にこの端末の電源が必要です。スケジュールと履歴はこの端末に保存されます。",
     "tabs": {
       "overview": "概要",
       "schedule": "スケジュール",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot はリモートマシンで夜間にプロファイルをウォームアップするため、お使いのコンピューターを起動していなくても Cookie と履歴が維持されます。"
+      "hint": "スケジュールはこの端末でローカルに実行され、端末の電源が切れている間は停止します。"
     },
     "empty": {
       "title": "登録されたプロファイルはありません",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} 分"
     },
     "hours": {
-      "label": "リモート時間",
-      "remaining": "{{total}} 時間のうち残り {{remaining}} 時間",
+      "label": "ローカル実行予算",
+      "remaining": "残り {{remaining}} 時間 / {{total}}",
       "remainingOf": "/ {{total}} 時間",
       "used": "{{total}} 時間のうち {{used}} 時間を使用",
-      "resets": "{{date}} にリセット",
+      "resets": "年間期間は {{date}} に終了",
       "exhausted": "リモート時間を使い切りました。スケジュールは登録されたままで、次のサイクルで再開します。",
       "exhaustedOn": "リモート時間を使い切りました。スケジュールは登録されたままで、{{date}} に再開します。",
       "estimate": "週あたり約 {{hours}} 時間 · 今サイクルの残り {{remaining}} 時間",
       "estimateOverBudget": "週あたり約 {{hours}} 時間が必要ですが、残りは {{remaining}} 時間のみです",
-      "estimateOnly": "週あたり約 {{hours}} 時間"
+      "estimateOnly": "週あたり約 {{hours}} 時間",
+      "localRemaining": "ローカル予算の {{remaining}} 時間を使用。年間 {{total}} 時間利用可能。"
     },
     "enrolled": {
       "columnProfile": "プロファイル",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "プロファイルは実行したホストとは別のオペレーティングシステムのものです",
       "cancelledByUser": "手動で停止しました",
       "unknown": "不明な理由 ({{code}})"
-    }
+    },
+    "localDescription": "スケジュールに沿ったプロファイルのローカル予熱。実行時刻にこの端末の電源が必要です。スケジュールと履歴はこの端末に保存されます。"
   },
   "prelaunchGate": {
     "titleBlocked": "起動をブロックしました",

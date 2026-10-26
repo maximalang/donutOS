@@ -740,6 +740,7 @@ export function RemoteHoursMeter({
             remaining={remaining}
             granted={granted}
             resets={resets}
+            isLocal={quota?.scope === "local"}
           />
         )}
       </div>
@@ -752,17 +753,22 @@ function RemoteHoursReadout({
   remaining,
   granted,
   resets,
+  isLocal,
 }: {
   remaining: number;
   granted: number;
   resets: string | null;
+  isLocal: boolean;
 }) {
   const { t } = useTranslation();
-  const text = t("cookieBot.hours.remaining", {
-    remaining: formatHours(remaining),
-    total: formatHours(granted),
-  });
-  if (!resets) {
+  const text = t(
+    isLocal ? "cookieBot.hours.localRemaining" : "cookieBot.hours.remaining",
+    {
+      remaining: formatHours(remaining),
+      total: formatHours(granted),
+    },
+  );
+  if (isLocal || !resets) {
     return (
       <span className="text-xs tabular-nums text-muted-foreground">{text}</span>
     );

@@ -61,6 +61,7 @@ impl McpTarget {
 
   /// With toolsets, the client lists only the core tools and those groups
   /// (`mcp_toolsets`); with none, every tool.
+  #[cfg_attr(feature = "free", allow(dead_code))]
   pub fn remote_with(key: String, toolsets: &[String]) -> Self {
     let url = if toolsets.is_empty() {
       remote_mcp_url()
@@ -72,6 +73,17 @@ impl McpTarget {
 
   pub fn authorization(&self) -> String {
     format!("Bearer {}", self.bearer)
+  }
+
+  /// The local product's own server as a client target: a full URL plus its
+  /// token, with toolsets appended exactly as the remote form appends them.
+  pub fn local_with(url: String, bearer: String, toolsets: &[String]) -> Self {
+    let url = if toolsets.is_empty() {
+      url
+    } else {
+      format!("{url}?toolsets={}", toolsets.join(","))
+    };
+    Self { url, bearer }
   }
 }
 

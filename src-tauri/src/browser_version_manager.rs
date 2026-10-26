@@ -62,6 +62,20 @@ impl BrowserVersionManager {
             | "windows-arm64"
         ))
       }
+      "chromium" => {
+        // Chrome for Testing ships the same archive set on every platform
+        // the product runs on.
+        let platform_key = format!("{os}-{arch}");
+        Ok(matches!(
+          platform_key.as_str(),
+          "macos-arm64"
+            | "linux-x64"
+            | "macos-x64"
+            | "linux-arm64"
+            | "windows-x64"
+            | "windows-arm64"
+        ))
+      }
       _ => Err(format!("Unknown browser: {browser}").into()),
     }
   }
@@ -303,6 +317,12 @@ impl BrowserVersionManager {
   /// `get_download_info`.
   pub const CHROMIUM_PINNED_VERSION: &str = "158.0.8123.0";
 
+  /// Digest of the pinned Chrome for Testing win64 archive. CfT publishes no
+  /// checksum sidecar, so the downloader verifies against this constant
+  /// instead — just as strict, and immune to the sidecar's absence.
+  pub const CHROMIUM_PINNED_SHA256: &str =
+    "fa012d06c286fabf232c77fdd6765c7da94d5594d2fc4c5da5eaa7b930576571";
+
   pub fn get_download_info(
     &self,
     browser: &str,
@@ -346,17 +366,20 @@ impl BrowserVersionManager {
           ("linux", "x64") => "linux64/chrome-linux64.zip",
           ("linux", "arm64") => "linux-arm64/chrome-linux-arm64.zip",
           _ => {
-            return Err(format!(
-              "Unsupported platform/architecture for Chromium: {os}/{arch}"
+            return Err(
+              format!("Unsupported platform/architecture for Chromium: {os}/{arch}").into(),
             )
-            .into())
           }
         };
         let url = format!(
           "https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform_path}"
         );
         Ok(DownloadInfo {
-          filename: platform_path.rsplit('/').next().unwrap_or("chrome.zip").to_string(),
+          filename: platform_path
+            .rsplit('/')
+            .next()
+            .unwrap_or("chrome.zip")
+            .to_string(),
           url,
           is_archive: true,
         })
@@ -435,7 +458,9 @@ mod tests {
     assert!(info
       .url
       .starts_with("https://storage.googleapis.com/chrome-for-testing-public/"));
-    assert!(info.url.contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
+    assert!(info
+      .url
+      .contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
   }
 
   #[test]
@@ -451,7 +476,10 @@ mod tests {
       .get_browser_release_types("chromium")
       .await
       .expect("chromium release types");
-    assert_eq!(releases.stable, Some(BrowserVersionManager::CHROMIUM_PINNED_VERSION.to_string()));
+    assert_eq!(
+      releases.stable,
+      Some(BrowserVersionManager::CHROMIUM_PINNED_VERSION.to_string())
+    );
   }
 
   #[tokio::test]

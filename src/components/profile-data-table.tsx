@@ -1844,7 +1844,7 @@ export function ProfilesDataTable({
 
   // Cookie Bot. Enrolments and live runs both live server-side, so the table
   // reads them from the shared store rather than from BrowserProfile.
-  const cookieBotUnlocked = canUseCookieBot(user);
+  const cookieBotUnlocked = canUseCookieBot(user) || user?.id === "free-local";
   const {
     scheduleFor,
     liveSessionFor,

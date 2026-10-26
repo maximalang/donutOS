@@ -188,7 +188,9 @@ impl Patience {
 /// split covers a stale `process_id` left by a crash — nothing answers on the
 /// recorded port, so the remote session is found instead of a dead one.
 pub async fn resolve(profile: &BrowserProfile) -> Result<CdpTarget, ResolveError> {
-  if profile.browser != "wayfern" {
+  // The open Chromium engine is plain CDP end to end; only other engines
+  // would need a translation layer this build does not carry.
+  if profile.browser != "wayfern" && profile.browser != "chromium" {
     return Err(ResolveError::Unsupported(format!(
       "Profile '{}' runs {}, which cannot be driven over CDP",
       profile.name, profile.browser
@@ -244,8 +246,7 @@ async fn local_cdp_port(profile: &BrowserProfile, patience: Patience) -> Option<
   // The launcher registers the instance under the effective profile path —
   // the ephemeral dir for ephemeral or password-protected profiles — so the
   // lookup must use the same path or the CDP port is never found.
-  let profile_path =
-    crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
+  let profile_path = crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
   let profile_path_str = profile_path.to_string_lossy().to_string();
 
   // Port info is written once the process is up, so a tool called straight

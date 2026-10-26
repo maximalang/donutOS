@@ -831,7 +831,11 @@
       "logoutConfirm": "Êtes-vous sûr de vouloir vous déconnecter ? La synchronisation cloud sera arrêtée.",
       "loginSuccess": "Connexion réussie !",
       "logoutSuccess": "Déconnexion réussie.",
-      "server": "Serveur"
+      "server": "Serveur",
+      "selfHosted": {
+        "testConnection": "Tester la connexion",
+        "disconnect": "Déconnecter"
+      }
     },
     "team": {
       "title": "Équipe",
@@ -2811,7 +2815,8 @@
       "teamNote": "Tous les membres de votre équipe doivent utiliser le même serveur.",
       "saved": "Serveur de synchronisation enregistré.",
       "backToCloud": "Synchronisation de nouveau avec Donut cloud."
-    }
+    },
+    "localProduct": "Mode local · sans compte cloud"
   },
   "shortcutsPage": {
     "title": "Raccourcis clavier",
@@ -2866,7 +2871,7 @@
     "steps": {
       "createProfile": {
         "title": "Créez votre premier profil",
-        "content": "Cliquez ici pour créer votre premier profil. Choisissez Wayfern comme navigateur : le Chromium recommandé et protégé contre le fingerprinting."
+        "content": "Cliquez ici pour créer votre premier profil. Choisissez {{browser}} comme navigateur : le Chromium recommandé et protégé contre le fingerprinting."
       },
       "dnsBlocking": {
         "title": "Blocage DNS",
@@ -2899,7 +2904,7 @@
     },
     "ready": {
       "title": "Préparation en cours",
-      "descDownloading": "Téléchargement de votre premier navigateur (Wayfern). Cette configuration unique s'exécute en arrière-plan — patientez un instant.",
+      "descDownloading": "Téléchargement de votre premier navigateur ({{browser}}). Cette configuration unique s'exécute en arrière-plan — patientez un instant.",
       "descReady": "Votre navigateur est prêt. Créons votre premier profil.",
       "cta": "Créer mon premier profil",
       "downloading": "Téléchargement…",
@@ -2992,7 +2997,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Chauffe des profils la nuit sur une machine distante.",
+    "description": "Réchauffement local des profils selon la planification. L'ordinateur doit être allumé au moment prévu ; planifications et historique restent sur cet appareil.",
     "tabs": {
       "overview": "Aperçu",
       "schedule": "Planification",
@@ -3001,7 +3006,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot chauffe vos profils la nuit sur une machine distante : ils conservent leurs cookies et leur historique sans que votre ordinateur soit allumé."
+      "hint": "Les planifications s'exécutent localement sur cet appareil et s'interrompent lorsque l'ordinateur est éteint."
     },
     "empty": {
       "title": "Aucun profil inscrit",
@@ -3034,16 +3039,17 @@
       "minutes": "{{minutes}} min"
     },
     "hours": {
-      "label": "Heures distantes",
+      "label": "Budget local d'exécution",
       "remaining": "{{remaining}} h restantes sur {{total}}",
       "remainingOf": "sur {{total}} h",
       "used": "{{used}} h utilisées sur {{total}}",
-      "resets": "Réinitialisation le {{date}}",
+      "resets": "La période annuelle se termine le {{date}}",
       "exhausted": "Plus d'heures distantes. Les planifications restent inscrites et reprennent au prochain cycle.",
       "exhaustedOn": "Plus d'heures distantes. Les planifications restent inscrites et reprennent le {{date}}.",
       "estimate": "Environ {{hours}} h par semaine · {{remaining}} h restantes sur ce cycle",
       "estimateOverBudget": "Demande environ {{hours}} h par semaine : il ne reste que {{remaining}} h",
-      "estimateOnly": "Environ {{hours}} h par semaine"
+      "estimateOnly": "Environ {{hours}} h par semaine",
+      "localRemaining": "{{remaining}} h du budget local utilisées ; {{total}} h disponibles par an."
     },
     "enrolled": {
       "columnProfile": "Profil",
@@ -3326,7 +3332,8 @@
       "profileOsMismatch": "Le profil vient d'un autre système d'exploitation que l'hôte qui l'a exécuté",
       "cancelledByUser": "Arrêté à la main",
       "unknown": "Raison inconnue ({{code}})"
-    }
+    },
+    "localDescription": "Réchauffement local des profils selon la planification. L'ordinateur doit être allumé au moment prévu ; planifications et historique restent sur cet appareil."
   },
   "prelaunchGate": {
     "titleBlocked": "Lancement bloqué",

@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import {
   LuArrowRight,
   LuCircleCheck,
-  LuCloud,
   LuEye,
   LuEyeOff,
   LuLogOut,
@@ -36,7 +35,6 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { SoftFields } from "@/components/ui/field-variant";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RippleButton } from "@/components/ui/ripple";
 import {
   FeatureIcon,
   SECTION_LABEL_CLASS,
@@ -51,8 +49,10 @@ import {
   canViewTeamActivity,
   effectivePlanOf,
   getEntitlements,
+  isLocalProductBuild,
   isTeamOwner,
 } from "@/lib/entitlements";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type { SyncSettings } from "@/types";
@@ -73,6 +73,10 @@ export function AccountPage({
   onOpenSignIn,
 }: AccountPageProps) {
   const { t } = useTranslation();
+  const [freeBuild, setFreeBuild] = useState(isFreeBuildSync());
+  useEffect(() => {
+    void detectFreeBuild().then(setFreeBuild);
+  }, []);
   const {
     user,
     isLoggedIn,
@@ -87,7 +91,10 @@ export function AccountPage({
   // the controls that spend them. Until this landed, `remote-sessions/quota`
   // had no caller anywhere and a customer's first sight of their allowance was
   // a refused launch.
-  const remoteHoursVisible = isLoggedIn && canUseCookieBot(user);
+  const localBuild = freeBuild || isLocalProductBuild();
+  // Remote quota belongs only to hosted bot sessions; local scheduling is
+  // unmetered runtime on this device and has its own local history.
+  const remoteHoursVisible = !localBuild && isLoggedIn && canUseCookieBot(user);
   const showTeamUsage = remoteHoursVisible && isTeamOwner(user);
   const showTeamActivity = isLoggedIn && canViewTeamActivity(user);
   // A member's own row says "free" because the owner pays. The plan the seat
@@ -141,7 +148,7 @@ export function AccountPage({
   // in to its own server instead (`AccountSyncServer`); the backend refuses a
   // shared token then (`save_sync_settings`), so one device never syncs one
   // profile to two places.
-  const selfHostedDisabled = isCloudLoading;
+  const selfHostedDisabled = isCloudLoading && !localBuild;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -355,12 +362,14 @@ export function AccountPage({
                     {t("account.tabs.teamAccess")}
                   </AnimatedTabsTrigger>
                 )}
-                <AnimatedTabsTrigger
-                  value="self-hosted"
-                  disabled={selfHostedDisabled}
-                >
-                  {t("account.tabs.selfHosted")}
-                </AnimatedTabsTrigger>
+                {!localBuild && (
+                  <AnimatedTabsTrigger
+                    value="self-hosted"
+                    disabled={selfHostedDisabled}
+                  >
+                    {t("account.tabs.selfHosted")}
+                  </AnimatedTabsTrigger>
+                )}
               </AnimatedTabsList>
 
               <AnimatedTabsContent
@@ -385,7 +394,16 @@ export function AccountPage({
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
-                      {isLoggedIn && user ? (
+                      {localBuild ? (
+                        <>
+                          <h2 className="text-sm font-semibold">
+                            Donut Browser
+                          </h2>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {t("account.localProduct")}
+                          </p>
+                        </>
+                      ) : isLoggedIn && user ? (
                         <>
                           <h2 className="truncate text-sm font-semibold">
                             {user.email}
@@ -411,7 +429,7 @@ export function AccountPage({
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {isLoggedIn ? (
+                      {isLoggedIn && !localBuild ? (
                         <>
                           <Button
                             size="sm"
@@ -446,16 +464,16 @@ export function AccountPage({
                             {t("account.logout")}
                           </LoadingButton>
                         </>
-                      ) : (
-                        <RippleButton
+                      ) : !localBuild ? (
+                        <Button
                           size="sm"
+                          variant="soft"
                           onClick={onOpenSignIn}
-                          className="h-8 gap-1.5 rounded-lg text-xs"
+                          className="h-8 rounded-lg text-xs"
                         >
-                          <LuCloud className="size-3.5" />
                           {t("account.signIn")}
-                        </RippleButton>
-                      )}
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -577,7 +595,7 @@ export function AccountPage({
                 value="self-hosted"
                 className="@container mt-4"
               >
-                {isLoggedIn && user ? (
+                {isLoggedIn && user && !localBuild ? (
                   <AccountSyncServer
                     paid={getEntitlements(user).cloudBackup}
                     teamSeat={Boolean(user.teamId)}

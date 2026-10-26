@@ -99,6 +99,7 @@ import { translateBackendError } from "@/lib/backend-errors";
 import { getProfileIcon, getProfileNativeOs } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
 import { formatRelativeTime } from "@/lib/flag-utils";
+import { isFreeBuildSync } from "@/lib/free-build";
 import { MOTION_EASE_OUT } from "@/lib/motion";
 import { rotateProxyIps } from "@/lib/proxy-rotation";
 import type { RemoteHandoffState } from "@/lib/remote-sessions";
@@ -671,6 +672,9 @@ function ProfileInfoContents({
 
   const ProfileIcon = getProfileIcon(profile);
   const isWayfern = profile.browser === "wayfern";
+  const crossOsEntitled =
+    Boolean(crossOsUnlocked) ||
+    (isFreeBuildSync() && profile.browser === "chromium");
   const isDeleteDisabled = isRunning;
 
   const proxyName = profile.proxy_id
@@ -764,11 +768,15 @@ function ProfileInfoContents({
       onClick: () => {
         handleAction(() => onConfigureWayfern?.(profile));
       },
-      // Viewing and editing fingerprints both require an active paid plan.
-      disabled: isDisabled || !crossOsUnlocked,
-      proBadge: !crossOsUnlocked,
+      // The local build provides these privacy controls through its own
+      // Chromium profile rather than Wayfern's paid identity service.
+      disabled:
+        isDisabled || (!crossOsUnlocked && profile.browser === "wayfern"),
+      proBadge: !crossOsUnlocked && profile.browser === "wayfern",
       runningBadge: isRunning,
-      hidden: !isWayfern || !onConfigureWayfern,
+      hidden:
+        !(profile.browser === "wayfern" || profile.browser === "chromium") ||
+        !onConfigureWayfern,
     },
     {
       id: "synchronizer",
@@ -912,6 +920,7 @@ function ProfileInfoContents({
       ProfileIcon={ProfileIcon}
       isRunning={isRunning}
       isDisabled={isDisabled}
+      crossOsUnlocked={crossOsEntitled}
       networkLabel={networkLabel}
       groupName={groupName}
       extensionGroupName={extensionGroupName}
@@ -951,6 +960,7 @@ interface ProfileInfoLayoutProps {
   ProfileIcon: React.ComponentType<{ className?: string }>;
   isRunning: boolean;
   isDisabled: boolean;
+  crossOsUnlocked: boolean;
   networkLabel: string;
   groupName: string | null;
   extensionGroupName: string | null;
@@ -998,6 +1008,7 @@ function ProfileInfoLayout({
   ProfileIcon,
   isRunning,
   isDisabled,
+  crossOsUnlocked,
   networkLabel,
   groupName,
   extensionGroupName,
@@ -1420,12 +1431,7 @@ function ProfileInfoLayout({
             <FingerprintSectionInline
               profile={profile}
               isDisabled={isDisabled}
-              crossOsUnlocked={Boolean(
-                // Re-derive: parent passes crossOsUnlocked but the layout
-                // doesn't get it; we get it implicitly via fingerprintAction's
-                // proBadge state. Default to false if action missing.
-                fingerprintAction && !fingerprintAction.proBadge,
-              )}
+              crossOsUnlocked={crossOsUnlocked}
               onSaved={onClose}
               t={t}
             />

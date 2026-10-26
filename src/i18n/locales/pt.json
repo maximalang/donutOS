@@ -831,7 +831,11 @@
       "logoutConfirm": "Tem certeza de que deseja sair? A sincronização na nuvem será interrompida.",
       "loginSuccess": "Login realizado com sucesso!",
       "logoutSuccess": "Logout realizado com sucesso.",
-      "server": "Servidor"
+      "server": "Servidor",
+      "selfHosted": {
+        "testConnection": "Testar conexão",
+        "disconnect": "Desconectar"
+      }
     },
     "team": {
       "title": "Equipe",
@@ -2811,7 +2815,8 @@
       "teamNote": "Todos os membros da sua equipe devem usar o mesmo servidor.",
       "saved": "Servidor de sincronização salvo.",
       "backToCloud": "Sincronizando com a Donut cloud novamente."
-    }
+    },
+    "localProduct": "Modo local · sem conta na nuvem"
   },
   "shortcutsPage": {
     "title": "Atalhos de teclado",
@@ -2866,7 +2871,7 @@
     "steps": {
       "createProfile": {
         "title": "Crie seu primeiro perfil",
-        "content": "Clique aqui para criar seu primeiro perfil. Escolha o Wayfern como navegador: o Chromium recomendado e protegido contra fingerprint."
+        "content": "Clique aqui para criar seu primeiro perfil. Escolha o {{browser}} como navegador: o Chromium recomendado e protegido contra fingerprint."
       },
       "dnsBlocking": {
         "title": "Bloqueio de DNS",
@@ -2899,7 +2904,7 @@
     },
     "ready": {
       "title": "Preparando tudo",
-      "descDownloading": "Baixando seu primeiro navegador (Wayfern). Esta configuração única é executada em segundo plano — aguarde um momento.",
+      "descDownloading": "Baixando seu primeiro navegador ({{browser}}). Esta configuração única é executada em segundo plano — aguarde um momento.",
       "descReady": "Seu navegador está pronto. Vamos criar seu primeiro perfil.",
       "cta": "Criar meu primeiro perfil",
       "downloading": "Baixando…",
@@ -2992,7 +2997,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Aquecimento noturno de perfis em uma máquina remota.",
+    "description": "Aquecimento local de perfis por agendamento. O computador precisa estar ligado no horário previsto; agendamentos e histórico ficam neste dispositivo.",
     "tabs": {
       "overview": "Visão geral",
       "schedule": "Agenda",
@@ -3001,7 +3006,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "O Cookie Bot aquece seus perfis durante a noite em uma máquina remota, para que mantenham os cookies e o histórico sem o seu computador ligado."
+      "hint": "Os agendamentos rodam localmente neste dispositivo e pausam enquanto o computador está desligado."
     },
     "empty": {
       "title": "Nenhum perfil inscrito",
@@ -3034,16 +3039,17 @@
       "minutes": "{{minutes}} min"
     },
     "hours": {
-      "label": "Horas remotas",
+      "label": "Orçamento local de execução",
       "remaining": "Restam {{remaining}} h de {{total}}",
       "remainingOf": "de {{total}} h",
       "used": "{{used}} de {{total}} h usadas",
-      "resets": "Renova em {{date}}",
+      "resets": "O período anual termina em {{date}}",
       "exhausted": "Sem horas remotas restantes. As agendas continuam inscritas e retomam no próximo ciclo.",
       "exhaustedOn": "Sem horas remotas restantes. As agendas continuam inscritas e retomam em {{date}}.",
       "estimate": "Cerca de {{hours}} h por semana · restam {{remaining}} h neste ciclo",
       "estimateOverBudget": "Precisa de cerca de {{hours}} h por semana: restam apenas {{remaining}} h",
-      "estimateOnly": "Cerca de {{hours}} h por semana"
+      "estimateOnly": "Cerca de {{hours}} h por semana",
+      "localRemaining": "{{remaining}} h do orçamento local usadas; {{total}} h disponíveis por ano."
     },
     "enrolled": {
       "columnProfile": "Perfil",
@@ -3326,7 +3332,8 @@
       "profileOsMismatch": "O perfil vem de um sistema operativo diferente do servidor que o executou",
       "cancelledByUser": "Parado à mão",
       "unknown": "Motivo desconhecido ({{code}})"
-    }
+    },
+    "localDescription": "Aquecimento local de perfis por agendamento. O computador precisa estar ligado no horário previsto; agendamentos e histórico ficam neste dispositivo."
   },
   "prelaunchGate": {
     "titleBlocked": "Inicialização bloqueada",

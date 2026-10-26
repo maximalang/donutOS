@@ -809,6 +809,10 @@
     "cloud": {
       "tabLabel": "Cloud",
       "selfHostedTabLabel": "Self-Hosted",
+      "selfHosted": {
+        "testConnection": "Test connection",
+        "disconnect": "Disconnect"
+      },
       "email": "Email",
       "deviceLinkInstructions": "Click \"Login\" to open the login page in your browser. Once signed in there, copy the code shown and paste it below.",
       "openLogin": "Login",
@@ -2747,6 +2751,7 @@
     "loggedOut": "Logged out",
     "signedOut": "Signed out",
     "signedOutDescription": "Sign in to enable cloud sync, encrypted profiles, and team features.",
+    "localProduct": "Local mode · no cloud account",
     "plan": "Plan: {{plan}} · {{period}}",
     "teamSeat": "{{role}} seat on {{team}}",
     "teamSeatUnnamed": "{{role}} seat on a team",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "Create your first profile",
-        "content": "Click here to create your first profile. Pick Wayfern as the browser — the recommended, fingerprint-protected Chromium."
+        "content": "Click here to create your first profile. Pick {{browser}} as the browser — the recommended, fingerprint-protected Chromium."
       },
       "dnsBlocking": {
         "title": "DNS blocking",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "Setting things up",
-      "descDownloading": "Downloading your first browser (Wayfern). This one-time setup runs in the background — hang tight.",
+      "descDownloading": "Downloading your first browser ({{browser}}). This one-time setup runs in the background — hang tight.",
       "descReady": "Your browser is ready. Let's create your first profile.",
       "cta": "Create my first profile",
       "downloading": "Downloading…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Overnight profile warming on a remote machine.",
+    "description": "Local profile warming on a schedule. This device must be on when the run is due; schedules and history stay on this device.",
     "tabs": {
       "overview": "Overview",
       "schedule": "Schedule",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot warms your profiles overnight on a remote machine, so they keep their cookies and their history without your computer being on."
+      "hint": "Schedules run locally on this device and stop when it is off."
     },
     "empty": {
       "title": "No profiles are enrolled",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} min"
     },
     "hours": {
-      "label": "Remote hours",
-      "remaining": "{{remaining}} h left of {{total}}",
+      "label": "Local run allowance",
+      "remaining": "{{remaining}} hr available of {{total}}",
       "remainingOf": "of {{total}} h",
       "used": "{{used}} of {{total}} h used",
-      "resets": "Resets {{date}}",
+      "resets": "Annual period ends {{date}}",
       "exhausted": "No remote hours left. Schedules stay enrolled and resume next cycle.",
       "exhaustedOn": "No remote hours left. Schedules stay enrolled and resume {{date}}.",
       "estimate": "About {{hours}} h per week · {{remaining}} h left this cycle",
       "estimateOverBudget": "Needs about {{hours}} h per week — only {{remaining}} h left",
-      "estimateOnly": "About {{hours}} h per week"
+      "estimateOnly": "About {{hours}} h per week",
+      "localRemaining": "{{remaining}} hr of local runtime budget used; {{total}} hr available annually."
     },
     "enrolled": {
       "columnProfile": "Profile",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "The profile came from a different operating system than the host that ran it",
       "cancelledByUser": "Stopped by hand",
       "unknown": "Unknown reason ({{code}})"
-    }
+    },
+    "localDescription": "Local profile warming on a schedule. This device must be on when the run is due; schedules and history stay on this device."
   },
   "prelaunchGate": {
     "titleBlocked": "Launch blocked",

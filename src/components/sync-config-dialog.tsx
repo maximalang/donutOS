@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
-import { effectivePlanOf } from "@/lib/entitlements";
+import { effectivePlanOf, isLocalProductBuild } from "@/lib/entitlements";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { SyncServerCheck, SyncSettings } from "@/types";
 
@@ -74,6 +74,8 @@ export function SyncConfigDialog({
     isLoading: isCloudLoading,
     logout,
   } = useCloudAuth();
+
+  const localBuild = isLocalProductBuild() || user?.id === "free-local";
 
   const [activeTab, setActiveTab] = useState<string>("cloud");
   const [accountServer, setAccountServer] = useState<string | null>(null);
@@ -152,25 +154,31 @@ export function SyncConfigDialog({
         .catch(() => {
           setAccountServer(null);
         });
-      void invoke<ProxyUsage | null>("cloud_get_proxy_usage")
-        .then(setLiveProxyUsage)
-        .catch(() => {
-          setLiveProxyUsage(null);
-        });
+      if (!localBuild) {
+        void invoke<ProxyUsage | null>("cloud_get_proxy_usage")
+          .then(setLiveProxyUsage)
+          .catch(() => {
+            setLiveProxyUsage(null);
+          });
+      } else {
+        setLiveProxyUsage(null);
+      }
     }
-  }, [isOpen, loadSettings]);
+  }, [isOpen, loadSettings, localBuild]);
 
   // Auto-select the appropriate tab based on connection state
   useEffect(() => {
     if (isCloudLoading) return;
-    if (isLoggedIn) {
+    if (localBuild) {
+      setActiveTab("self-hosted");
+    } else if (isLoggedIn) {
       setActiveTab("cloud");
     } else if (serverUrl && token) {
       setActiveTab("self-hosted");
     } else {
       setActiveTab("cloud");
     }
-  }, [isCloudLoading, isLoggedIn, serverUrl, token]);
+  }, [isCloudLoading, isLoggedIn, serverUrl, token, localBuild]);
 
   const handleTestConnection = useCallback(async () => {
     if (!serverUrl) {
@@ -281,9 +289,8 @@ export function SyncConfigDialog({
     }
   }, [logout, t]);
 
-  const cloudBlocked = !isLoggedIn && hasConfig;
-  const selfHostedBlocked = isLoggedIn;
-
+  const cloudBlocked = localBuild || (!isLoggedIn && hasConfig);
+  const selfHostedBlocked = localBuild ? false : isLoggedIn;
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -292,7 +299,7 @@ export function SyncConfigDialog({
           <DialogDescription>{t("sync.description")}</DialogDescription>
         </DialogHeader>
 
-        {isLoggedIn && user ? (
+        {isLoggedIn && user && !localBuild ? (
           <div className="grid gap-4 py-4">
             <div className="flex items-center gap-2 text-sm">
               <div className="size-2 rounded-full bg-success" />
@@ -390,7 +397,7 @@ export function SyncConfigDialog({
               >
                 <span className="flex items-center gap-2">
                   {t("sync.cloud.tabLabel")}
-                  {cloudBlocked && <ProBadge />}
+                  {cloudBlocked && !localBuild && <ProBadge />}
                 </span>
               </TabsTrigger>
               <TabsTrigger
@@ -537,7 +544,7 @@ export function SyncConfigDialog({
                     onClick={() => void handleDisconnect()}
                     disabled={isSaving}
                   >
-                    Disconnect
+                    {t("sync.cloud.selfHosted.disconnect")}
                   </Button>
                 )}
                 <Button
@@ -545,14 +552,16 @@ export function SyncConfigDialog({
                   onClick={() => void handleTestConnection()}
                   disabled={isTesting || !serverUrl}
                 >
-                  {isTesting ? "Testing..." : "Test Connection"}
+                  {isTesting
+                    ? t("common.buttons.loading")
+                    : t("sync.cloud.selfHosted.testConnection")}
                 </Button>
                 <LoadingButton
                   onClick={() => void handleSave()}
                   isLoading={isSaving}
                   disabled={!serverUrl || !token}
                 >
-                  Save
+                  {t("common.buttons.save")}
                 </LoadingButton>
               </DialogFooter>
             </TabsContent>

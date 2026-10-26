@@ -3663,6 +3663,15 @@ impl WayfernManager {
       .unwrap_or_default()
   }
 
+  pub fn find_free_port_sync() -> u16 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")
+      .expect("OS should be able to allocate a free loopback port");
+    listener
+      .local_addr()
+      .expect("bound listener should have a local address")
+      .port()
+  }
+
   pub async fn get_cdp_port(&self, profile_path: &str) -> Option<u16> {
     let inner = self.inner.lock().await;
     let target_path = std::path::Path::new(profile_path)
@@ -3680,6 +3689,27 @@ impl WayfernManager {
       }
     }
     None
+  }
+
+  /// Register an open-Chromium process in the shared instance registry so
+  /// CDP discovery finds it exactly like a vendor launch.
+  pub async fn register_open_engine_instance(
+    &self,
+    profile_path: &str,
+    process_id: u32,
+    cdp_port: u16,
+  ) -> String {
+    let id = uuid::Uuid::new_v4().to_string();
+    let instance = WayfernInstance {
+      process_id: Some(process_id),
+      profile_path: Some(profile_path.to_string()),
+      url: None,
+      cdp_port: Some(cdp_port),
+      log_tap: BrowserLogTap::default(),
+    };
+    let mut inner = self.inner.lock().await;
+    inner.instances.insert(id.clone(), instance);
+    id
   }
 
   pub async fn find_wayfern_by_profile(&self, profile_path: &str) -> Option<WayfernLaunchResult> {

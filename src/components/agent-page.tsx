@@ -57,6 +57,7 @@ import {
   canUseRemoteControl,
   canUseScheduledAutomation,
   getEntitlements,
+  isLocalProductBuild,
 } from "@/lib/entitlements";
 import type { McpRemoteStatus } from "@/lib/mcp";
 import { showSuccessToast } from "@/lib/toast-utils";
@@ -319,11 +320,18 @@ export function AgentPage({
   }, []);
 
   const signedIn = cloudUser !== null;
-  const entitled = canUseRemoteControl(cloudUser);
+  const localBuild = isLocalProductBuild() || cloudUser?.id === "free-local";
+  const entitled = canUseRemoteControl(cloudUser) || localBuild;
   const automation = getEntitlements(cloudUser).browserAutomation;
   // Solo keeps recipes for the schedules it pays for, without on-demand runs.
   const scheduled = canUseScheduledAutomation(cloudUser);
-  const blocker = !signedIn ? "signedOut" : !entitled ? "plan" : null;
+  const blocker = localBuild
+    ? null
+    : !signedIn
+      ? "signedOut"
+      : !entitled
+        ? "plan"
+        : null;
   const remoteOff = remoteKnown && remote !== null && !remote.enabled;
   const hasSessions = agentConsole.sessions.length > 0;
   const quota = quotaLeft(agentConsole.quota);
@@ -452,7 +460,7 @@ export function AgentPage({
 
   const conversationBody = () => {
     if (blockerPanel) return blockerPanel;
-    const ready = agentConsole.loaded && remoteKnown;
+    const ready = agentConsole.loaded && (localBuild || remoteKnown);
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {agentConsole.openRequests.length > 0 && (

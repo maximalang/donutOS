@@ -826,7 +826,11 @@
       "logoutConfirm": "Bạn có chắc muốn đăng xuất? Đồng bộ đám mây sẽ dừng lại.",
       "loginSuccess": "Đăng nhập thành công!",
       "logoutSuccess": "Đăng xuất thành công.",
-      "server": "Máy chủ"
+      "server": "Máy chủ",
+      "selfHosted": {
+        "testConnection": "Kiểm tra kết nối",
+        "disconnect": "Ngắt kết nối"
+      }
     },
     "team": {
       "title": "Nhóm",
@@ -2791,7 +2795,8 @@
       "teamNote": "Tất cả thành viên trong đội phải dùng cùng một máy chủ.",
       "saved": "Đã lưu máy chủ đồng bộ.",
       "backToCloud": "Đang đồng bộ lại với Donut cloud."
-    }
+    },
+    "localProduct": "Chế độ cục bộ · không có tài khoản đám mây"
   },
   "shortcutsPage": {
     "title": "Phím tắt",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "Tạo hồ sơ đầu tiên của bạn",
-        "content": "Nhấn vào đây để tạo hồ sơ đầu tiên của bạn. Chọn Wayfern làm trình duyệt — Chromium được khuyến nghị, có bảo vệ vân tay."
+        "content": "Nhấn vào đây để tạo hồ sơ đầu tiên của bạn. Chọn {{browser}} làm trình duyệt — Chromium được khuyến nghị, có bảo vệ vân tay."
       },
       "dnsBlocking": {
         "title": "Chặn DNS",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "Đang thiết lập",
-      "descDownloading": "Đang tải trình duyệt đầu tiên của bạn (Wayfern). Quá trình thiết lập một lần này chạy ngầm — vui lòng chờ.",
+      "descDownloading": "Đang tải trình duyệt đầu tiên của bạn ({{browser}}). Quá trình thiết lập một lần này chạy ngầm — vui lòng chờ.",
       "descReady": "Trình duyệt của bạn đã sẵn sàng. Hãy tạo hồ sơ đầu tiên của bạn.",
       "cta": "Tạo hồ sơ đầu tiên của tôi",
       "downloading": "Đang tải xuống…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Làm ấm hồ sơ qua đêm trên máy từ xa.",
+    "description": "Làm nóng hồ sơ cục bộ theo lịch. Máy phải bật vào giờ đã định; lịch và lịch sử nằm trên thiết bị này.",
     "tabs": {
       "overview": "Tổng quan",
       "schedule": "Lịch chạy",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot làm ấm hồ sơ của bạn qua đêm trên máy từ xa, giúp chúng giữ được cookie và lịch sử mà không cần bật máy tính của bạn."
+      "hint": "Lịch chạy cục bộ trên thiết bị này và tạm dừng khi máy tắt."
     },
     "empty": {
       "title": "Chưa có hồ sơ nào được đăng ký",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} phút"
     },
     "hours": {
-      "label": "Giờ từ xa",
+      "label": "Ngân sách chạy cục bộ",
       "remaining": "Còn {{remaining}} giờ trong {{total}}",
       "remainingOf": "trên {{total}} giờ",
       "used": "Đã dùng {{used}} trong {{total}} giờ",
-      "resets": "Đặt lại vào {{date}}",
+      "resets": "Chu kỳ hàng năm kết thúc ngày {{date}}",
       "exhausted": "Đã hết giờ từ xa. Các lịch chạy vẫn được giữ và sẽ tiếp tục ở chu kỳ sau.",
       "exhaustedOn": "Đã hết giờ từ xa. Các lịch chạy vẫn được giữ và sẽ tiếp tục vào {{date}}.",
       "estimate": "Khoảng {{hours}} giờ mỗi tuần · còn {{remaining}} giờ trong chu kỳ này",
       "estimateOverBudget": "Cần khoảng {{hours}} giờ mỗi tuần — chỉ còn {{remaining}} giờ",
-      "estimateOnly": "Khoảng {{hours}} giờ mỗi tuần"
+      "estimateOnly": "Khoảng {{hours}} giờ mỗi tuần",
+      "localRemaining": "Đã dùng {{remaining}} giờ ngân sách cục bộ; {{total}} giờ khả dụng mỗi năm."
     },
     "enrolled": {
       "columnProfile": "Hồ sơ",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "Hồ sơ đến từ hệ điều hành khác với máy chủ đã chạy nó",
       "cancelledByUser": "Đã dừng thủ công",
       "unknown": "Lý do không xác định ({{code}})"
-    }
+    },
+    "localDescription": "Làm nóng hồ sơ cục bộ theo lịch. Máy phải bật vào giờ đã định; lịch và lịch sử nằm trên thiết bị này."
   },
   "prelaunchGate": {
     "titleBlocked": "Đã chặn khởi chạy",

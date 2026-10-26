@@ -207,7 +207,7 @@ export function CookieBotEnrolDialog({
   // The same entitlement answer every other consumer of the shared store
   // passes; see the note in cookie-bot-page.tsx.
   const { quota, refresh: refreshCookieBot } = useCookieBot(
-    canUseCookieBot(user),
+    canUseCookieBot(user) || user?.id === "free-local",
     cookieBotScopeFor(user),
   );
   const canReplaceOthers =

@@ -22,6 +22,7 @@ import { ProBadge } from "@/components/ui/pro-badge";
 import { SECTION_LABEL_CLASS } from "@/components/ui/settings-panel";
 import { useInputModality } from "@/hooks/use-input-modality";
 import type { SnippetLanguage } from "@/lib/api-examples";
+import { isLocalProductBuild } from "@/lib/entitlements";
 import { MOTION_EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,9 @@ export function CodeExamplesDialog({
   copyMessage: string;
 }) {
   const { t } = useTranslation();
+  // The local product serves every example route from its own local API —
+  // nothing sits behind a vendor plan, so the paid marks stay off.
+  const localProduct = isLocalProductBuild();
   const reduceMotion = useReducedMotion();
   const inputModality = useInputModality();
   const animate = !reduceMotion && inputModality === "pointer";
@@ -138,7 +142,7 @@ export function CodeExamplesDialog({
                     <span className="min-w-0 flex-1 truncate">
                       {example.title}
                     </span>
-                    {example.paid && <ProBadge />}
+                    {example.paid && !localProduct && <ProBadge />}
                   </TabsPrimitive.Trigger>
                 );
               })}
@@ -163,7 +167,7 @@ export function CodeExamplesDialog({
                   >
                     <h3 className="flex items-center gap-2 text-sm font-medium">
                       {example.title}
-                      {example.paid && (
+                      {example.paid && !localProduct && (
                         <span className="text-xs font-normal text-muted-foreground">
                           {t("integrations.examples.paid")}
                         </span>

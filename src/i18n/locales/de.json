@@ -809,6 +809,10 @@
     "cloud": {
       "tabLabel": "Cloud",
       "selfHostedTabLabel": "Selbst gehostet",
+      "selfHosted": {
+        "testConnection": "Verbindung testen",
+        "disconnect": "Trennen"
+      },
       "email": "E-Mail",
       "deviceLinkInstructions": "Klicken Sie auf „Anmelden“, um die Anmeldeseite in Ihrem Browser zu öffnen. Kopieren Sie nach der Anmeldung dort den angezeigten Code und fügen Sie ihn unten ein.",
       "openLogin": "Anmelden",
@@ -2747,6 +2751,7 @@
     "loggedOut": "Abgemeldet",
     "signedOut": "Abgemeldet",
     "signedOutDescription": "Melden Sie sich an, um Cloud-Synchronisierung, verschlüsselte Profile und Team-Funktionen zu nutzen.",
+    "localProduct": "Lokaler Modus · ohne Cloud-Konto",
     "plan": "Tarif: {{plan}} · {{period}}",
     "teamSeat": "Platz als {{role}} in {{team}}",
     "teamSeatUnnamed": "Platz als {{role}} in einem Team",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "Erstellen Sie Ihr erstes Profil",
-        "content": "Klicken Sie hier, um Ihr erstes Profil zu erstellen. Wählen Sie Wayfern als Browser: das empfohlene Chromium mit Fingerprint-Schutz."
+        "content": "Klicken Sie hier, um Ihr erstes Profil zu erstellen. Wählen Sie {{browser}} als Browser: das empfohlene Chromium mit Fingerprint-Schutz."
       },
       "dnsBlocking": {
         "title": "DNS-Blockierung",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "Alles wird eingerichtet",
-      "descDownloading": "Ihr erster Browser (Wayfern) wird heruntergeladen. Diese einmalige Einrichtung läuft im Hintergrund. Einen Moment Geduld.",
+      "descDownloading": "Ihr erster Browser ({{browser}}) wird heruntergeladen. Diese einmalige Einrichtung läuft im Hintergrund. Einen Moment Geduld.",
       "descReady": "Ihr Browser ist bereit. Erstellen wir Ihr erstes Profil.",
       "cta": "Mein erstes Profil erstellen",
       "downloading": "Wird heruntergeladen…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Nächtliches Aufwärmen von Profilen auf einem entfernten Rechner.",
+    "description": "Lokales Aufwärmen von Profilen nach Zeitplan. Dieses Gerät muss zum Startzeitpunkt eingeschaltet sein; Zeitpläne und Verlauf bleiben auf diesem Gerät.",
     "tabs": {
       "overview": "Übersicht",
       "schedule": "Zeitplan",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Der Cookie Bot wärmt Ihre Profile nachts auf einem entfernten Rechner auf, damit sie ihre Cookies und ihren Verlauf behalten, ohne dass Ihr Computer eingeschaltet sein muss."
+      "hint": "Zeitpläne laufen lokal auf diesem Gerät und pausieren, solange der Computer aus ist."
     },
     "empty": {
       "title": "Keine Profile aufgenommen",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} min"
     },
     "hours": {
-      "label": "Remote-Stunden",
-      "remaining": "Noch {{remaining}} h von {{total}}",
+      "label": "Lokales Startbudget",
+      "remaining": "Noch {{remaining}} Std. von {{total}} verfügbar",
       "remainingOf": "von {{total}} h",
       "used": "{{used}} von {{total}} h verbraucht",
-      "resets": "Wird am {{date}} zurückgesetzt",
+      "resets": "Jahreszeitraum endet am {{date}}",
       "exhausted": "Keine Remote-Stunden mehr übrig. Die Zeitpläne bleiben erhalten und werden im nächsten Zeitraum fortgesetzt.",
       "exhaustedOn": "Keine Remote-Stunden mehr übrig. Die Zeitpläne bleiben erhalten und werden am {{date}} fortgesetzt.",
       "estimate": "Etwa {{hours}} h pro Woche · noch {{remaining}} h in diesem Zeitraum",
       "estimateOverBudget": "Benötigt etwa {{hours}} h pro Woche, aber nur noch {{remaining}} h übrig",
-      "estimateOnly": "Etwa {{hours}} h pro Woche"
+      "estimateOnly": "Etwa {{hours}} h pro Woche",
+      "localRemaining": "{{remaining}} Std. des lokalen Budgets verwendet; jährlich {{total}} Std. verfügbar."
     },
     "enrolled": {
       "columnProfile": "Profil",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "Das Profil stammt von einem anderen Betriebssystem als der Host, der es ausgeführt hat",
       "cancelledByUser": "Manuell gestoppt",
       "unknown": "Unbekannter Grund ({{code}})"
-    }
+    },
+    "localDescription": "Lokales Aufwärmen von Profilen nach Zeitplan. Dieses Gerät muss zum Startzeitpunkt eingeschaltet sein; Zeitpläne und Verlauf bleiben auf diesem Gerät."
   },
   "prelaunchGate": {
     "titleBlocked": "Start blockiert",

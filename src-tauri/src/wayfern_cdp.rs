@@ -1626,9 +1626,18 @@ mod tests {
   fn an_open_chromium_profile_takes_the_fallback_paths_whatever_its_version() {
     // 158 > 152: by version alone this would look native; the browser family
     // decides, and chromium never rides the metered native domains.
-    assert_eq!(Engine::for_profile("chromium", "158.0.8123.0"), Engine::Fallback);
-    assert_eq!(Engine::for_profile("wayfern", "155.0.8059.79"), Engine::Wayfern);
-    assert_eq!(Engine::for_profile("wayfern", "141.0.7390.0"), Engine::Fallback);
+    assert_eq!(
+      Engine::for_profile("chromium", "158.0.8123.0"),
+      Engine::Fallback
+    );
+    assert_eq!(
+      Engine::for_profile("wayfern", "155.0.8059.79"),
+      Engine::Wayfern
+    );
+    assert_eq!(
+      Engine::for_profile("wayfern", "141.0.7390.0"),
+      Engine::Fallback
+    );
   }
 
   #[test]

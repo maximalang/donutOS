@@ -1,8 +1,10 @@
 "use client";
 
 import { Onborda, type OnbordaProps, OnbordaProvider } from "onborda";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { OnboardingCard } from "@/components/onboarding-card";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 
 // Name of the first-run product tour. Referenced by the trigger logic in
 // `src/app/page.tsx` via `startOnborda(ONBOARDING_TOUR)`.
@@ -14,6 +16,12 @@ export function OnboardingProvider({
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  // The tour names the engine the product actually ships. Detection is
+  // async, so the steps rebuild once it resolves.
+  const [freeBuild, setFreeBuild] = useState<boolean>(isFreeBuildSync());
+  useEffect(() => {
+    void detectFreeBuild().then(setFreeBuild);
+  }, []);
 
   const tours: OnbordaProps["steps"] = [
     {
@@ -22,7 +30,9 @@ export function OnboardingProvider({
         {
           icon: null,
           title: t("onboarding.steps.createProfile.title"),
-          content: t("onboarding.steps.createProfile.content"),
+          content: t("onboarding.steps.createProfile.content", {
+            browser: freeBuild ? "Chromium" : "Wayfern",
+          }),
           selector: '[data-onborda="create-profile"]',
           // The "New" button sits in the top-right corner; "bottom-right"
           // anchors the card's right edge to it so the card extends left/down

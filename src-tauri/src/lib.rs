@@ -72,9 +72,9 @@ fn e2e_automation_profile_dir() -> Option<std::path::PathBuf> {
     .flatten()
 }
 
-/// Donut Free build marker for the frontend: true when compiled with the
-/// `free` feature (local entitlements, local MCP route, local Wayfern token).
-#[tauri::command]
+/// Donut Free build marker: true when compiled with the `free` feature
+/// (local entitlements, local MCP route, local Wayfern token). Internal
+/// helper — the frontend-facing command is `is_free_build`.
 fn free_build_enabled() -> bool {
   cfg!(feature = "free")
 }
@@ -674,7 +674,13 @@ async fn export_profile_cookies(profile_id: String, format: String) -> Result<St
 
 #[tauri::command]
 fn check_wayfern_terms_accepted() -> bool {
-  wayfern_terms::WayfernTermsManager::instance().is_terms_accepted()
+  // The local product ships the open Chromium engine, not the vendor browser,
+  // so there are no vendor terms to accept and the gate reads as satisfied.
+  // The vendor build keeps the real persisted check.
+  #[cfg(feature = "free")]
+  return true;
+  #[cfg(not(feature = "free"))]
+  return wayfern_terms::WayfernTermsManager::instance().is_terms_accepted();
 }
 
 #[tauri::command]
@@ -729,7 +735,7 @@ struct IntegrationDiagnostic {
 /// Free local build marker for the frontend: cloud-only UI is hidden.
 #[tauri::command]
 fn is_free_build() -> bool {
-  cfg!(feature = "free")
+  free_build_enabled()
 }
 
 /// A read-only authenticated probe. Never returns credentials or response bodies.
@@ -1337,6 +1343,40 @@ fn update_claude_extensions_registry(
 /// What gets written into a client: the endpoint and the stored credential.
 /// Minting one is the credential commands' job, so a missing key is reported
 /// rather than created here.
+#[cfg(feature = "free")]
+fn mcp_target() -> Result<mcp_integrations::McpTarget, String> {
+  let manager = settings_manager::SettingsManager::instance();
+
+  // The local product integrates clients with its own MCP server: the
+  // stable local endpoint and the local automation token, resolved the
+  // way `get_api_token` resolves it (env, portable file, self-provision).
+  let token = if let Some(pinned) = std::env::var_os("DONUT_AUTOMATION_TOKEN")
+    .filter(|t| !t.is_empty())
+    .and_then(|t| t.into_string().ok())
+  {
+    pinned
+  } else if let Some(path) = settings_manager::SettingsManager::free_portable_token_path() {
+    std::fs::read_to_string(&path)
+      .map(|s| s.trim().to_string())
+      .unwrap_or_default()
+  } else {
+    String::new()
+  };
+  if token.is_empty() {
+    return Err(backend_error("API_TOKEN_MISSING"));
+  }
+  let settings = manager
+    .load_settings()
+    .map_err(|e| backend_error_with_detail("INTERNAL_ERROR", e))?;
+  Ok(mcp_integrations::McpTarget::local_with(
+    format!("http://127.0.0.1:{}/v1/mcp", settings.api_port),
+    token,
+    &settings.mcp_toolsets,
+  ))
+}
+
+/// The vendor build writes its cloud relay key into clients instead.
+#[cfg(not(feature = "free"))]
 fn mcp_target() -> Result<mcp_integrations::McpTarget, String> {
   let manager = settings_manager::SettingsManager::instance();
   let stored = manager
@@ -3679,7 +3719,6 @@ pub fn run_with_builder(
       cloud_auth::cloud_get_user,
       cloud_auth::cloud_refresh_profile,
       cloud_auth::cloud_logout,
-      free_build_enabled,
       cloud_auth::cloud_get_proxy_usage,
       cloud_auth::cloud_get_countries,
       cloud_auth::create_cloud_location_proxy,

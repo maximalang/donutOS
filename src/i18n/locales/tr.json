@@ -826,7 +826,11 @@
       "logoutConfirm": "Çıkış yapmak istediğinizden emin misiniz? Bulut eşitlemesi duracak.",
       "loginSuccess": "Başarıyla giriş yapıldı!",
       "logoutSuccess": "Başarıyla çıkış yapıldı.",
-      "server": "Sunucu"
+      "server": "Sunucu",
+      "selfHosted": {
+        "testConnection": "Bağlantıyı test et",
+        "disconnect": "Bağlantıyı kes"
+      }
     },
     "team": {
       "title": "Ekip",
@@ -2791,7 +2795,8 @@
       "teamNote": "Ekibinizin tüm üyeleri aynı sunucuyu kullanmalıdır.",
       "saved": "Eşitleme sunucusu kaydedildi.",
       "backToCloud": "Yeniden Donut cloud ile eşitleniyor."
-    }
+    },
+    "localProduct": "Yerel mod · bulut hesabı yok"
   },
   "shortcutsPage": {
     "title": "Klavye kısayolları",
@@ -2846,7 +2851,7 @@
     "steps": {
       "createProfile": {
         "title": "İlk profilinizi oluşturun",
-        "content": "İlk profilinizi oluşturmak için buraya tıklayın. Tarayıcı olarak Wayfern'ü seçin — önerilen, parmak izi korumalı Chromium."
+        "content": "İlk profilinizi oluşturmak için buraya tıklayın. Tarayıcı olarak {{browser}}'ü seçin — önerilen, parmak izi korumalı Chromium."
       },
       "dnsBlocking": {
         "title": "DNS engelleme",
@@ -2879,7 +2884,7 @@
     },
     "ready": {
       "title": "Her şey hazırlanıyor",
-      "descDownloading": "İlk tarayıcınız (Wayfern) indiriliyor. Bu tek seferlik kurulum arka planda çalışır — biraz bekleyin.",
+      "descDownloading": "İlk tarayıcınız ({{browser}}) indiriliyor. Bu tek seferlik kurulum arka planda çalışır — biraz bekleyin.",
       "descReady": "Tarayıcınız hazır. Hadi ilk profilinizi oluşturalım.",
       "cta": "İlk profilimi oluştur",
       "downloading": "İndiriliyor…",
@@ -2972,7 +2977,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Uzak bir makinede gece boyunca profil ısıtma.",
+    "description": "Profil yerel ısıtması zamanlamaya göre çalışır. Planlanan zamanda bilgisayar açık olmalıdır; zamanlamalar ve geçmiş bu cihazda kalır.",
     "tabs": {
       "overview": "Genel bakış",
       "schedule": "Zamanlama",
@@ -2981,7 +2986,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot, profillerinizi gece boyunca uzak bir makinede ısıtır; böylece bilgisayarınız açık olmadan çerezlerini ve geçmişlerini korurlar."
+      "hint": "Zamanlamalar bu cihazda yerel olarak çalışır ve bilgisayar kapalıyken duraklar."
     },
     "empty": {
       "title": "Kayıtlı profil yok",
@@ -3010,16 +3015,17 @@
       "minutes": "{{minutes}} dk"
     },
     "hours": {
-      "label": "Uzak saatler",
+      "label": "Yerel çalıştırma bütçesi",
       "remaining": "{{total}} saatin {{remaining}} saati kaldı",
       "remainingOf": "/ {{total}} sa",
       "used": "{{total}} saatin {{used}} saati kullanıldı",
-      "resets": "{{date}} tarihinde sıfırlanır",
+      "resets": "Yıllık dönem {{date}} tarihinde bitiyor",
       "exhausted": "Uzak saat kalmadı. Zamanlamalar kayıtlı kalır ve sonraki döngüde devam eder.",
       "exhaustedOn": "Uzak saat kalmadı. Zamanlamalar kayıtlı kalır ve {{date}} tarihinde devam eder.",
       "estimate": "Haftada yaklaşık {{hours}} sa · bu döngüde {{remaining}} sa kaldı",
       "estimateOverBudget": "Haftada yaklaşık {{hours}} sa gerekiyor — yalnızca {{remaining}} sa kaldı",
-      "estimateOnly": "Haftada yaklaşık {{hours}} sa"
+      "estimateOnly": "Haftada yaklaşık {{hours}} sa",
+      "localRemaining": "Yerel bütçenin {{remaining}} saati kullanıldı; yılda {{total}} saat kullanılabilir."
     },
     "enrolled": {
       "columnProfile": "Profil",
@@ -3286,7 +3292,8 @@
       "profileOsMismatch": "Profil, onu çalıştıran sunucudan farklı bir işletim sisteminde oluşturulmuş",
       "cancelledByUser": "Elle durduruldu",
       "unknown": "Bilinmeyen neden ({{code}})"
-    }
+    },
+    "localDescription": "Profil yerel ısıtması zamanlamaya göre çalışır. Planlanan zamanda bilgisayar açık olmalıdır; zamanlamalar ve geçmiş bu cihazda kalır."
   },
   "prelaunchGate": {
     "titleBlocked": "Başlatma engellendi",

@@ -28,6 +28,7 @@ export { getCurrentOS } from "@/lib/platform";
 export function getBrowserDisplayName(browserType: string): string {
   const browserNames: Record<string, string> = {
     wayfern: "Wayfern",
+    chromium: "Chromium",
   };
 
   return browserNames[browserType] || browserType;
@@ -40,6 +41,7 @@ export function getBrowserDisplayName(browserType: string): string {
  */
 export function getBrowserIcon(browserType: string) {
   switch (browserType) {
+    case "chromium":
     case "wayfern":
       return FaChrome;
     default:

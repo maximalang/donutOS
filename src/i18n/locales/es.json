@@ -831,7 +831,11 @@
       "logoutConfirm": "¿Estás seguro de que deseas cerrar sesión? La sincronización en la nube se detendrá.",
       "loginSuccess": "¡Sesión iniciada exitosamente!",
       "logoutSuccess": "Sesión cerrada exitosamente.",
-      "server": "Servidor"
+      "server": "Servidor",
+      "selfHosted": {
+        "testConnection": "Comprobar conexión",
+        "disconnect": "Desconectar"
+      }
     },
     "team": {
       "title": "Equipo",
@@ -2811,7 +2815,8 @@
       "teamNote": "Todos los miembros de tu equipo deben usar el mismo servidor.",
       "saved": "Servidor de sincronización guardado.",
       "backToCloud": "Sincronizando de nuevo con Donut cloud."
-    }
+    },
+    "localProduct": "Modo local · sin cuenta en la nube"
   },
   "shortcutsPage": {
     "title": "Atajos de teclado",
@@ -2866,7 +2871,7 @@
     "steps": {
       "createProfile": {
         "title": "Crea tu primer perfil",
-        "content": "Haz clic aquí para crear tu primer perfil. Elige Wayfern como navegador: el Chromium recomendado y protegido contra huellas digitales."
+        "content": "Haz clic aquí para crear tu primer perfil. Elige {{browser}} como navegador: el Chromium recomendado y protegido contra huellas digitales."
       },
       "dnsBlocking": {
         "title": "Bloqueo DNS",
@@ -2899,7 +2904,7 @@
     },
     "ready": {
       "title": "Preparando todo",
-      "descDownloading": "Descargando tu primer navegador (Wayfern). Esta configuración única se ejecuta en segundo plano; espera un momento.",
+      "descDownloading": "Descargando tu primer navegador ({{browser}}). Esta configuración única se ejecuta en segundo plano; espera un momento.",
       "descReady": "Tu navegador está listo. Vamos a crear tu primer perfil.",
       "cta": "Crear mi primer perfil",
       "downloading": "Descargando…",
@@ -2992,7 +2997,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "Calentamiento nocturno de perfiles en una máquina remota.",
+    "description": "Calentamiento local de perfiles según programación. El equipo debe estar encendido a la hora programada; las programaciones y el historial se quedan en este dispositivo.",
     "tabs": {
       "overview": "Resumen",
       "schedule": "Programación",
@@ -3001,7 +3006,7 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "Cookie Bot calienta tus perfiles por la noche en una máquina remota, así conservan sus cookies y su historial sin que tu ordenador esté encendido."
+      "hint": "Las programaciones se ejecutan localmente en este dispositivo y se pausan mientras el equipo está apagado."
     },
     "empty": {
       "title": "No hay perfiles inscritos",
@@ -3034,16 +3039,17 @@
       "minutes": "{{minutes}} min"
     },
     "hours": {
-      "label": "Horas remotas",
+      "label": "Presupuesto local de ejecución",
       "remaining": "Quedan {{remaining}} h de {{total}}",
       "remainingOf": "de {{total}} h",
       "used": "{{used}} de {{total}} h usadas",
-      "resets": "Se restablece el {{date}}",
+      "resets": "El período anual termina el {{date}}",
       "exhausted": "No quedan horas remotas. Las programaciones siguen inscritas y se reanudan en el próximo ciclo.",
       "exhaustedOn": "No quedan horas remotas. Las programaciones siguen inscritas y se reanudan el {{date}}.",
       "estimate": "Unas {{hours}} h por semana · quedan {{remaining}} h en este ciclo",
       "estimateOverBudget": "Necesita unas {{hours}} h por semana: solo quedan {{remaining}} h",
-      "estimateOnly": "Unas {{hours}} h por semana"
+      "estimateOnly": "Unas {{hours}} h por semana",
+      "localRemaining": "{{remaining}} h del presupuesto local usadas; {{total}} h disponibles al año."
     },
     "enrolled": {
       "columnProfile": "Perfil",
@@ -3326,7 +3332,8 @@
       "profileOsMismatch": "El perfil viene de un sistema operativo distinto al del servidor que lo ejecutó",
       "cancelledByUser": "Detenido a mano",
       "unknown": "Motivo desconocido ({{code}})"
-    }
+    },
+    "localDescription": "Calentamiento local de perfiles según programación. El equipo debe estar encendido a la hora programada; las programaciones y el historial se quedan en este dispositivo."
   },
   "prelaunchGate": {
     "titleBlocked": "Inicio bloqueado",

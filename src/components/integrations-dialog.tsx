@@ -70,6 +70,7 @@ import {
 } from "@/lib/api-examples";
 import { translateBackendError } from "@/lib/backend-errors";
 import { canUseRemoteControl } from "@/lib/entitlements";
+import { detectFreeBuild, isFreeBuildSync } from "@/lib/free-build";
 import {
   type AgentCategory,
   CORE_TOOLSET,
@@ -151,6 +152,10 @@ export function IntegrationsDialog({
   const [isRotatingCredential, setIsRotatingCredential] = useState(false);
   const [apiExamplesOpen, setApiExamplesOpen] = useState(false);
   const [remoteExamplesOpen, setRemoteExamplesOpen] = useState(false);
+  const [freeBuild, setFreeBuild] = useState<boolean>(isFreeBuildSync());
+  useEffect(() => {
+    void detectFreeBuild().then(setFreeBuild);
+  }, []);
   const apiSwitchId = useId();
   const apiPortId = useId();
   const apiTokenId = useId();
@@ -570,13 +575,15 @@ export function IntegrationsDialog({
   const exampleBearer = credentialPrefix
     ? t("integrations.remote.credentialPrefix", { prefix: credentialPrefix })
     : "${TOKEN}";
-  const remoteTarget = { baseUrl: REMOTE_MCP_URL, token: exampleBearer };
+  const localApiBase = `http://127.0.0.1:${apiServerPort ?? settings.api_port}`;
+  const mcpBaseUrl = freeBuild ? `${localApiBase}/v1/mcp` : REMOTE_MCP_URL;
+  const remoteTarget = { baseUrl: mcpBaseUrl, token: exampleBearer };
   const remoteQuickStart = oneLine(
     curlSnippet(REMOTE_MCP_EXAMPLES[0].request, remoteTarget),
   );
   const fxLine = fxExportLine(settings.mcp_remote_key);
 
-  const apiBaseUrl = `http://127.0.0.1:${apiServerPort ?? settings.api_port}`;
+  const apiBaseUrl = localApiBase;
   const apiToken = settings.api_token ?? "";
   const maskedApiToken = maskToken(apiToken);
   // The local token is this machine's own, so a copied example carries it
@@ -603,7 +610,7 @@ export function IntegrationsDialog({
     ),
   }));
 
-  const remoteConfig = mcpClientConfig(REMOTE_MCP_URL, exampleBearer);
+  const remoteConfig = mcpClientConfig(mcpBaseUrl, exampleBearer);
   const remoteExamples: CodeExample[] = [
     ...REMOTE_MCP_EXAMPLES.map((example) => ({
       id: example.id,
@@ -706,7 +713,7 @@ export function IntegrationsDialog({
                 {
                   id: "endpoint",
                   label: t("integrations.tabRemote"),
-                  detail: <span className="break-all">{REMOTE_MCP_URL}</span>,
+                  detail: <span className="break-all">{mcpBaseUrl}</span>,
                 },
                 {
                   id: "device",
@@ -1140,38 +1147,42 @@ export function IntegrationsDialog({
                   >
                     <div className="flex flex-col gap-4 pt-3">
                       <SettingsPanel className="divide-y divide-foreground/6 py-3">
-                        <SettingsRow
-                          label={t("integrations.remote.credentialLabel")}
-                          description={t("integrations.remote.credentialHint")}
-                        >
-                          {credentialPresent ? (
-                            credentialPrefix && (
-                              <code className="rounded-md bg-foreground/5 px-2 py-1 font-mono text-[11px]">
-                                {t("integrations.remote.credentialPrefix", {
-                                  prefix: credentialPrefix,
-                                })}
-                              </code>
-                            )
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              {t("integrations.remote.credentialNone")}
-                            </p>
-                          )}
-                          <LoadingButton
-                            size="sm"
-                            variant="soft"
-                            className="h-8 shrink-0 gap-1.5 rounded-lg text-xs"
-                            isLoading={isRotatingCredential}
-                            onClick={() => void handleRotateCredential()}
-                          >
-                            {credentialPresent && (
-                              <LuRefreshCw className="size-3.5" />
+                        {!freeBuild && (
+                          <SettingsRow
+                            label={t("integrations.remote.credentialLabel")}
+                            description={t(
+                              "integrations.remote.credentialHint",
                             )}
-                            {credentialPresent
-                              ? t("integrations.remote.credentialRotate")
-                              : t("integrations.remote.credentialCreate")}
-                          </LoadingButton>
-                        </SettingsRow>
+                          >
+                            {credentialPresent ? (
+                              credentialPrefix && (
+                                <code className="rounded-md bg-foreground/5 px-2 py-1 font-mono text-[11px]">
+                                  {t("integrations.remote.credentialPrefix", {
+                                    prefix: credentialPrefix,
+                                  })}
+                                </code>
+                              )
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                {t("integrations.remote.credentialNone")}
+                              </p>
+                            )}
+                            <LoadingButton
+                              size="sm"
+                              variant="soft"
+                              className="h-8 shrink-0 gap-1.5 rounded-lg text-xs"
+                              isLoading={isRotatingCredential}
+                              onClick={() => void handleRotateCredential()}
+                            >
+                              {credentialPresent && (
+                                <LuRefreshCw className="size-3.5" />
+                              )}
+                              {credentialPresent
+                                ? t("integrations.remote.credentialRotate")
+                                : t("integrations.remote.credentialCreate")}
+                            </LoadingButton>
+                          </SettingsRow>
+                        )}
                         <SettingsRow
                           label={t("integrations.remote.endpointLabel")}
                           description={t(
@@ -1179,7 +1190,7 @@ export function IntegrationsDialog({
                           )}
                         >
                           <CodeSnippet
-                            code={REMOTE_MCP_URL}
+                            code={mcpBaseUrl}
                             copyLabel={t("integrations.remote.endpointLabel")}
                             successMessage={t(
                               "integrations.remote.endpointCopied",

@@ -51,7 +51,11 @@ import {
   deleteCookieBotSchedule,
   getCookieBotRuns,
 } from "@/lib/cookie-bot";
-import { canUseCookieBot, getEntitlements } from "@/lib/entitlements";
+import {
+  canUseCookieBot,
+  getEntitlements,
+  isLocalProductBuild,
+} from "@/lib/entitlements";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type { BrowserProfile, CloudUser } from "@/types";
@@ -88,9 +92,11 @@ export function CookieBotPage({
   onAssignProxy,
 }: CookieBotPageProps) {
   const { t } = useTranslation();
+  const localBuild = isLocalProductBuild() || cloudUser?.id === "free-local";
   const entitlements = getEntitlements(cloudUser);
-  const unlocked = canUseCookieBot(cloudUser);
-  const isTeam = entitlements.teamCollaboration && Boolean(cloudUser?.teamId);
+  const unlocked = canUseCookieBot(cloudUser) || localBuild;
+  const isTeam =
+    !localBuild && entitlements.teamCollaboration && Boolean(cloudUser?.teamId);
   const isOwnerOrAdmin =
     cloudUser?.teamRole === "owner" || cloudUser?.teamRole === "admin";
   const showTeamTab = isTeam && cloudUser?.teamRole === "owner";
@@ -240,7 +246,7 @@ export function CookieBotPage({
   }, [pendingRemoval, reload, t]);
 
   const dialogBody = !unlocked ? (
-    <LockedState />
+    <LockedState localBuild={localBuild} />
   ) : (
     <div className="@container flex min-h-0 w-full flex-1 flex-col">
       <AnimatedTabs
@@ -273,11 +279,13 @@ export function CookieBotPage({
           </AnimatedTabsList>
 
           <div className="flex items-center gap-3">
-            <RemoteHoursMeter
-              quota={quota}
-              isLoading={isStoreLoading && quota === null}
-              variant="compact"
-            />
+            {!localBuild && (
+              <RemoteHoursMeter
+                quota={quota}
+                isLoading={isStoreLoading && quota === null}
+                variant="compact"
+              />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <RippleButton
@@ -441,7 +449,7 @@ export function CookieBotPage({
   );
 }
 
-function LockedState() {
+function LockedState({ localBuild }: { localBuild: boolean }) {
   const { t } = useTranslation();
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
@@ -450,10 +458,10 @@ function LockedState() {
         <p className="text-sm font-medium text-foreground">
           {t("cookieBot.locked.title")}
         </p>
-        <ProBadge />
+        {!localBuild && <ProBadge />}
       </div>
       <p className="max-w-md text-xs text-muted-foreground">
-        {t("cookieBot.locked.hint")}
+        {t(localBuild ? "cookieBot.localDescription" : "cookieBot.locked.hint")}
       </p>
     </div>
   );
