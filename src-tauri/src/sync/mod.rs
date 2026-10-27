@@ -4,6 +4,7 @@ pub mod config_entities;
 pub mod encryption;
 pub mod health;
 mod engine;
+pub mod local_server;
 pub mod manifest;
 pub mod pending_deletes;
 pub mod preflight;

@@ -533,6 +533,13 @@ pub fn is_sync_configured() -> bool {
   if crate::cloud_auth::CLOUD_AUTH.can_use_cloud_backup_sync() {
     return true;
   }
+  // Free builds always have the embedded loopback server, so sync is
+  // configured even before the user points at anything.
+  #[cfg(feature = "free")]
+  {
+    return true;
+  }
+  #[allow(unreachable_code)]
   let manager = SettingsManager::instance();
   if let Ok(settings) = manager.load_settings() {
     return settings.sync_server_url.is_some();
@@ -604,13 +611,31 @@ impl SyncEngine {
 
     let server_url = settings
       .sync_server_url
-      .ok_or_else(|| "Sync server URL not configured".to_string())?;
+      .filter(|url| !url.trim().is_empty());
 
-    let token = manager
-      .get_sync_token(app_handle)
-      .await
-      .map_err(|e| format!("Failed to get sync token: {e}"))?
-      .ok_or_else(|| "Sync token not configured".to_string())?;
+    let (server_url, token) = match server_url {
+      Some(server_url) => {
+        let token = manager
+          .get_sync_token(app_handle)
+          .await
+          .map_err(|e| format!("Failed to get sync token: {e}"))?
+          .ok_or_else(|| "Sync token not configured".to_string())?;
+        (server_url, token)
+      }
+      None => {
+        // Free builds sync out of the box: with no self-hosted server
+        // configured, the embedded loopback server takes its place and the
+        // store is a folder on this machine's disk.
+        #[cfg(feature = "free")]
+        {
+          super::local_server::ensure_started()
+            .await
+            .map_err(|e| format!("Local sync server failed to start: {e}"))?
+        }
+        #[cfg(not(feature = "free"))]
+        return Err("Sync server URL not configured".to_string());
+      }
+    };
 
     Ok(Self::new(server_url, token))
   }

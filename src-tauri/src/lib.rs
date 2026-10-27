@@ -2634,6 +2634,14 @@ pub fn run_with_builder(
         tauri::async_runtime::spawn(crate::agent_schedules_local::run_scheduler());
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_scheduler());
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_executor());
+        // Sync out of the box: the embedded loopback sync server stands in
+        // for the external donut-sync stack until the user configures one.
+        tauri::async_runtime::spawn(async {
+          match crate::sync::local_server::ensure_started().await {
+            Ok((base_url, _)) => log::info!("Local sync server started url=\"{base_url}\""),
+            Err(e) => log::warn!("Local sync server failed err=\"{e}\""),
+          }
+        });
       }
       // Files staged for file_upload belong to a browser run; a fresh start
       // means every run is over, so nothing staged survives it.
