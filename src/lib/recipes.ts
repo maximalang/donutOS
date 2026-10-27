@@ -97,6 +97,15 @@ export function deleteAgentRecipe(id: string): Promise<boolean> {
   return invoke<boolean>("delete_agent_recipe", { id });
 }
 
+/** A description into a saved recipe, drafted by the person's AI provider.
+ * The backend validates the steps against the same rules as the editor
+ * before anything is stored. */
+export function generateRecipeFromText(
+  description: string,
+): Promise<AgentRecipe> {
+  return invoke<AgentRecipe>("generate_recipe_from_text", { description });
+}
+
 export interface RecordingStatus {
   profile_id: string | null;
   steps: RecipeStep[];

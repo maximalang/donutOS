@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "立即删除",
     "scrollSectionsLeft": "向左滚动分区",
-    "scrollSectionsRight": "向右滚动分区"
+    "scrollSectionsRight": "向右滚动分区",
+    "ai": {
+      "title": "AI 提供商",
+      "description": "您自己的 OpenAI 兼容端点应答代理对话并起草配方。API 密钥仅密封保存在本机。",
+      "enable": "启用代理 AI",
+      "enableDescription": "关闭后，对话在没有 AI 应答的情况下工作。",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "已存有密钥",
+      "saved": "已保存",
+      "save": "保存",
+      "hint": "任何提供 OpenAI 兼容 /v1/chat/completions 的服务商均可——本地或托管模型。请求由本应用直接发往您的端点。"
+    }
   },
   "header": {
     "searchPlaceholder": "搜索配置文件...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "凭据已保存，但无法更新以下客户端：{{clients}}。请再次轮换以重试。",
       "fxHint": "fx 从 DONUT_MCP_TOKEN 读取凭据。请在启动 fx 的 shell 中导出该变量。",
       "fxExportCopied": "已复制导出命令"
-    }
+    },
+    "tabAi": "AI"
   },
   "import": {
     "title": "导入配置文件",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "此服务器不接受 Donut 账户。请在服务器上设置 SYNC_PUBLIC_URL。",
     "syncServerAddressMismatch": "服务器的地址是 {{address}}。请输入该地址。",
     "remoteNeedsDonutSync": "远程会话和 Cookie Bot 从 Donut 云同步获取配置文件。此计算机正在与你自己的服务器同步。",
-    "accountSyncUnavailable": "Donut 暂时无法登录你自己的服务器。请稍后重试。"
+    "accountSyncUnavailable": "Donut 暂时无法登录你自己的服务器。请稍后重试。",
+    "aiNotConfigured": "请先配置 AI 提供商（集成 → AI）。",
+    "aiRequestFailed": "无法连接 AI 提供商。",
+    "aiBadResponse": "AI 提供商返回了无法解析的应答。",
+    "aiRecipeInvalid": "AI 草稿不是有效的配方。",
+    "aiKeyStoreFailed": "无法保存 API 密钥。"
   },
   "rail": {
     "profiles": "配置文件",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} 已加入",
       "left": "{{agent}} 已离开",
       "feedbackSent": "向 Donut 团队发送了反馈",
-      "feedbackLogs": "已附日志"
+      "feedbackLogs": "已附日志",
+      "aiName": "AI 助手"
     },
     "composer": {
       "label": "给智能体的备注",
@@ -3687,7 +3710,12 @@
       "deleted": "已删除配方",
       "deleteTitle": "删除 {{name}}？",
       "deleteDescription": "配方会从所有设备上删除。",
-      "needsAutomation": "配方会打开并操控浏览器，因此需要 Pro 或更高方案。你的智能体仍可管理配置文件、代理和分组。"
+      "needsAutomation": "配方会打开并操控浏览器，因此需要 Pro 或更高方案。你的智能体仍可管理配置文件、代理和分组。",
+      "aiGenerate": "用 AI 生成",
+      "aiPlaceholder": "描述流程：打开网站、登录、点击按钮…",
+      "aiHint": "AI 草稿在保存前会按配方规则校验。",
+      "aiGenerated": "配方已生成",
+      "aiGenerating": "生成中…"
     },
     "schedules": {
       "hint": "按日程在远程机群或此电脑上运行配方。",

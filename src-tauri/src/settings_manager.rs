@@ -184,6 +184,14 @@ pub struct AppSettings {
   /// the key it replaces. Not a secret; lives in the settings JSON.
   #[serde(default)]
   pub mcp_remote_key_id: Option<String>,
+  /// The person's own OpenAI-compatible endpoint for the agent's brain.
+  /// The key lives in its own sealed file, never in this JSON.
+  #[serde(default)]
+  pub ai_provider_enabled: bool,
+  #[serde(default)]
+  pub ai_provider_base_url: Option<String>,
+  #[serde(default)]
+  pub ai_provider_model: Option<String>,
   #[serde(default)]
   pub language: Option<String>, // ISO 639-1: "en", "es", "pt", "fr", "de", "zh", "ja", "ko", "ru", "tr", "vi", or None for system default
   #[serde(default)]
@@ -313,6 +321,9 @@ impl Default for AppSettings {
       mcp_remote_enabled: false,
       mcp_remote_key: None,
       mcp_remote_key_id: None,
+      ai_provider_enabled: false,
+      ai_provider_base_url: None,
+      ai_provider_model: None,
       language: None,
       window_resize_warning_dismissed: false,
       fingerprint_gate_disabled: false,
@@ -512,6 +523,27 @@ impl SettingsManager {
 
   fn mcp_remote_key_file(&self) -> PathBuf {
     self.get_settings_dir().join("mcp_remote_key.dat")
+  }
+
+  /// The AI provider's key, sealed beside the settings like every secret.
+  fn ai_provider_key_file(&self) -> PathBuf {
+    self.get_settings_dir().join("ai_provider_key.dat")
+  }
+
+  /// Store (or, with an empty key, remove) the AI provider's API key.
+  pub fn store_ai_provider_key(&self, key: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let key = key.trim();
+    if key.is_empty() {
+      Self::remove_secret_file(&self.ai_provider_key_file())?;
+    } else {
+      Self::encrypt_to_file(&self.ai_provider_key_file(), b"DBAIK", key)?;
+    }
+    Ok(())
+  }
+
+  /// The stored AI provider key, if the person set one.
+  pub fn get_ai_provider_key(&self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    Self::decrypt_from_file(&self.ai_provider_key_file(), b"DBAIK")
   }
 
   pub async fn generate_api_token(
@@ -1531,6 +1563,9 @@ mod tests {
       mcp_remote_enabled: false,
       mcp_remote_key: None,
       mcp_remote_key_id: None,
+      ai_provider_enabled: false,
+      ai_provider_base_url: None,
+      ai_provider_model: None,
       language: None,
       window_resize_warning_dismissed: false,
       fingerprint_gate_disabled: false,

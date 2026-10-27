@@ -12,6 +12,7 @@ import {
   LuMessageSquareHeart,
   LuPaperclip,
   LuSend,
+  LuSparkles,
   LuUndo2,
 } from "react-icons/lu";
 import {
@@ -568,6 +569,27 @@ function ThreadEntry({
           <span aria-hidden="true">·</span>
           {time}
         </span>
+      </div>
+    );
+  }
+
+  if (item.kind === "reply") {
+    return (
+      <div className="flex max-w-[85%] flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {t("agent.thread.aiName")}
+          </span>
+          {profileName && <ProfileChip name={profileName} />}
+          <span aria-hidden="true">·</span>
+          {time}
+        </span>
+        <div className="flex items-start gap-2 rounded-xl bg-foreground/5 px-3 py-2 text-sm text-foreground">
+          <LuSparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 break-words whitespace-pre-wrap">
+            {item.text}
+          </span>
+        </div>
       </div>
     );
   }

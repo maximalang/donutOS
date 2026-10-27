@@ -266,6 +266,11 @@ export type BackendErrorCode =
   | "AGENT_REQUEST_CLOSED"
   | "AGENT_ANSWER_EMPTY"
   | "AGENT_NOTE_EMPTY"
+  | "AI_NOT_CONFIGURED"
+  | "AI_REQUEST_FAILED"
+  | "AI_BAD_RESPONSE"
+  | "AI_RECIPE_INVALID"
+  | "AI_KEY_STORE_FAILED"
   | "AGENT_TEXT_TOO_LONG"
   | "AGENT_SESSION_NOT_FOUND"
   | "FEEDBACK_MESSAGE_EMPTY"
@@ -970,6 +975,16 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.agentAnswerEmpty");
     case "AGENT_NOTE_EMPTY":
       return t("backendErrors.agentNoteEmpty");
+    case "AI_NOT_CONFIGURED":
+      return t("backendErrors.aiNotConfigured");
+    case "AI_REQUEST_FAILED":
+      return t("backendErrors.aiRequestFailed");
+    case "AI_BAD_RESPONSE":
+      return t("backendErrors.aiBadResponse");
+    case "AI_RECIPE_INVALID":
+      return t("backendErrors.aiRecipeInvalid");
+    case "AI_KEY_STORE_FAILED":
+      return t("backendErrors.aiKeyStoreFailed");
     case "AGENT_TEXT_TOO_LONG":
       return t("backendErrors.agentTextTooLong", {
         max: parsed.params?.max ?? "2000",

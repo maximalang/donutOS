@@ -88,6 +88,8 @@ pub enum ThreadKind {
   Joined,
   Left,
   Feedback,
+  /// The local AI's answer in the conversation.
+  Reply,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -1052,7 +1054,43 @@ pub async fn send_agent_note(
     state.push_thread(item)
   };
   emit(EVENT_THREAD, &item);
+  // Free build: the person's note to the agent is answered by the local AI
+  // (when configured) as a Reply in the same thread. A missing provider or a
+  // failed call becomes the reply's text, so the conversation never looks
+  // like it ignored the person.
+  #[cfg(feature = "free")]
+  {
+    let question = item.text.clone();
+    let session = item.session_id.clone();
+    let profile = item.profile_id.clone();
+    tauri::async_runtime::spawn(async move {
+      let answer = crate::local_ai::ask_agent(&question, profile.as_deref())
+        .await
+        .unwrap_or_else(|code| {
+          let detail = crate::backend_error(&code);
+          log::warn!("Agent AI reply failed: {code}");
+          detail
+        });
+      push_reply(answer, session, profile);
+    });
+  }
   Ok(item)
+}
+
+/// Append the AI's reply to the conversation thread and tell the UI.
+#[cfg(feature = "free")]
+fn push_reply(text: String, session_id: Option<String>, profile_id: Option<String>) {
+  let item = {
+    let mut state = console();
+    let mut item = thread_item(ThreadKind::Reply, now_ms());
+    item.id = state.next_id();
+    item.session_id = session_id;
+    item.profile_id = profile_id;
+    item.text = text;
+    item.state = ThreadState::Answered;
+    state.push_thread(item)
+  };
+  emit(EVENT_THREAD, &item);
 }
 
 #[tauri::command]

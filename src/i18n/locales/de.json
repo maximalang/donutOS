@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "Sofort löschen",
     "scrollSectionsLeft": "Abschnitte nach links scrollen",
-    "scrollSectionsRight": "Abschnitte nach rechts scrollen"
+    "scrollSectionsRight": "Abschnitte nach rechts scrollen",
+    "ai": {
+      "title": "KI-Anbieter",
+      "description": "Ihr eigener OpenAI-kompatibler Endpunkt beantwortet die Agenten-Konversation und entwirft Rezepte. Der API-Schlüssel bleibt versiegelt auf diesem Rechner.",
+      "enable": "Agenten-KI aktivieren",
+      "enableDescription": "Aus: die Konversation läuft ohne KI-Antworten.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "Ein Schlüssel ist gespeichert",
+      "saved": "Gespeichert",
+      "save": "Speichern",
+      "hint": "Jeder Anbieter mit OpenAI-kompatiblem /v1/chat/completions funktioniert - lokales oder gehostetes Modell. Anfragen gehen direkt von dieser App an Ihren Endpunkt."
+    }
   },
   "header": {
     "searchPlaceholder": "Profile durchsuchen...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "Die Zugangsdaten sind gespeichert, aber diese Clients konnten nicht aktualisiert werden: {{clients}}. Rotieren Sie erneut, um es noch einmal zu versuchen.",
       "fxHint": "fx liest die Zugangsdaten aus DONUT_MCP_TOKEN. Exportieren Sie die Variable in der Shell, die fx startet.",
       "fxExportCopied": "Export-Zeile kopiert"
-    }
+    },
+    "tabAi": "KI"
   },
   "import": {
     "title": "Profil importieren",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "Dieser Server akzeptiert keine Donut-Konten. Setzen Sie SYNC_PUBLIC_URL auf dem Server.",
     "syncServerAddressMismatch": "Die Adresse des Servers ist {{address}}. Geben Sie diese Adresse ein.",
     "remoteNeedsDonutSync": "Remote-Sitzungen und Cookie Bot erhalten Profile aus der Donut-Cloud-Synchronisierung. Dieser Computer synchronisiert mit Ihrem eigenen Server.",
-    "accountSyncUnavailable": "Donut kann sich noch nicht bei Ihrem eigenen Server anmelden. Versuchen Sie es später erneut."
+    "accountSyncUnavailable": "Donut kann sich noch nicht bei Ihrem eigenen Server anmelden. Versuchen Sie es später erneut.",
+    "aiNotConfigured": "Richten Sie zuerst den KI-Anbieter ein (Integrationen → KI).",
+    "aiRequestFailed": "Der KI-Anbieter ist nicht erreichbar.",
+    "aiBadResponse": "Der KI-Anbieter lieferte eine unlesbare Antwort.",
+    "aiRecipeInvalid": "Der KI-Entwurf war kein gültiges Rezept.",
+    "aiKeyStoreFailed": "Der API-Schlüssel konnte nicht gespeichert werden."
   },
   "rail": {
     "profiles": "Profile",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} ist beigetreten",
       "left": "{{agent}} hat die Sitzung verlassen",
       "feedbackSent": "hat dem Donut-Team Feedback gesendet",
-      "feedbackLogs": "Protokolle angehängt"
+      "feedbackLogs": "Protokolle angehängt",
+      "aiName": "KI-Assistent"
     },
     "composer": {
       "label": "Notiz für Ihren Agenten",
@@ -3687,7 +3710,12 @@
       "deleted": "Rezept gelöscht",
       "deleteTitle": "{{name}} löschen?",
       "deleteDescription": "Das Rezept wird von allen Geräten entfernt.",
-      "needsAutomation": "Rezepte öffnen und steuern Browser und erfordern daher den Pro-Tarif oder höher. Ihr Agent kann weiterhin Profile, Proxys und Gruppen verwalten."
+      "needsAutomation": "Rezepte öffnen und steuern Browser und erfordern daher den Pro-Tarif oder höher. Ihr Agent kann weiterhin Profile, Proxys und Gruppen verwalten.",
+      "aiGenerate": "Mit KI generieren",
+      "aiPlaceholder": "Beschreiben Sie den Ablauf: Seite öffnen, anmelden, klicken…",
+      "aiHint": "Der KI-Entwurf wird vor dem Speichern gegen die Rezeptregeln geprüft.",
+      "aiGenerated": "Rezept generiert",
+      "aiGenerating": "Generiere…"
     },
     "schedules": {
       "hint": "Führen Sie ein Rezept nach Zeitplan aus, auf der Remote-Flotte oder auf diesem Computer.",

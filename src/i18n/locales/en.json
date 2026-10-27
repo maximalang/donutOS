@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "Delete at once",
     "scrollSectionsLeft": "Scroll sections left",
-    "scrollSectionsRight": "Scroll sections right"
+    "scrollSectionsRight": "Scroll sections right",
+    "ai": {
+      "title": "AI provider",
+      "description": "Your own OpenAI-compatible endpoint answers the agent conversation and drafts recipes. The API key is stored sealed on this machine only.",
+      "enable": "Enable agent AI",
+      "enableDescription": "When off, the conversation works without AI answers.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "A key is stored",
+      "saved": "Saved",
+      "save": "Save",
+      "hint": "Any provider with an OpenAI-compatible /v1/chat/completions endpoint works - a local model or a hosted one. Requests go straight from this app to your endpoint."
+    }
   },
   "header": {
     "searchPlaceholder": "Search profiles...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "The credential is stored, but these clients could not be updated: {{clients}}. Rotate again to retry.",
       "fxHint": "fx reads the credential from DONUT_MCP_TOKEN. Export it in the shell that starts fx.",
       "fxExportCopied": "Export line copied"
-    }
+    },
+    "tabAi": "AI"
   },
   "import": {
     "title": "Import Profile",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "This server does not accept Donut accounts. Set SYNC_PUBLIC_URL on the server.",
     "syncServerAddressMismatch": "The server's address is {{address}}. Enter that address.",
     "remoteNeedsDonutSync": "Remote sessions and Cookie Bot get profiles from Donut cloud sync. This computer syncs with your own server.",
-    "accountSyncUnavailable": "Donut cannot sign in to your own server yet. Try again later."
+    "accountSyncUnavailable": "Donut cannot sign in to your own server yet. Try again later.",
+    "aiNotConfigured": "Set up the AI provider first (Integrations → AI).",
+    "aiRequestFailed": "The AI provider could not be reached.",
+    "aiBadResponse": "The AI provider returned an unreadable answer.",
+    "aiRecipeInvalid": "The AI draft was not a valid recipe.",
+    "aiKeyStoreFailed": "The API key could not be stored."
   },
   "rail": {
     "profiles": "Profiles",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} joined",
       "left": "{{agent}} left",
       "feedbackSent": "sent feedback to the Donut team",
-      "feedbackLogs": "Logs attached"
+      "feedbackLogs": "Logs attached",
+      "aiName": "Assistant AI"
     },
     "composer": {
       "label": "Note for your agent",
@@ -3687,7 +3710,12 @@
       "deleted": "Recipe deleted",
       "deleteTitle": "Delete {{name}}?",
       "deleteDescription": "The recipe is removed from every device.",
-      "needsAutomation": "Recipes open and drive browsers, so they need the Pro plan or higher. Your agent can still manage profiles, proxies and groups."
+      "needsAutomation": "Recipes open and drive browsers, so they need the Pro plan or higher. Your agent can still manage profiles, proxies and groups.",
+      "aiGenerate": "Generate with AI",
+      "aiPlaceholder": "Describe the workflow: open a site, log in, click a button…",
+      "aiHint": "The AI draft is validated against the recipe rules before saving.",
+      "aiGenerated": "Recipe generated",
+      "aiGenerating": "Generating…"
     },
     "schedules": {
       "hint": "Run a recipe on a calendar, on the remote fleet or on this computer.",
