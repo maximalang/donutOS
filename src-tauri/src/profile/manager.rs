@@ -819,6 +819,9 @@ impl ProfileManager {
     emit_events: bool,
   ) -> Result<(), Box<dyn std::error::Error>> {
     let started = std::time::Instant::now();
+    // A deleted profile's staged upload files are its own; nothing may read
+    // them after this.
+    crate::agent_uploads::remove_for_profile(profile_id);
     let removed = self.find_profile(profile_id).ok();
     let outcome = self.remove_profile_unlogged(app_handle, profile_id, permanent, emit_events)?;
     if let Some(profile) = &removed {

@@ -245,6 +245,14 @@ static WAITERS: AtomicUsize = AtomicUsize::new(0);
 static CHANGES: LazyLock<tokio::sync::watch::Sender<u64>> =
   LazyLock::new(|| tokio::sync::watch::channel(0).0);
 
+/// Whether the person, not an agent, is driving this profile right now: they
+/// hold it, or every agent is paused. Network capture redacts what it reads
+/// while this is true, the same privacy the person has at the keyboard.
+pub fn person_in_control(profile_id: &str) -> bool {
+  let state = console();
+  state.paused.is_some() || state.holds.contains_key(profile_id)
+}
+
 fn console() -> std::sync::MutexGuard<'static, Console> {
   CONSOLE
     .lock()

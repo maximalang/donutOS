@@ -1235,6 +1235,9 @@ impl BrowserRunner {
     app_handle: tauri::AppHandle,
     profile: &BrowserProfile,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // A browser's staged upload files are private to its run; a browser that
+    // stops takes them with it, whichever path below does the stopping.
+    crate::agent_uploads::remove_for_profile(&profile.id.to_string());
     // Handle Wayfern profiles using WayfernManager
     if profile.browser == "chromium" {
       // The open engine keeps no session registry: the recorded PID is the

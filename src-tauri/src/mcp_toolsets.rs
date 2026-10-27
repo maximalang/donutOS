@@ -68,6 +68,7 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
       "get_human_updates",
       "report_progress",
       "send_feedback",
+      "get_diagnostics",
     ],
   ),
   (
@@ -149,6 +150,15 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
       "stop_sync_session",
       "get_sync_sessions",
       "remove_sync_follower",
+    ],
+  ),
+  (
+    "traffic",
+    &[
+      "start_network_capture",
+      "stop_network_capture",
+      "list_network_requests",
+      "get_network_request",
     ],
   ),
   (

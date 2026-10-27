@@ -153,6 +153,9 @@ mod agent_console;
 mod agent_schedules;
 #[cfg(feature = "free")]
 mod agent_schedules_local;
+mod agent_uploads;
+mod diagnostics;
+mod engine_patch;
 #[cfg(feature = "free")]
 mod automation_time;
 mod cloud_api;
@@ -173,6 +176,7 @@ mod mcp_remote;
 mod mcp_server;
 mod mcp_toolsets;
 mod mcp_views;
+mod network_capture;
 mod navigation_watch;
 #[cfg(feature = "free")]
 mod recipes_local;
@@ -2630,6 +2634,9 @@ pub fn run_with_builder(
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_scheduler());
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_executor());
       }
+      // Files staged for file_upload belong to a browser run; a fresh start
+      // means every run is over, so nothing staged survives it.
+      crate::agent_uploads::clear_all();
       // The home folder carries the OS user name, and this line is in every
       // log someone attaches to an issue.
       let data_dir = app_dirs::data_dir();
@@ -3778,6 +3785,11 @@ pub fn run_with_builder(
       recipes::update_agent_recipe,
       recipes::delete_agent_recipe,
       recipes::run_agent_recipe_now,
+      network_capture::start_network_capture,
+      network_capture::stop_network_capture,
+      network_capture::list_network_requests,
+      network_capture::get_network_request,
+      engine_patch::is_wayfern_patched,
       agent_console::get_agent_console,
       agent_console::answer_agent_request,
       agent_console::dismiss_agent_request,

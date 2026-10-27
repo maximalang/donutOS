@@ -46,16 +46,39 @@ sites with the branch pattern).
 - Patched:  `e9 24 01 00 00 90` (jmp 0x1840a4344 — always allow)
 - Refusal string VA 0x19384ca68, len 0x36; status fn had 18 call sites, same
   count as 154's — structural match beyond the byte pattern.
-- The free build now REFUSES vendor Wayfern downloads (`downloader.rs`) and
-  skips the startup version refresh (`version_updater.rs`), so an unpatched
-  engine can no longer arrive silently.
+- The free build patches freshly downloaded Wayfern engines automatically
+  (`downloader.rs` → `engine_patch.rs`) and skips the startup version refresh
+  (`version_updater.rs`), so an unpatched engine can no longer arrive
+  silently.
+
+- The free build now ships a **signature auto-patcher** (`src-tauri/src/engine_patch.rs`):
+  a Wayfern download is followed by a scan for the whole gate shape —
+  `call rel32; test eax,eax; je rel32` with `cmp eax,2` and `mov ebx,0x36`
+  in the skipped refusal block — and the branch is forced (`je → jmp`,
+  displacement +1, nop pad), with `chrome.dll.orig` kept beside it. The scan
+  patches only when exactly one site matches; zero or several means the
+  version is new and the download is REMOVED, not installed broken
+  (`ENGINE_PATCH_FAILED`). Idempotent; `is_patched` verifies an install.
+
+## Engine policy (free build)
+
+- **Wayfern (antidetect): pinned, update on demand only.** No periodic
+  auto-update: every new version must pass the signature patcher, so an
+  update is a deliberate act (download command → patch → verify), never a
+  background one. The vendor version refresh stays disabled.
+- **Chromium (open engine): updates via the normal download flow** when a
+  profile needs a version that is missing; no patch required. First-run
+  download already works (Chromium-for-Testing, pinned by the downloader).
+- **Unpatchable Wayfern versions never register**: the patcher's refusal
+  removes the directory, so a broken engine cannot be selected by accident.
 
 ## Rules
 
-- NEVER let the app update/replace engines: free build pins everything
+- Engines never update in the background: the free build pins everything
   (auto_updater / registry migration & cleanup are no-ops under
-  `--features free`). A fresh downloaded engine is UNPATCHED and will
-  silently kill automation.
+  `--features free`). A Wayfern install runs the signature patcher and is
+  removed when the gate is not found — an unpatched engine never registers.
+  Updates are deliberate, on demand, and verified (see Engine policy).
 - After patching, keep `chrome.dll.orig` next to the patched dll.
 - `scripts/hunt_gate.py` (scratch copy) automates locating the gate in new
   builds: plaintext-string xref first, masked-signature scan second.

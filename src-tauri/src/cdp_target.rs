@@ -394,6 +394,25 @@ impl CdpConnection {
     }
   }
 
+  /// Send `method` as command `id` to a specific flat session, or to the
+  /// browser itself when `session` is none. Network capture needs this: it
+  /// attaches once and then talks to each page session it was shown.
+  pub async fn send_command_to(
+    &mut self,
+    session: Option<&str>,
+    id: u64,
+    method: &str,
+    params: Value,
+  ) -> Result<(), CdpError> {
+    use futures_util::sink::SinkExt;
+    let frame = cdp_frame(session, id, method, params);
+    self
+      .stream
+      .send(Message::Text(frame.to_string().into()))
+      .await
+      .map_err(|e| CdpError::Transport(format!("failed to send CDP command: {e}")))
+  }
+
   /// Send `method` as command `id`.
   pub async fn send_command(
     &mut self,

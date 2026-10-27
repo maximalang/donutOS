@@ -1163,19 +1163,55 @@ pub async fn download_browser(
   browser_str: String,
   version: String,
 ) -> Result<String, String> {
-  // The local build runs PATCHED Wayfern binaries (docs/engine-patches.md):
-  // a freshly downloaded vendor build is unpatched and silently refuses CDP
-  // automation. Chromium downloads stay open — that engine needs no patch.
-  #[cfg(feature = "free")]
-  {
-    if browser_str == "wayfern" {
-      log::warn!("Wayfern download refused (free build: unpatched engine) version={version}");
-      return Err("Wayfern downloads are disabled in the free build: a fresh vendor binary is unpatched and would disable automation. Use an installed (patched) engine or add it manually.".to_string());
-    }
-  }
   let downloader = Downloader::instance();
   let browser = Plain(&browser_str).to_string();
   let requested = Plain(&version).to_string();
+
+  // The local build runs PATCHED Wayfern binaries (docs/engine-patches.md):
+  // a fresh vendor build is unpatched and silently refuses CDP automation.
+  // So a Wayfern install here is download → signature patch → verify, and a
+  // version whose gate the patcher cannot find is removed again rather than
+  // left installed broken. Chromium needs no patch and downloads as is.
+  #[cfg(feature = "free")]
+  if browser_str == "wayfern" {
+    downloader
+      .download_browser_full(&app_handle, browser_str.clone(), version.clone())
+      .await
+      .map_err(|e| {
+        log::error!(
+          "Wayfern download failed version={requested} err=\"{}\"",
+          crate::log_redaction::text(&e.to_string())
+        );
+        crate::wrap_backend_error(e, "Failed to download browser")
+      })?;
+    let dll = crate::engine_patch::chrome_dll_of(&crate::app_dirs::binaries_dir(), &version);
+    match crate::engine_patch::patch_chrome_dll(&dll) {
+      Ok(report) => {
+        log::info!(
+          "Wayfern engine patched after download version={version} offset={:#x} already={}",
+          report.gate_offset,
+          report.already_patched
+        );
+        return Ok(format!(
+          "downloaded and patched wayfern {version} (gate at {:#x}, was {:02x?})",
+          report.gate_offset, report.original
+        ));
+      }
+      Err(why) => {
+        let dir = dll.parent().map(std::path::Path::to_path_buf);
+        if let Some(dir) = dir {
+          if let Err(e) = std::fs::remove_dir_all(&dir) {
+            log::warn!("Failed to remove unpatchable engine dir {}: {e}", dir.display());
+          }
+        }
+        log::error!("Wayfern engine patch refused version={version} err=\"{why}\"");
+        return Err(format!(
+          "{{\"code\":\"ENGINE_PATCH_FAILED\",\"detail\":\"{why}\"}}"
+        ));
+      }
+    }
+  }
+
   downloader
     .download_browser_full(&app_handle, browser_str, version)
     .await
