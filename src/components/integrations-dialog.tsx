@@ -16,6 +16,7 @@ import {
   LuTrash2,
 } from "react-icons/lu";
 import { AiProviderPanel } from "@/components/ai-provider-panel";
+import { ApiMembersPanel } from "@/components/api-members-panel";
 import {
   type CodeExample,
   CodeExamplesDialog,
@@ -1013,6 +1014,8 @@ export function IntegrationsDialog({
                         </div>
                       </SettingsRow>
                     </SettingsPanel>
+
+                    <ApiMembersPanel />
 
                     <section className="flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-2">

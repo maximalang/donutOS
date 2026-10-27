@@ -1052,7 +1052,22 @@
       "fxHint": "fx는 DONUT_MCP_TOKEN에서 자격 증명을 읽습니다. fx를 시작하는 셸에서 내보내세요.",
       "fxExportCopied": "내보내기 줄을 복사했습니다"
     },
-    "tabAi": "AI"
+    "tabAi": "AI",
+    "members": {
+      "title": "API 멤버",
+      "description": "팀 자리, 로컬: 각 봇이나 스크립트에 역할이 있는 자체 토큰을 부여하세요. 위의 토큰은 소유자로 유지됩니다.",
+      "namePlaceholder": "멤버 이름",
+      "roleLabel": "역할",
+      "create": "추가",
+      "tokenOnce": "{{name}}의 토큰 — 한 번만 표시됩니다. 지금 복사하세요:",
+      "lastUsed": "마지막 사용 {{time}}",
+      "revoke": "{{name}} 철회",
+      "roles": {
+        "owner": "소유자",
+        "operator": "운영자",
+        "viewer": "관찰자"
+      }
+    }
   },
   "import": {
     "title": "프로필 가져오기",

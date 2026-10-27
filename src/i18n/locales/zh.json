@@ -1052,7 +1052,22 @@
       "fxHint": "fx 从 DONUT_MCP_TOKEN 读取凭据。请在启动 fx 的 shell 中导出该变量。",
       "fxExportCopied": "已复制导出命令"
     },
-    "tabAi": "AI"
+    "tabAi": "AI",
+    "members": {
+      "title": "API 成员",
+      "description": "本地团队席位：为每个机器人或脚本签发带角色的独立令牌。上方令牌仍为所有者。",
+      "namePlaceholder": "成员名称",
+      "roleLabel": "角色",
+      "create": "添加",
+      "tokenOnce": "{{name}} 的令牌 — 仅显示一次，请立即复制：",
+      "lastUsed": "最后使用 {{time}}",
+      "revoke": "吊销 {{name}}",
+      "roles": {
+        "owner": "所有者",
+        "operator": "操作员",
+        "viewer": "观察者"
+      }
+    }
   },
   "import": {
     "title": "导入配置文件",

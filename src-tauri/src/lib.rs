@@ -155,6 +155,7 @@ mod agent_schedules;
 #[cfg(feature = "free")]
 mod agent_schedules_local;
 mod agent_uploads;
+mod api_members;
 #[cfg(feature = "free")]
 mod automation_time;
 mod cloud_api;
@@ -3835,6 +3836,9 @@ pub fn run_with_builder(
       team_members::list_team_members,
       team_members::set_team_member_access,
       local_activity::list_local_activity,
+      api_members::list_api_members,
+      api_members::create_api_member,
+      api_members::revoke_api_member,
     ]))
     .build(tauri::generate_context!())
     .expect("error while building tauri application")

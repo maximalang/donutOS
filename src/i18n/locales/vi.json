@@ -1052,7 +1052,22 @@
       "fxHint": "fx đọc thông tin xác thực từ DONUT_MCP_TOKEN. Hãy export biến này trong shell khởi chạy fx.",
       "fxExportCopied": "Đã sao chép dòng export"
     },
-    "tabAi": "AI"
+    "tabAi": "AI",
+    "members": {
+      "title": "Thành viên API",
+      "description": "Ghế nhóm, cục bộ: cấp cho mỗi bot hoặc script token riêng với vai trò. Token ở trên vẫn là chủ sở hữu.",
+      "namePlaceholder": "Tên thành viên",
+      "roleLabel": "Vai trò",
+      "create": "Thêm",
+      "tokenOnce": "Token của {{name}} — hiển thị một lần, sao chép ngay:",
+      "lastUsed": "dùng lần cuối {{time}}",
+      "revoke": "Thu hồi {{name}}",
+      "roles": {
+        "owner": "Chủ sở hữu",
+        "operator": "Vận hành",
+        "viewer": "Quan sát"
+      }
+    }
   },
   "import": {
     "title": "Nhập profile",

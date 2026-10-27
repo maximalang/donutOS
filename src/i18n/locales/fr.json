@@ -1061,7 +1061,22 @@
       "fxHint": "fx lit l'identifiant dans DONUT_MCP_TOKEN. Exportez-le dans le shell qui lance fx.",
       "fxExportCopied": "Ligne d'export copiée"
     },
-    "tabAi": "IA"
+    "tabAi": "IA",
+    "members": {
+      "title": "Membres API",
+      "description": "Places d'équipe, en local : donnez à chaque bot ou script son propre jeton avec un rôle. Le jeton ci-dessus reste propriétaire.",
+      "namePlaceholder": "Nom du membre",
+      "roleLabel": "Rôle",
+      "create": "Ajouter",
+      "tokenOnce": "Jeton de {{name}} — affiché une seule fois, copiez-le maintenant :",
+      "lastUsed": "utilisé {{time}}",
+      "revoke": "Révoquer {{name}}",
+      "roles": {
+        "owner": "Propriétaire",
+        "operator": "Opérateur",
+        "viewer": "Observateur"
+      }
+    }
   },
   "import": {
     "title": "Importer un profil",

@@ -1052,7 +1052,22 @@
       "fxHint": "fx liest die Zugangsdaten aus DONUT_MCP_TOKEN. Exportieren Sie die Variable in der Shell, die fx startet.",
       "fxExportCopied": "Export-Zeile kopiert"
     },
-    "tabAi": "KI"
+    "tabAi": "KI",
+    "members": {
+      "title": "API-Mitglieder",
+      "description": "Team-Plätze, lokal: geben Sie jedem Bot oder Skript einen eigenen Token mit Rolle. Der Token oben bleibt Eigentümer.",
+      "namePlaceholder": "Mitgliedsname",
+      "roleLabel": "Rolle",
+      "create": "Hinzufügen",
+      "tokenOnce": "Token für {{name}} — einmal sichtbar, jetzt kopieren:",
+      "lastUsed": "zuletzt verwendet {{time}}",
+      "revoke": "{{name}} widerrufen",
+      "roles": {
+        "owner": "Eigentümer",
+        "operator": "Operator",
+        "viewer": "Betrachter"
+      }
+    }
   },
   "import": {
     "title": "Profil importieren",

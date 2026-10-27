@@ -1052,7 +1052,22 @@
       "fxHint": "fx kimlik bilgisini DONUT_MCP_TOKEN'dan okur. fx'i başlatan kabukta dışa aktarın.",
       "fxExportCopied": "Dışa aktarma satırı kopyalandı"
     },
-    "tabAi": "YZ"
+    "tabAi": "YZ",
+    "members": {
+      "title": "API üyeleri",
+      "description": "Takım koltukları, yerel: her bota veya betiğe kendi rolüyle kendi token'ını verin. Yukarıdaki token sahip olarak kalır.",
+      "namePlaceholder": "Üye adı",
+      "roleLabel": "Rol",
+      "create": "Ekle",
+      "tokenOnce": "{{name}} için token — bir kez gösterilir, şimdi kopyalayın:",
+      "lastUsed": "son kullanım {{time}}",
+      "revoke": "{{name}} iptal et",
+      "roles": {
+        "owner": "Sahip",
+        "operator": "Operatör",
+        "viewer": "Gözlemci"
+      }
+    }
   },
   "import": {
     "title": "Profil İçe Aktar",

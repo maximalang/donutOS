@@ -1052,7 +1052,22 @@
       "fxHint": "fx は DONUT_MCP_TOKEN から資格情報を読み取ります。fx を起動するシェルでエクスポートしてください。",
       "fxExportCopied": "エクスポート行をコピーしました"
     },
-    "tabAi": "AI"
+    "tabAi": "AI",
+    "members": {
+      "title": "APIメンバー",
+      "description": "チームの座席、ローカル：ボットやスクリプトごとにロール付きの専用トークンを発行。上のトークンはオーナーのままです。",
+      "namePlaceholder": "メンバー名",
+      "roleLabel": "ロール",
+      "create": "追加",
+      "tokenOnce": "{{name}} のトークン — 一度だけ表示されます。今すぐコピー:",
+      "lastUsed": "最終使用 {{time}}",
+      "revoke": "{{name}} を失効",
+      "roles": {
+        "owner": "オーナー",
+        "operator": "オペレーター",
+        "viewer": "閲覧者"
+      }
+    }
   },
   "import": {
     "title": "プロファイルをインポート",

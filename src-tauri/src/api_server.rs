@@ -1082,6 +1082,7 @@ impl ApiServer {
 
     let v1_routes = v1_routes
       // Innermost so only authenticated automation requests consume quota.
+      .layer(middleware::from_fn(role_middleware))
       .layer(middleware::from_fn(rate_limit_middleware))
       .layer(middleware::from_fn_with_state(
         state.clone(),
@@ -1347,7 +1348,7 @@ async fn terms_check_middleware(
 async fn auth_middleware(
   State(state): State<ApiServerState>,
   headers: HeaderMap,
-  request: axum::extract::Request,
+  mut request: axum::extract::Request,
   next: Next,
 ) -> Result<Response, StatusCode> {
   let path = request.uri().path().to_string();
@@ -1387,12 +1388,140 @@ async fn auth_middleware(
   let token_bytes = token.as_bytes();
   let stored_bytes = stored_token.as_bytes();
   let matches = token_bytes.len() == stored_bytes.len() && token_bytes.ct_eq(stored_bytes).into();
-  if !matches {
-    log::debug!("API auth refused reason=token_mismatch path={path}");
-    return Err(StatusCode::UNAUTHORIZED);
+  if matches {
+    // The master token is the implicit owner: full rights, forever.
+    request.extensions_mut().insert(ApiIdentity::master());
+    return Ok(next.run(request).await);
   }
 
-  // Token is valid, continue with the request
+  // Named members: fleet bots and operator scripts with their own token,
+  // name and role. The roster is small and local.
+  match crate::api_members::find_by_token(token) {
+    Some(member) => {
+      crate::api_members::touch(member.id);
+      request
+        .extensions_mut()
+        .insert(ApiIdentity::member(member.name.clone(), member.role));
+      Ok(next.run(request).await)
+    }
+    None => {
+      log::debug!("API auth refused reason=token_mismatch path={path}");
+      Err(StatusCode::UNAUTHORIZED)
+    }
+  }
+}
+
+/// Who is calling the API: the master token's implicit owner, or a named
+/// member with a role. Travels in the request extensions after auth.
+#[derive(Debug, Clone)]
+pub struct ApiIdentity {
+  pub name: String,
+  pub role: crate::api_members::Role,
+}
+
+impl ApiIdentity {
+  fn master() -> Self {
+    Self {
+      name: "owner".to_string(),
+      role: crate::api_members::Role::Owner,
+    }
+  }
+
+  fn member(name: String, role: crate::api_members::Role) -> Self {
+    Self { name, role }
+  }
+}
+
+/// What a role may do to a path. Reads are open to every role; deletions and
+/// configuration changes are owner-only; driving the fleet — launch, stop,
+/// navigate, cookie-bot, agent actions — is operator work.
+pub(crate) fn role_allows(role: crate::api_members::Role, method: &str, path: &str) -> bool {
+  use crate::api_members::Role::*;
+  if matches!(method, "GET" | "HEAD") {
+    return true;
+  }
+  if role == Owner {
+    return true;
+  }
+  if role == Viewer {
+    return false;
+  }
+  // Operator: operational verbs only.
+  let segments: Vec<&str> = path.trim_matches('/').split('/').collect();
+  if segments.first() != Some(&"v1") {
+    return false;
+  }
+  let last = segments.last().copied().unwrap_or_default();
+  let operational_suffix = [
+    "run",
+    "run-remote",
+    "kill",
+    "open-url",
+    "cdp",
+    "perceive",
+    "resolve-locator",
+    "click",
+    "type",
+    "extract",
+    "pick",
+    "conflicts",
+    "cancel",
+  ]
+  .contains(&last);
+  if operational_suffix {
+    // `run` inside /v1/agent/recipes/{id}/run is operational; everything
+    // ending in these suffixes under known operational parents is too.
+    return true;
+  }
+  // Batch launch/stop: /v1/profiles/batch/{run|stop}.
+  if segments.get(1) == Some(&"profiles") && segments.get(2) == Some(&"batch") {
+    return last == "run" || last == "stop";
+  }
+  // Cookie-bot: runs and schedules are the operator's daily work.
+  if segments.get(1) == Some(&"cookie-bot") {
+    // Cancel is a DELETE on /v1/cookie-bot/runs/{id}: operational, allowed.
+    return true;
+  }
+  // Remote sessions: stop (DELETE) and status rides the same path; creating
+  // one goes through /v1/profiles/{id}/run-remote, already allowed above.
+  if segments.get(1) == Some(&"remote-sessions") {
+    return true;
+  }
+  false
+}
+
+/// Role enforcement. Runs inside auth: a request that names a member who may
+/// not do this never reaches a handler, and the refusal names the reason.
+async fn role_middleware(
+  request: axum::extract::Request,
+  next: Next,
+) -> Result<Response, StatusCode> {
+  let identity = request
+    .extensions()
+    .get::<ApiIdentity>()
+    .cloned()
+    .unwrap_or_else(ApiIdentity::master);
+  let method = request.method().as_str().to_string();
+  let path = request.uri().path().to_string();
+
+  if !role_allows(identity.role, &method, &path) {
+    log::debug!(
+      "API forbidden member={} role={} method={method} path={path}",
+      identity.name,
+      identity.role.as_str()
+    );
+    return Err(StatusCode::FORBIDDEN);
+  }
+
+  // The journal records the significant acts, not every agent keystroke:
+  // mutations outside the high-frequency agent verbs, with the actor's name.
+  if method != "GET" && method != "HEAD" && !path.contains("/agent/") {
+    let subject = format!("{method} {path}");
+    if let Err(e) = crate::local_activity::record("api.mutation", &identity.name, Some(&subject)) {
+      log::warn!("Activity journal write failed err=\"{e}\"");
+    }
+  }
+
   Ok(next.run(request).await)
 }
 
@@ -7876,6 +8005,107 @@ mod tests {
         "an extension write must not declare a 429: {method} {path}"
       );
     }
+  }
+}
+
+#[cfg(test)]
+mod role_gate_tests {
+  use crate::api_members::Role;
+  use crate::api_server::role_allows;
+
+  #[test]
+  fn roles_gate_the_route_surface() {
+    // Everyone reads.
+    for role in [Role::Owner, Role::Operator, Role::Viewer] {
+      assert!(role_allows(role, "GET", "/v1/profiles"));
+      assert!(role_allows(role, "HEAD", "/v1/cookie-bot/runs"));
+    }
+
+    // Operator drives the fleet.
+    assert!(role_allows(Role::Operator, "POST", "/v1/profiles/7/run"));
+    assert!(role_allows(Role::Operator, "POST", "/v1/profiles/7/kill"));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/7/open-url"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/batch/run"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/batch/stop"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/7/run-remote"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "DELETE",
+      "/v1/remote-sessions/abc"
+    ));
+    assert!(role_allows(Role::Operator, "POST", "/v1/cookie-bot/runs"));
+    assert!(role_allows(
+      Role::Operator,
+      "PUT",
+      "/v1/cookie-bot/schedules/7"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "DELETE",
+      "/v1/cookie-bot/runs/r1"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/7/agent/click"
+    ));
+    assert!(role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/agent/recipes/r9/run"
+    ));
+
+    // Operator does not manage the fleet.
+    assert!(!role_allows(Role::Operator, "POST", "/v1/profiles"));
+    assert!(!role_allows(Role::Operator, "DELETE", "/v1/profiles/7"));
+    assert!(!role_allows(Role::Operator, "PATCH", "/v1/profiles/7"));
+    assert!(!role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/bulk-edit"
+    ));
+    assert!(!role_allows(Role::Operator, "POST", "/v1/proxies/import"));
+    assert!(!role_allows(Role::Operator, "POST", "/v1/profiles/import"));
+    assert!(!role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/browsers/download"
+    ));
+    assert!(!role_allows(Role::Operator, "POST", "/v1/agent/recipes"));
+    assert!(!role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/7/storage-state"
+    ));
+    assert!(!role_allows(
+      Role::Operator,
+      "POST",
+      "/v1/profiles/7/cookies/import"
+    ));
+
+    // Viewer mutates nothing.
+    assert!(!role_allows(Role::Viewer, "POST", "/v1/profiles/7/run"));
+    assert!(!role_allows(Role::Viewer, "DELETE", "/v1/profiles/7"));
+
+    // Owner does everything.
+    assert!(role_allows(Role::Owner, "DELETE", "/v1/profiles/7"));
+    assert!(role_allows(Role::Owner, "POST", "/v1/proxies/import"));
   }
 }
 

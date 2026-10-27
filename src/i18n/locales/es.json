@@ -1061,7 +1061,22 @@
       "fxHint": "fx lee la credencial de DONUT_MCP_TOKEN. Expórtala en la shell que inicia fx.",
       "fxExportCopied": "Línea de exportación copiada"
     },
-    "tabAi": "IA"
+    "tabAi": "IA",
+    "members": {
+      "title": "Miembros de API",
+      "description": "Asientos de equipo, local: dé a cada bot o script su propio token con un rol. El token de arriba sigue siendo el propietario.",
+      "namePlaceholder": "Nombre del miembro",
+      "roleLabel": "Rol",
+      "create": "Añadir",
+      "tokenOnce": "Token de {{name}} — se muestra una vez, cópielo ahora:",
+      "lastUsed": "usado {{time}}",
+      "revoke": "Revocar a {{name}}",
+      "roles": {
+        "owner": "Propietario",
+        "operator": "Operador",
+        "viewer": "Observador"
+      }
+    }
   },
   "import": {
     "title": "Importar Perfil",
