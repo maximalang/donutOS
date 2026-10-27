@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "Hemen sil",
     "scrollSectionsLeft": "Bölümleri sola kaydır",
-    "scrollSectionsRight": "Bölümleri sağa kaydır"
+    "scrollSectionsRight": "Bölümleri sağa kaydır",
+    "ai": {
+      "title": "Yapay zekâ sağlayıcısı",
+      "description": "Kendi OpenAI uyumlu uç noktanız ajan sohbetini yanıtlar ve tarif taslakları. API anahtarı yalnızca bu makinede mühürlü durur.",
+      "enable": "Ajan YZ'yi etkinleştir",
+      "enableDescription": "Kapalıyken sohbet YZ yanıtları olmadan çalışır.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "Bir anahtar kayıtlı",
+      "saved": "Kaydedildi",
+      "save": "Kaydet",
+      "hint": "OpenAI uyumlu /v1/chat/completions sunan her sağlayıcı olur - yerel veya barındırılan model. İstekler bu uygulamadan doğrudan uç noktanıza gider."
+    }
   },
   "header": {
     "searchPlaceholder": "Profillerde ara...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "Kimlik bilgisi kaydedildi ancak şu istemciler güncellenemedi: {{clients}}. Yeniden denemek için tekrar döndürün.",
       "fxHint": "fx kimlik bilgisini DONUT_MCP_TOKEN'dan okur. fx'i başlatan kabukta dışa aktarın.",
       "fxExportCopied": "Dışa aktarma satırı kopyalandı"
-    }
+    },
+    "tabAi": "YZ"
   },
   "import": {
     "title": "Profil İçe Aktar",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "Bu sunucu Donut hesaplarını kabul etmiyor. Sunucuda SYNC_PUBLIC_URL değerini ayarlayın.",
     "syncServerAddressMismatch": "Sunucunun adresi {{address}}. Bu adresi girin.",
     "remoteNeedsDonutSync": "Uzak oturumlar ve Cookie Bot profilleri Donut cloud eşitlemesinden alır. Bu bilgisayar kendi sunucunuzla eşitleniyor.",
-    "accountSyncUnavailable": "Donut henüz kendi sunucunuzda oturum açamıyor. Daha sonra tekrar deneyin."
+    "accountSyncUnavailable": "Donut henüz kendi sunucunuzda oturum açamıyor. Daha sonra tekrar deneyin.",
+    "aiNotConfigured": "Önce YZ sağlayıcısını yapılandırın (Entegrasyonlar → YZ).",
+    "aiRequestFailed": "YZ sağlayıcısına ulaşılamadı.",
+    "aiBadResponse": "YZ sağlayıcısı okunamayan bir yanıt döndürdü.",
+    "aiRecipeInvalid": "YZ taslağı geçerli bir tarif değildi.",
+    "aiKeyStoreFailed": "API anahtarı kaydedilemedi."
   },
   "rail": {
     "profiles": "Profiller",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} katıldı",
       "left": "{{agent}} ayrıldı",
       "feedbackSent": "Donut ekibine geri bildirim gönderdi",
-      "feedbackLogs": "Günlükler eklendi"
+      "feedbackLogs": "Günlükler eklendi",
+      "aiName": "YZ asistanı"
     },
     "composer": {
       "label": "Ajanınız için not",
@@ -3687,7 +3710,12 @@
       "deleted": "Tarif silindi",
       "deleteTitle": "{{name}} silinsin mi?",
       "deleteDescription": "Tarif tüm cihazlardan silinir.",
-      "needsAutomation": "Tarifler tarayıcıları açıp yönettiği için Pro veya daha üst bir plan gerektirir. Ajanınız profilleri, proxy'leri ve grupları yönetmeye devam edebilir."
+      "needsAutomation": "Tarifler tarayıcıları açıp yönettiği için Pro veya daha üst bir plan gerektirir. Ajanınız profilleri, proxy'leri ve grupları yönetmeye devam edebilir.",
+      "aiGenerate": "YZ ile oluştur",
+      "aiPlaceholder": "Akışı anlatın: siteyi aç, giriş yap, düğmeye tıkla…",
+      "aiHint": "YZ taslağı kaydedilmeden önce tarif kurallarıyla doğrulanır.",
+      "aiGenerated": "Tarif oluşturuldu",
+      "aiGenerating": "Oluşturuluyor…"
     },
     "schedules": {
       "hint": "Bir tarifi takvime göre uzak filoda veya bu bilgisayarda çalıştırın.",

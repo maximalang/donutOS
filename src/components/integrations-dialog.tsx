@@ -12,8 +12,10 @@ import {
   LuPlug,
   LuRefreshCw,
   LuSlidersHorizontal,
+  LuSparkles,
   LuTrash2,
 } from "react-icons/lu";
+import { AiProviderPanel } from "@/components/ai-provider-panel";
 import {
   type CodeExample,
   CodeExamplesDialog,
@@ -96,7 +98,7 @@ interface AppSettings {
   mcp_toolsets?: string[];
 }
 
-type IntegrationsTab = "api" | "remote";
+type IntegrationsTab = "api" | "ai" | "remote";
 
 interface IntegrationsDialogProps {
   isOpen: boolean;
@@ -641,7 +643,11 @@ export function IntegrationsDialog({
   // A tab that is not offered cannot be the one displayed, whether the caller
   // asked for it or it vanished under the user.
   const shownTab: IntegrationsTab =
-    activeTab === "remote" && !remoteTabShown ? "api" : activeTab;
+    activeTab === "remote" && !remoteTabShown
+      ? "api"
+      : activeTab === "ai" && !freeBuild
+        ? "api"
+        : activeTab;
 
   const renderAgent = (agent: McpAgentInfo) => {
     const busy = busyAgentIds.has(agent.id);
@@ -863,6 +869,12 @@ export function IntegrationsDialog({
                 <AnimatedTabsTrigger value="api">
                   {t("integrations.tabApi")}
                 </AnimatedTabsTrigger>
+                {freeBuild && (
+                  <AnimatedTabsTrigger value="ai">
+                    <LuSparkles className="size-3.5" />
+                    {t("integrations.tabAi")}
+                  </AnimatedTabsTrigger>
+                )}
                 {remoteTabShown && (
                   <AnimatedTabsTrigger value="remote">
                     <LuCloud className="size-3.5" />
@@ -1045,6 +1057,12 @@ export function IntegrationsDialog({
                   copyMessage={t("common.buttons.copied")}
                 />
               </AnimatedTabsContent>
+
+              {freeBuild && (
+                <AnimatedTabsContent value="ai" className="@container mt-4">
+                  <AiProviderPanel />
+                </AnimatedTabsContent>
+              )}
 
               {remoteTabShown && (
                 <AnimatedTabsContent value="remote" className="@container mt-4">

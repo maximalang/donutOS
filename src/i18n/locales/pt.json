@@ -251,7 +251,23 @@
     },
     "trashRetentionOff": "Excluir na hora",
     "scrollSectionsLeft": "Rolar seções para a esquerda",
-    "scrollSectionsRight": "Rolar seções para a direita"
+    "scrollSectionsRight": "Rolar seções para a direita",
+    "ai": {
+      "title": "Provedor de IA",
+      "description": "Seu próprio endpoint compatível com OpenAI responde à conversa do agente e redige receitas. A chave API fica selada somente nesta máquina.",
+      "enable": "Ativar IA do agente",
+      "enableDescription": "Desligado: a conversa funciona sem respostas de IA.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "Há uma chave guardada",
+      "saved": "Salvo",
+      "save": "Salvar",
+      "hint": "Serve qualquer provedor com /v1/chat/completions compatível com OpenAI - modelo local ou hospedado. As requisições vão direto deste app ao seu endpoint."
+    }
   },
   "header": {
     "searchPlaceholder": "Pesquisar perfis...",
@@ -1044,7 +1060,8 @@
       "credentialClientsFailed": "A credencial foi guardada, mas estes clientes não puderam ser atualizados: {{clients}}. Rode novamente para tentar de novo.",
       "fxHint": "O fx lê a credencial de DONUT_MCP_TOKEN. Exporte-a na shell que inicia o fx.",
       "fxExportCopied": "Linha de exportação copiada"
-    }
+    },
+    "tabAi": "IA"
   },
   "import": {
     "title": "Importar Perfil",
@@ -2703,7 +2720,12 @@
     "syncServerNoAccounts": "Este servidor não aceita contas Donut. Defina SYNC_PUBLIC_URL no servidor.",
     "syncServerAddressMismatch": "O endereço do servidor é {{address}}. Digite esse endereço.",
     "remoteNeedsDonutSync": "Sessões remotas e o Cookie Bot obtêm os perfis da sincronização com a Donut cloud. Este computador sincroniza com o seu próprio servidor.",
-    "accountSyncUnavailable": "O Donut ainda não consegue entrar no seu próprio servidor. Tente novamente mais tarde."
+    "accountSyncUnavailable": "O Donut ainda não consegue entrar no seu próprio servidor. Tente novamente mais tarde.",
+    "aiNotConfigured": "Configure primeiro o provedor de IA (Integrações → IA).",
+    "aiRequestFailed": "O provedor de IA não pôde ser alcançado.",
+    "aiBadResponse": "O provedor de IA devolveu uma resposta ilegível.",
+    "aiRecipeInvalid": "O rascunho da IA não era uma receita válida.",
+    "aiKeyStoreFailed": "Não foi possível guardar a chave API."
   },
   "rail": {
     "profiles": "Perfis",
@@ -3621,7 +3643,8 @@
       "joined": "{{agent}} entrou",
       "left": "{{agent}} saiu",
       "feedbackSent": "enviou feedback à equipe do Donut",
-      "feedbackLogs": "Logs anexados"
+      "feedbackLogs": "Logs anexados",
+      "aiName": "Assistente IA"
     },
     "composer": {
       "label": "Nota para o seu agente",
@@ -3730,7 +3753,12 @@
       "deleted": "Receita eliminada",
       "deleteTitle": "Eliminar {{name}}?",
       "deleteDescription": "A receita é removida de todos os dispositivos.",
-      "needsAutomation": "As receitas abrem e controlam navegadores, por isso requerem o plano Pro ou superior. O seu agente continua a poder gerir perfis, proxies e grupos."
+      "needsAutomation": "As receitas abrem e controlam navegadores, por isso requerem o plano Pro ou superior. O seu agente continua a poder gerir perfis, proxies e grupos.",
+      "aiGenerate": "Gerar com IA",
+      "aiPlaceholder": "Descreva o fluxo: abrir um site, entrar, clicar num botão…",
+      "aiHint": "O rascunho da IA é validado pelas regras de receitas antes de salvar.",
+      "aiGenerated": "Receita gerada",
+      "aiGenerating": "Gerando…"
     },
     "schedules": {
       "hint": "Execute uma receita em um calendário, na frota remota ou neste computador.",

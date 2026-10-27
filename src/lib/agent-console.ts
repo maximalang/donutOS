@@ -46,7 +46,8 @@ export type AgentThreadKind =
   | "progress"
   | "joined"
   | "left"
-  | "feedback";
+  | "feedback"
+  | "reply";
 
 export type AgentThreadState =
   | "open"

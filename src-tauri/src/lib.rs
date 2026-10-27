@@ -165,6 +165,8 @@ mod cookie_bot_local;
 mod cookie_manager;
 mod cookie_paste;
 pub mod events;
+#[cfg(feature = "free")]
+mod local_ai;
 mod local_storage;
 #[cfg(feature = "free")]
 mod local_store;
@@ -3782,6 +3784,12 @@ pub fn run_with_builder(
       agent_console::answer_agent_request,
       agent_console::dismiss_agent_request,
       agent_console::send_agent_note,
+      #[cfg(feature = "free")]
+      local_ai::get_ai_provider_status,
+      #[cfg(feature = "free")]
+      local_ai::save_ai_provider_config,
+      #[cfg(feature = "free")]
+      local_ai::generate_recipe_from_text,
       agent_console::take_over_profile,
       agent_console::hand_back_profile,
       agent_console::set_agents_paused,

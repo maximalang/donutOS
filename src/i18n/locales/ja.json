@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "すぐに削除",
     "scrollSectionsLeft": "セクションを左へスクロール",
-    "scrollSectionsRight": "セクションを右へスクロール"
+    "scrollSectionsRight": "セクションを右へスクロール",
+    "ai": {
+      "title": "AIプロバイダー",
+      "description": "OpenAI互換のエンドポイントがエージェント会話に応答し、レシピを起草します。APIキーはこのマシンだけで封印保存されます。",
+      "enable": "エージェントAIを有効化",
+      "enableDescription": "オフの場合、AIの応答なしで会話が動作します。",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "キーが保存済み",
+      "saved": "保存しました",
+      "save": "保存",
+      "hint": "/v1/chat/completions がOpenAI互換ならどのプロバイダーでも動作します。リクエストはこのアプリから直接エンドポイントへ送られます。"
+    }
   },
   "header": {
     "searchPlaceholder": "プロファイルを検索...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "資格情報は保存されましたが、次のクライアントを更新できませんでした: {{clients}}。再試行するにはもう一度ローテーションしてください。",
       "fxHint": "fx は DONUT_MCP_TOKEN から資格情報を読み取ります。fx を起動するシェルでエクスポートしてください。",
       "fxExportCopied": "エクスポート行をコピーしました"
-    }
+    },
+    "tabAi": "AI"
   },
   "import": {
     "title": "プロファイルをインポート",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "このサーバーは Donut アカウントを受け付けません。サーバーで SYNC_PUBLIC_URL を設定してください。",
     "syncServerAddressMismatch": "サーバーのアドレスは {{address}} です。そのアドレスを入力してください。",
     "remoteNeedsDonutSync": "リモートセッションと Cookie Bot は Donut クラウド同期からプロファイルを取得します。このコンピューターは独自のサーバーと同期しています。",
-    "accountSyncUnavailable": "Donut はまだ独自のサーバーにサインインできません。後でもう一度お試しください。"
+    "accountSyncUnavailable": "Donut はまだ独自のサーバーにサインインできません。後でもう一度お試しください。",
+    "aiNotConfigured": "先にAIプロバイダーを設定してください（統合 → AI）。",
+    "aiRequestFailed": "AIプロバイダーに接続できません。",
+    "aiBadResponse": "AIプロバイダーの応答が読み取れません。",
+    "aiRecipeInvalid": "AIの草案は有効なレシピではありません。",
+    "aiKeyStoreFailed": "APIキーを保存できませんでした。"
   },
   "rail": {
     "profiles": "プロファイル",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} が参加しました",
       "left": "{{agent}} が退出しました",
       "feedbackSent": "が Donut チームにフィードバックを送信しました",
-      "feedbackLogs": "ログ添付あり"
+      "feedbackLogs": "ログ添付あり",
+      "aiName": "AIアシスタント"
     },
     "composer": {
       "label": "エージェントへのメモ",
@@ -3687,7 +3710,12 @@
       "deleted": "レシピを削除しました",
       "deleteTitle": "{{name}} を削除しますか？",
       "deleteDescription": "レシピはすべての端末から削除されます。",
-      "needsAutomation": "レシピはブラウザを開いて操作するため、Pro プラン以上が必要です。エージェントは引き続きプロファイル、プロキシ、グループを管理できます。"
+      "needsAutomation": "レシピはブラウザを開いて操作するため、Pro プラン以上が必要です。エージェントは引き続きプロファイル、プロキシ、グループを管理できます。",
+      "aiGenerate": "AIで生成",
+      "aiPlaceholder": "流れを説明：サイトを開く、ログイン、ボタンをクリック…",
+      "aiHint": "AIの草案はレシピ規則で検証されてから保存されます。",
+      "aiGenerated": "レシピを生成しました",
+      "aiGenerating": "生成中…"
     },
     "schedules": {
       "hint": "レシピを予定どおりに実行します。リモートフリートまたはこのコンピューターで実行できます。",

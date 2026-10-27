@@ -251,7 +251,23 @@
     },
     "trashRetentionOff": "Supprimer aussitôt",
     "scrollSectionsLeft": "Faire défiler les sections vers la gauche",
-    "scrollSectionsRight": "Faire défiler les sections vers la droite"
+    "scrollSectionsRight": "Faire défiler les sections vers la droite",
+    "ai": {
+      "title": "Fournisseur d'IA",
+      "description": "Votre propre endpoint compatible OpenAI répond à la conversation de l'agent et rédige des recettes. La clé API reste scellée sur cette machine.",
+      "enable": "Activer l'IA de l'agent",
+      "enableDescription": "Désactivé : la conversation fonctionne sans réponses IA.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "Une clé est enregistrée",
+      "saved": "Enregistré",
+      "save": "Enregistrer",
+      "hint": "Tout fournisseur avec /v1/chat/completions compatible OpenAI convient - modèle local ou hébergé. Les requêtes vont directement de cette app vers votre endpoint."
+    }
   },
   "header": {
     "searchPlaceholder": "Rechercher des profils...",
@@ -1044,7 +1060,8 @@
       "credentialClientsFailed": "L'identifiant est enregistré, mais ces clients n'ont pas pu être mis à jour : {{clients}}. Renouvelez-le pour réessayer.",
       "fxHint": "fx lit l'identifiant dans DONUT_MCP_TOKEN. Exportez-le dans le shell qui lance fx.",
       "fxExportCopied": "Ligne d'export copiée"
-    }
+    },
+    "tabAi": "IA"
   },
   "import": {
     "title": "Importer un profil",
@@ -2703,7 +2720,12 @@
     "syncServerNoAccounts": "Ce serveur n'accepte pas les comptes Donut. Définissez SYNC_PUBLIC_URL sur le serveur.",
     "syncServerAddressMismatch": "L'adresse du serveur est {{address}}. Saisissez cette adresse.",
     "remoteNeedsDonutSync": "Les sessions à distance et Cookie Bot obtiennent les profils depuis la synchronisation Donut cloud. Cet ordinateur se synchronise avec votre propre serveur.",
-    "accountSyncUnavailable": "Donut ne peut pas encore se connecter à votre propre serveur. Réessayez plus tard."
+    "accountSyncUnavailable": "Donut ne peut pas encore se connecter à votre propre serveur. Réessayez plus tard.",
+    "aiNotConfigured": "Configurez d'abord le fournisseur d'IA (Intégrations → IA).",
+    "aiRequestFailed": "Le fournisseur d'IA est injoignable.",
+    "aiBadResponse": "Le fournisseur d'IA a renvoyé une réponse illisible.",
+    "aiRecipeInvalid": "Le brouillon de l'IA n'était pas une recette valide.",
+    "aiKeyStoreFailed": "Impossible d'enregistrer la clé API."
   },
   "rail": {
     "profiles": "Profils",
@@ -3621,7 +3643,8 @@
       "joined": "{{agent}} a rejoint la conversation",
       "left": "{{agent}} est parti",
       "feedbackSent": "a envoyé un avis à l'équipe Donut",
-      "feedbackLogs": "Journaux joints"
+      "feedbackLogs": "Journaux joints",
+      "aiName": "Assistant IA"
     },
     "composer": {
       "label": "Note pour votre agent",
@@ -3730,7 +3753,12 @@
       "deleted": "Recette supprimée",
       "deleteTitle": "Supprimer {{name}} ?",
       "deleteDescription": "La recette est supprimée de tous les appareils.",
-      "needsAutomation": "Les recettes ouvrent et pilotent des navigateurs : elles nécessitent donc le forfait Pro ou supérieur. Votre agent peut toujours gérer les profils, les proxys et les groupes."
+      "needsAutomation": "Les recettes ouvrent et pilotent des navigateurs : elles nécessitent donc le forfait Pro ou supérieur. Votre agent peut toujours gérer les profils, les proxys et les groupes.",
+      "aiGenerate": "Générer avec l'IA",
+      "aiPlaceholder": "Décrivez le flux : ouvrir un site, se connecter, cliquer…",
+      "aiHint": "Le brouillon de l'IA est validé selon les règles de recettes avant enregistrement.",
+      "aiGenerated": "Recette générée",
+      "aiGenerating": "Génération…"
     },
     "schedules": {
       "hint": "Lancez une recette selon un calendrier, sur la flotte distante ou sur cet ordinateur.",

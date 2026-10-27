@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
+import { LuSparkles } from "react-icons/lu";
 import { RecipeRecorder } from "@/components/agent-recipe-recorder";
 import {
   emptyStep,
@@ -17,11 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RippleButton } from "@/components/ui/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { translateBackendError } from "@/lib/backend-errors";
+import { isFreeBuildSync } from "@/lib/free-build";
 import {
   type AgentRecipe,
   createAgentRecipe,
   deleteAgentRecipe,
+  generateRecipeFromText,
   getAgentRecipes,
   type RecipeStep,
   updateAgentRecipe,
@@ -62,6 +66,10 @@ export function AgentRecipes({ profiles }: AgentRecipesProps) {
   const [pendingRemoval, setPendingRemoval] = useState<AgentRecipe | null>(
     null,
   );
+  /** The AI draft box, free build only. */
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
   const confirmRemoval = useCallback(async () => {
@@ -99,7 +107,60 @@ export function AgentRecipes({ profiles }: AgentRecipesProps) {
           <GoPlus className="size-3.5" />
           {t("agent.recipes.new")}
         </RippleButton>
+        {isFreeBuildSync() && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 items-center gap-1.5 rounded-lg text-xs"
+            disabled={editing !== null || aiBusy}
+            onClick={() => setAiOpen((open) => !open)}
+          >
+            <LuSparkles className="size-3.5" />
+            {t("agent.recipes.aiGenerate")}
+          </Button>
+        )}
       </div>
+
+      {isFreeBuildSync() && aiOpen && (
+        <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-border/60 bg-card p-3">
+          <Textarea
+            value={aiText}
+            onChange={(event) => setAiText(event.target.value)}
+            placeholder={t("agent.recipes.aiPlaceholder")}
+            rows={3}
+            className="resize-none text-sm"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-muted-foreground">
+              {t("agent.recipes.aiHint")}
+            </p>
+            <Button
+              size="sm"
+              className="h-8 items-center gap-1.5 rounded-lg text-xs"
+              disabled={aiBusy || aiText.trim().length === 0}
+              onClick={async () => {
+                setAiBusy(true);
+                try {
+                  await generateRecipeFromText(aiText.trim());
+                  showSuccessToast(t("agent.recipes.aiGenerated"));
+                  setAiText("");
+                  setAiOpen(false);
+                  void loadRecipes();
+                } catch (generateError) {
+                  showErrorToast(translateBackendError(t, generateError));
+                } finally {
+                  setAiBusy(false);
+                }
+              }}
+            >
+              <LuSparkles className="size-3.5" />
+              {aiBusy
+                ? t("agent.recipes.aiGenerating")
+                : t("agent.recipes.aiGenerate")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {error !== null && (
         <p className="shrink-0 rounded-xl bg-destructive/10 p-3 text-sm text-destructive-text">

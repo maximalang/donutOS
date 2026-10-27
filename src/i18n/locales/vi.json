@@ -250,7 +250,23 @@
     },
     "trashRetentionOff": "Xóa ngay",
     "scrollSectionsLeft": "Cuộn các mục sang trái",
-    "scrollSectionsRight": "Cuộn các mục sang phải"
+    "scrollSectionsRight": "Cuộn các mục sang phải",
+    "ai": {
+      "title": "Nhà cung cấp AI",
+      "description": "Endpoint tương thích OpenAI của riêng bạn trả lời hội thoại tác tử và soạn công thức. Khóa API được niêm phong chỉ trên máy này.",
+      "enable": "Bật AI của tác tử",
+      "enableDescription": "Tắt: hội thoại hoạt động không có câu trả lời AI.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "model": "Model",
+      "modelPlaceholder": "gpt-4o-mini",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "sk-…",
+      "keyStored": "Đã có khóa được lưu",
+      "saved": "Đã lưu",
+      "save": "Lưu",
+      "hint": "Bất kỳ nhà cung cấp nào có /v1/chat/completions tương thích OpenAI đều dùng được - mô hình cục bộ hoặc đám mây. Yêu cầu đi thẳng từ ứng dụng này tới endpoint của bạn."
+    }
   },
   "header": {
     "searchPlaceholder": "Tìm kiếm hồ sơ...",
@@ -1035,7 +1051,8 @@
       "credentialClientsFailed": "Thông tin xác thực đã được lưu, nhưng không thể cập nhật các ứng dụng khách sau: {{clients}}. Xoay vòng lại để thử lại.",
       "fxHint": "fx đọc thông tin xác thực từ DONUT_MCP_TOKEN. Hãy export biến này trong shell khởi chạy fx.",
       "fxExportCopied": "Đã sao chép dòng export"
-    }
+    },
+    "tabAi": "AI"
   },
   "import": {
     "title": "Nhập profile",
@@ -2683,7 +2700,12 @@
     "syncServerNoAccounts": "Máy chủ này không chấp nhận tài khoản Donut. Hãy đặt SYNC_PUBLIC_URL trên máy chủ.",
     "syncServerAddressMismatch": "Địa chỉ của máy chủ là {{address}}. Hãy nhập địa chỉ đó.",
     "remoteNeedsDonutSync": "Phiên từ xa và Cookie Bot lấy hồ sơ từ đồng bộ Donut cloud. Máy tính này đồng bộ với máy chủ riêng của bạn.",
-    "accountSyncUnavailable": "Donut chưa thể đăng nhập vào máy chủ riêng của bạn. Hãy thử lại sau."
+    "accountSyncUnavailable": "Donut chưa thể đăng nhập vào máy chủ riêng của bạn. Hãy thử lại sau.",
+    "aiNotConfigured": "Hãy cấu hình nhà cung cấp AI trước (Tích hợp → AI).",
+    "aiRequestFailed": "Không kết nối được nhà cung cấp AI.",
+    "aiBadResponse": "Nhà cung cấp AI trả về câu trả lời không đọc được.",
+    "aiRecipeInvalid": "Bản nháp AI không phải công thức hợp lệ.",
+    "aiKeyStoreFailed": "Không lưu được khóa API."
   },
   "rail": {
     "profiles": "Profile",
@@ -3578,7 +3600,8 @@
       "joined": "{{agent}} đã tham gia",
       "left": "{{agent}} đã rời đi",
       "feedbackSent": "đã gửi phản hồi cho đội ngũ Donut",
-      "feedbackLogs": "Đã đính kèm nhật ký"
+      "feedbackLogs": "Đã đính kèm nhật ký",
+      "aiName": "Trợ lý AI"
     },
     "composer": {
       "label": "Ghi chú cho tác nhân",
@@ -3687,7 +3710,12 @@
       "deleted": "Đã xoá công thức",
       "deleteTitle": "Xoá {{name}}?",
       "deleteDescription": "Công thức bị xoá trên mọi thiết bị.",
-      "needsAutomation": "Công thức mở và điều khiển trình duyệt nên cần gói Pro trở lên. Tác nhân của bạn vẫn có thể quản lý hồ sơ, proxy và nhóm."
+      "needsAutomation": "Công thức mở và điều khiển trình duyệt nên cần gói Pro trở lên. Tác nhân của bạn vẫn có thể quản lý hồ sơ, proxy và nhóm.",
+      "aiGenerate": "Tạo bằng AI",
+      "aiPlaceholder": "Mô tả quy trình: mở trang, đăng nhập, bấm nút…",
+      "aiHint": "Bản nháp AI được kiểm tra theo quy tắc công thức trước khi lưu.",
+      "aiGenerated": "Đã tạo công thức",
+      "aiGenerating": "Đang tạo…"
     },
     "schedules": {
       "hint": "Chạy một công thức theo lịch, trên đội máy từ xa hoặc trên máy tính này.",
