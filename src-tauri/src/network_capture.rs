@@ -716,7 +716,11 @@ pub(crate) async fn start(profile: &BrowserProfile) -> Result<Value, StartError>
   let connection = match crate::mcp_server::resolve_target(profile).await {
     Ok(target) => match target.connect().await {
       Ok(connection) => connection,
-      Err(_) => return Err(StartError::Refused("the browser did not accept the connection".into())),
+      Err(_) => {
+        return Err(StartError::Refused(
+          "the browser did not accept the connection".into(),
+        ))
+      }
     },
     Err(_) => return Err(StartError::NotLocal),
   };

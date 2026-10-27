@@ -2149,8 +2149,7 @@ async fn element_object_id(
       .to_string();
     return Ok((Some(matched), object_id));
   }
-  let (matched, _) =
-    fallback_resolve(target, locator, None, FallbackAct::Describe).await?;
+  let (matched, _) = fallback_resolve(target, locator, None, FallbackAct::Describe).await?;
   let expression = fallback_script(&serde_json::json!({
     "mode": "element",
     "locator": locator,
@@ -6545,12 +6544,10 @@ impl McpServer {
       Some(value) => value
         .as_u64()
         .filter(|n| (1..=MAX_LIST_LIMIT as u64).contains(n))
-        .ok_or_else(|| {
-          McpError {
-            code: -32602,
-            message: format!("limit is a whole number from 1 to {MAX_LIST_LIMIT}"),
-            data: None,
-          }
+        .ok_or_else(|| McpError {
+          code: -32602,
+          message: format!("limit is a whole number from 1 to {MAX_LIST_LIMIT}"),
+          data: None,
         })? as usize,
     };
     let query = crate::network_capture::ListQuery {

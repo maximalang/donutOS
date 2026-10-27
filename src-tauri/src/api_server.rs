@@ -5611,7 +5611,8 @@ struct RunRecipeBody {
   security(("bearer_auth" = [])),
   tag = "agent"
 )]
-async fn agent_recipes_list_api() -> Result<Json<Vec<crate::recipes::AgentRecipe>>, (StatusCode, String)> {
+async fn agent_recipes_list_api(
+) -> Result<Json<Vec<crate::recipes::AgentRecipe>>, (StatusCode, String)> {
   crate::recipes::list_recipes()
     .await
     .map(Json)

@@ -155,8 +155,6 @@ mod agent_schedules;
 #[cfg(feature = "free")]
 mod agent_schedules_local;
 mod agent_uploads;
-mod diagnostics;
-mod engine_patch;
 #[cfg(feature = "free")]
 mod automation_time;
 mod cloud_api;
@@ -168,6 +166,8 @@ mod cookie_bot;
 mod cookie_bot_local;
 mod cookie_manager;
 mod cookie_paste;
+mod diagnostics;
+mod engine_patch;
 pub mod events;
 #[cfg(feature = "free")]
 mod local_ai;
@@ -179,8 +179,8 @@ mod mcp_remote;
 mod mcp_server;
 mod mcp_toolsets;
 mod mcp_views;
-mod network_capture;
 mod navigation_watch;
+mod network_capture;
 #[cfg(feature = "free")]
 mod recipes_local;
 mod tag_manager;
