@@ -2,6 +2,7 @@ pub mod account_server;
 mod client;
 pub mod config_entities;
 pub mod encryption;
+pub mod health;
 mod engine;
 pub mod manifest;
 pub mod pending_deletes;
@@ -55,6 +56,7 @@ static PIPELINE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(())
 
 /// Retire the running pipeline, both halves of it.
 pub fn stop_pipeline() {
+  health::reset();
   if let Some(scheduler) = get_global_scheduler() {
     scheduler.stop();
   }

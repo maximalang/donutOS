@@ -6,7 +6,6 @@ use crate::log_redaction::Plain;
 use crate::log_streak::Streak;
 use crate::profile::ProfileManager;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
@@ -27,8 +26,9 @@ static FAILING: LazyLock<std::sync::Mutex<HashMap<String, String>>> =
 static NOTED_TOMBSTONES: LazyLock<std::sync::Mutex<HashSet<String>>> =
   LazyLock::new(Default::default);
 
-fn log_sync_failure(kind: &str, id: &str, err: impl Display) {
-  let err = err.to_string();
+fn log_sync_failure(kind: &str, id: &str, error: &super::types::SyncError) {
+  super::health::record_failure(error);
+  let err = error.to_string();
   let repeated = FAILING
     .lock()
     .map(|mut failing| failing.insert(format!("{kind}={id}"), err.clone()).as_ref() == Some(&err))
@@ -38,6 +38,13 @@ fn log_sync_failure(kind: &str, id: &str, err: impl Display) {
   } else {
     log::error!("Sync failed {kind}={id} err=\"{err}\"");
   }
+}
+
+/// The engine could not be built this pass: logged as a streak, and counted
+/// against the pass for the header indicator.
+fn engine_setup_failed(reason: String) {
+  super::health::record_setup_failure(&reason);
+  SYNC_ENGINE.failed(reason);
 }
 
 fn log_sync_success(kind: &str, id: &str) {
@@ -519,6 +526,12 @@ impl SyncScheduler {
   }
 
   async fn process_pending(&self, app_handle: &tauri::AppHandle) {
+    // A pass with nothing to do leaves the health state alone: the last
+    // result, good or bad, still describes sync.
+    let has_work = self.has_ready_work().await;
+    if has_work {
+      super::health::begin_pass();
+    }
     // Deletions first. A queued sync for an entity another device deleted would
     // otherwise re-upload it from the local copy this tick is about to remove.
     self.process_pending_tombstones(app_handle).await;
@@ -529,6 +542,32 @@ impl SyncScheduler {
     self.process_pending_extensions(app_handle).await;
     self.process_pending_extension_groups(app_handle).await;
     self.process_pending_configs(app_handle).await;
+    if has_work {
+      super::health::end_pass();
+    }
+  }
+
+  /// Whether this pass will transfer anything. A profile queued until its
+  /// browser stops is waiting, not syncing.
+  async fn has_ready_work(&self) -> bool {
+    {
+      let pending = self.pending_profiles.lock().await;
+      let running = self.running_profiles.lock().await;
+      if pending
+        .iter()
+        .any(|(id, stop)| stop.queued && !running.contains(id))
+      {
+        return true;
+      }
+    }
+    !self.pending_proxies.lock().await.is_empty()
+      || !self.pending_groups.lock().await.is_empty()
+      || !self.pending_vpns.lock().await.is_empty()
+      || !self.pending_extensions.lock().await.is_empty()
+      || !self.pending_extension_groups.lock().await.is_empty()
+      || !self.pending_configs.lock().await.is_empty()
+      || !self.pending_config_deletes.lock().await.is_empty()
+      || !self.pending_tombstones.lock().await.is_empty()
   }
 
   async fn process_pending_configs(&self, app_handle: &tauri::AppHandle) {
@@ -544,7 +583,7 @@ impl SyncScheduler {
         engine
       }
       Err(e) => {
-        SYNC_ENGINE.failed(e);
+        engine_setup_failed(e);
         return;
       }
     };
@@ -640,7 +679,7 @@ impl SyncScheduler {
               .await
           }
           Err(e) => {
-            SYNC_ENGINE.failed(e);
+            engine_setup_failed(e);
             Err(super::types::SyncError::NotConfigured)
           }
         };
@@ -754,7 +793,7 @@ impl SyncScheduler {
 
         // Check if all sync work is complete after proxies finish
       }
-      Err(e) => SYNC_ENGINE.failed(e),
+      Err(e) => engine_setup_failed(e),
     }
   }
 
@@ -811,7 +850,7 @@ impl SyncScheduler {
 
         // Check if all sync work is complete after groups finish
       }
-      Err(e) => SYNC_ENGINE.failed(e),
+      Err(e) => engine_setup_failed(e),
     }
   }
 
@@ -863,7 +902,7 @@ impl SyncScheduler {
           }
         }
       }
-      Err(e) => SYNC_ENGINE.failed(e),
+      Err(e) => engine_setup_failed(e),
     }
   }
 
@@ -905,7 +944,7 @@ impl SyncScheduler {
           }
         }
       }
-      Err(e) => SYNC_ENGINE.failed(e),
+      Err(e) => engine_setup_failed(e),
     }
   }
 
@@ -947,7 +986,7 @@ impl SyncScheduler {
           }
         }
       }
-      Err(e) => SYNC_ENGINE.failed(e),
+      Err(e) => engine_setup_failed(e),
     }
   }
 
@@ -1033,7 +1072,7 @@ impl SyncScheduler {
               engine.profile_tombstone_exists(&local).await
             }
             Err(e) => {
-              SYNC_ENGINE.failed(e);
+              engine_setup_failed(e);
               continue;
             }
           };
