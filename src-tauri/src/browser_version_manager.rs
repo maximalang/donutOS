@@ -315,13 +315,32 @@ impl BrowserVersionManager {
   /// Chrome for Testing builds the open `chromium` engine ships from. Pinned
   /// so installs stay reproducible; the archive URL is derived per platform in
   /// `get_download_info`.
+  #[cfg(not(feature = "free"))]
   pub const CHROMIUM_PINNED_VERSION: &str = "158.0.8123.0";
 
   /// Digest of the pinned Chrome for Testing win64 archive. CfT publishes no
   /// checksum sidecar, so the downloader verifies against this constant
   /// instead — just as strict, and immune to the sidecar's absence.
+  #[cfg(not(feature = "free"))]
   pub const CHROMIUM_PINNED_SHA256: &str =
     "fa012d06c286fabf232c77fdd6765c7da94d5594d2fc4c5da5eaa7b930576571";
+
+  /// The free build's open engine is fingerprint-chromium (BSD-3): plain
+  /// Chromium plus per-seed fingerprint injection at the C++ level —
+  /// canvas noise, WebGL GPU strings, hardware concurrency, brands — driven
+  /// by `--fingerprint=<seed>` at launch (see docs/engine-patches.md and the
+  /// spike report behind it). Pinned to the release the spike validated
+  /// end-to-end on Windows: deterministic canvas per seed across restarts and
+  /// fresh profiles, GPU strings spoofed, codecs present, CDP unmetered.
+  /// v150 is deliberately NOT pinned: canvas noising did not fire on it.
+  #[cfg(feature = "free")]
+  pub const CHROMIUM_PINNED_VERSION: &str = "148.0.7778.215";
+
+  /// Digest of the pinned fingerprint-chromium Windows archive, verified the
+  /// same way the CfT digest is: against this constant, no sidecar needed.
+  #[cfg(feature = "free")]
+  pub const CHROMIUM_PINNED_SHA256: &str =
+    "9ef3f471b7a6641b4224532522b29141ce3746e27d55788d88e2fd951f362579";
 
   pub fn get_download_info(
     &self,
@@ -357,32 +376,52 @@ impl BrowserVersionManager {
         })
       }
       "chromium" => {
-        // Chrome for Testing: the open engine. Pinned public archives, no
-        // account, no entitlement — every CDP domain is unmetered on it.
-        let platform_path = match (os.as_str(), arch.as_str()) {
-          ("windows", "x64") | ("windows", "arm64") => "win64/chrome-win64.zip",
-          ("macos", "arm64") => "mac-arm64/chrome-mac-arm64.zip",
-          ("macos", "x64") => "mac-x64/chrome-mac.zip",
-          ("linux", "x64") => "linux64/chrome-linux64.zip",
-          ("linux", "arm64") => "linux-arm64/chrome-linux-arm64.zip",
-          _ => {
-            return Err(
-              format!("Unsupported platform/architecture for Chromium: {os}/{arch}").into(),
-            )
-          }
-        };
-        let url = format!(
-          "https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform_path}"
-        );
-        Ok(DownloadInfo {
-          filename: platform_path
-            .rsplit('/')
-            .next()
-            .unwrap_or("chrome.zip")
-            .to_string(),
-          url,
-          is_archive: true,
-        })
+        // The free build's open engine is fingerprint-chromium from its
+        // public GitHub releases — same archive for every install, pinned
+        // version and digest. Only the platform the product ships on is
+        // pinned; other platforms keep the plain Chrome-for-Testing map.
+        #[cfg(all(feature = "free", target_os = "windows"))]
+        {
+          const FPCHROMIUM_VERSION: &str = "148.0.7778.215";
+          const FPCHROMIUM_ASSET: &str = "ungoogled-chromium_148.0.7778.215-1.1_windows_x64.zip";
+          Ok(DownloadInfo {
+            url: format!(
+              "https://github.com/adryfish/fingerprint-chromium/releases/download/{FPCHROMIUM_VERSION}/{FPCHROMIUM_ASSET}"
+            ),
+            filename: FPCHROMIUM_ASSET.to_string(),
+            is_archive: true,
+          })
+        }
+        // Chrome for Testing: the open engine on every other build. Pinned
+        // public archives, no account, no entitlement — every CDP domain is
+        // unmetered on it.
+        #[cfg(not(all(feature = "free", target_os = "windows")))]
+        {
+          let platform_path = match (os.as_str(), arch.as_str()) {
+            ("windows", "x64") | ("windows", "arm64") => "win64/chrome-win64.zip",
+            ("macos", "arm64") => "mac-arm64/chrome-mac-arm64.zip",
+            ("macos", "x64") => "mac-x64/chrome-mac.zip",
+            ("linux", "x64") => "linux64/chrome-linux64.zip",
+            ("linux", "arm64") => "linux-arm64/chrome-linux-arm64.zip",
+            _ => {
+              return Err(
+                format!("Unsupported platform/architecture for Chromium: {os}/{arch}").into(),
+              )
+            }
+          };
+          let url = format!(
+            "https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform_path}"
+          );
+          Ok(DownloadInfo {
+            filename: platform_path
+              .rsplit('/')
+              .next()
+              .unwrap_or("chrome.zip")
+              .to_string(),
+            url,
+            is_archive: true,
+          })
+        }
       }
       _ => Err(format!("Unsupported browser: {browser}").into()),
     }
@@ -455,12 +494,26 @@ mod tests {
       .get_download_info("chromium", BrowserVersionManager::CHROMIUM_PINNED_VERSION)
       .expect("chromium download info resolves");
     assert!(info.is_archive);
-    assert!(info
-      .url
-      .starts_with("https://storage.googleapis.com/chrome-for-testing-public/"));
-    assert!(info
-      .url
-      .contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
+    #[cfg(all(feature = "free", target_os = "windows"))]
+    {
+      // The free build's open engine is fingerprint-chromium, pinned to its
+      // public GitHub release archive.
+      assert!(info
+        .url
+        .starts_with("https://github.com/adryfish/fingerprint-chromium/releases/download/"));
+      assert!(info
+        .url
+        .contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
+    }
+    #[cfg(not(all(feature = "free", target_os = "windows")))]
+    {
+      assert!(info
+        .url
+        .starts_with("https://storage.googleapis.com/chrome-for-testing-public/"));
+      assert!(info
+        .url
+        .contains(BrowserVersionManager::CHROMIUM_PINNED_VERSION));
+    }
   }
 
   #[test]

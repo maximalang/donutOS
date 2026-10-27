@@ -94,14 +94,22 @@ starting point for a new anchor; the patcher never patches blind.
 
 ## Engine policy (free build)
 
-- **Wayfern (antidetect): pinned, update on demand only.** No periodic
-  auto-update: every new version must pass the patch ladder (anchor →
+- **Wayfern (antidetect, primary): pinned, update on demand only.** No
+  periodic auto-update: every new version must pass the patch ladder (anchor →
   uniqueness → force → smoke), so an update is a deliberate act (download
   command → patch → smoke), never a background one. The vendor version
   refresh stays disabled.
-- **Chromium (open engine): updates via the normal download flow** when a
-  profile needs a version that is missing; no patch required. First-run
-  download already works (Chromium-for-Testing, pinned by the downloader).
+- **Chromium (open engine, now with antidetect): fingerprint-chromium.** The
+  free build downloads fingerprint-chromium 148.0.7778.215 (BSD-3) from its
+  public GitHub release instead of plain Chrome-for-Testing — pinned version
+  and SHA256 (`browser_version_manager.rs`). Launch adds
+  `--fingerprint=<seed> --fingerprint-platform=windows`, where the seed is
+  FNV-1a of the profile id (`browser_runner.rs`): every profile keeps its own
+  deterministic synthetic machine — canvas noise, WebGL GPU strings, hardware
+  concurrency, brands — proven by the spike (canvas identical across restarts
+  and fresh profiles per seed, GPU strings per seed, codecs present, CDP
+  unmetered). Known gaps: AudioContext is not per-seed, fonts are not masked.
+  v150 stays unpinned (canvas noising did not fire on it).
 - **Unpatchable or smoke-failing Wayfern versions never register**: the
   patcher's refusal removes the directory, so a broken engine cannot be
   selected by accident.

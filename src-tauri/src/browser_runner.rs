@@ -23,6 +23,34 @@ static PROFILE_LAUNCH_LOCKS: LazyLock<
 /// automation tools give a navigation rather than a loopback-sized one.
 const REMOTE_NAVIGATE_TIMEOUT_SECS: u64 = 30;
 
+/// A stable non-zero fingerprint seed for a profile (FNV-1a over the id):
+/// the same profile keeps the same synthetic machine forever, across
+/// restarts and fresh installs.
+#[cfg(feature = "free")]
+fn chromium_fingerprint_seed(profile_id: &uuid::Uuid) -> u32 {
+  let mut hash: u32 = 0x811c_9dc5;
+  for byte in profile_id.as_u128().to_le_bytes() {
+    hash ^= u32::from(byte);
+    hash = hash.wrapping_mul(0x0100_0193);
+  }
+  hash.max(1)
+}
+
+#[cfg(all(test, feature = "free"))]
+mod fingerprint_seed_tests {
+  use super::chromium_fingerprint_seed;
+
+  #[test]
+  fn the_seed_is_stable_distinct_and_nonzero() {
+    let a = uuid::Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap();
+    let b = uuid::Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
+    let seed = chromium_fingerprint_seed(&a);
+    assert_eq!(seed, chromium_fingerprint_seed(&a));
+    assert_ne!(seed, 0);
+    assert_ne!(seed, chromium_fingerprint_seed(&b));
+  }
+}
+
 async fn profile_launch_lock(profile_id: &str) -> Arc<tokio::sync::Mutex<()>> {
   let mut locks = PROFILE_LAUNCH_LOCKS.lock().await;
   locks
@@ -971,6 +999,19 @@ impl BrowserRunner {
     }
     if !extension_paths.is_empty() {
       args.push(format!("--load-extension={}", extension_paths.join(",")));
+    }
+    #[cfg(feature = "free")]
+    {
+      // The free build's open engine is fingerprint-chromium
+      // (browser_version_manager): a per-profile seed drives deterministic
+      // fingerprint injection at the C++ level — canvas noise, WebGL GPU
+      // strings, hardware concurrency, brands. Same profile id → same
+      // machine, across restarts and fresh profile copies.
+      let seed = chromium_fingerprint_seed(&profile.id);
+      args.push(format!("--fingerprint={seed}"));
+      if cfg!(target_os = "windows") {
+        args.push("--fingerprint-platform=windows".to_string());
+      }
     }
     let child = std::process::Command::new(&executable)
       .args(&args)

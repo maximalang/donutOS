@@ -401,12 +401,22 @@ pub struct ChromiumBrowser;
 #[allow(dead_code)]
 fn chromium_executable_candidates(install_dir: &Path) -> Vec<PathBuf> {
   const NAMES: [&str; 2] = ["chrome.exe", "chromium.exe"];
-  let dirs = [
+  let mut dirs = vec![
     install_dir.to_path_buf(),
     install_dir.join("chrome-win64"),
     install_dir.join("chrome-win"),
     install_dir.join("bin"),
   ];
+  // Release archives may wrap the payload in a versioned folder — the
+  // fingerprint-chromium zip ships `ungoogled-chromium_<version>_…/` — so any
+  // first-level directory is a candidate home too.
+  if let Ok(entries) = std::fs::read_dir(install_dir) {
+    for entry in entries.flatten() {
+      if entry.path().is_dir() {
+        dirs.push(entry.path());
+      }
+    }
+  }
   dirs
     .iter()
     .flat_map(|dir| NAMES.iter().map(move |name| dir.join(name)))
@@ -652,6 +662,32 @@ mod tests {
     std::fs::create_dir_all(&dir).expect("temp dir");
     assert!(!ChromiumBrowser.is_version_downloaded("158.0.8123.0", &dir));
     let _ = std::fs::remove_dir_all(&dir);
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn chromium_executable_is_found_inside_a_release_wrapper_dir() {
+    // fingerprint-chromium archives wrap the payload in a versioned folder;
+    // the install must be recognized without flattening it.
+    let binaries = std::env::temp_dir().join(format!(
+      "donut-chromium-wrap-{}",
+      std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+    ));
+    let payload = binaries
+      .join("chromium")
+      .join("148.0.7778.215")
+      .join("ungoogled-chromium_148.0.7778.215-1.1_windows_x64");
+    std::fs::create_dir_all(&payload).expect("payload dir");
+    std::fs::write(payload.join("chrome.exe"), b"MZ fake payload").expect("exe");
+    assert!(ChromiumBrowser.is_version_downloaded("148.0.7778.215", &binaries));
+    let exe = ChromiumBrowser
+      .get_executable_path(&binaries.join("chromium").join("148.0.7778.215"))
+      .expect("executable found in the wrapper");
+    assert!(exe.ends_with("ungoogled-chromium_148.0.7778.215-1.1_windows_x64/chrome.exe"));
+    let _ = std::fs::remove_dir_all(&binaries);
   }
 
   #[cfg(target_os = "macos")]
