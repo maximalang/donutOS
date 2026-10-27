@@ -30,13 +30,14 @@ const RECIPE_TARGETED_TYPES: [&str; 4] = ["click", "type", "waitFor", "extract"]
 
 const MAX_RECIPE_STEPS: usize = 200;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentRecipe {
   pub id: String,
   #[serde(default)]
   pub name: String,
   #[serde(default)]
+  #[schema(value_type = Vec<Object>)]
   pub steps: Vec<RecipeStep>,
   #[serde(default)]
   pub created_at: Option<String>,

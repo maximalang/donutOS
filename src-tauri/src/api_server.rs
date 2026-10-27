@@ -844,6 +844,10 @@ struct ImportProxiesResponse {
     get_browser_versions,
     check_browser_downloaded,
     agent_perceive_api,
+    agent_recipes_list_api,
+    agent_recipes_create_api,
+    agent_recipes_delete_api,
+    agent_recipes_run_api,
     agent_resolve_locator_api,
     agent_click_api,
     agent_type_api,
@@ -1302,6 +1306,10 @@ fn build_v1_router() -> Router<ApiServerState> {
     .routes(routes!(agent_type_api))
     .routes(routes!(agent_extract_api))
     .routes(routes!(agent_pick_api))
+    .routes(routes!(agent_recipes_list_api))
+    .routes(routes!(agent_recipes_create_api))
+    .routes(routes!(agent_recipes_delete_api))
+    .routes(routes!(agent_recipes_run_api))
     .split_for_parts();
 
   // The two paths that carry an extension payload, kept apart so the raised
@@ -5575,6 +5583,113 @@ async fn agent_perceive_api(
     .await
     .map(Json)
     .map_err(agent_error_response)
+}
+
+/// The body of a recipe created over REST: a name and the ordered steps the
+/// agent console records.
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+struct CreateRecipeBody {
+  name: String,
+  #[serde(default)]
+  steps: Vec<serde_json::Value>,
+}
+
+/// The body that replays a recipe on a profile.
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+struct RunRecipeBody {
+  profile_id: String,
+}
+
+#[utoipa::path(
+  get,
+  path = "/v1/agent/recipes",
+  responses(
+    (status = 200, description = "Every saved recipe, newest first", body = [crate::recipes::AgentRecipe]),
+    (status = 401, description = "Unauthorized"),
+    (status = 500, description = "Internal server error")
+  ),
+  security(("bearer_auth" = [])),
+  tag = "agent"
+)]
+async fn agent_recipes_list_api() -> Result<Json<Vec<crate::recipes::AgentRecipe>>, (StatusCode, String)> {
+  crate::recipes::list_recipes()
+    .await
+    .map(Json)
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
+}
+
+#[utoipa::path(
+  post,
+  path = "/v1/agent/recipes",
+  request_body = CreateRecipeBody,
+  responses(
+    (status = 200, description = "The saved recipe, with its id", body = crate::recipes::AgentRecipe),
+    (status = 400, description = "Empty name or steps the validator refused"),
+    (status = 401, description = "Unauthorized"),
+    (status = 500, description = "Internal server error")
+  ),
+  security(("bearer_auth" = [])),
+  tag = "agent"
+)]
+async fn agent_recipes_create_api(
+  Json(body): Json<CreateRecipeBody>,
+) -> Result<Json<crate::recipes::AgentRecipe>, (StatusCode, String)> {
+  crate::recipes::create_recipe(&body.name, &body.steps)
+    .await
+    .map(Json)
+    .map_err(|e| (StatusCode::BAD_REQUEST, e))
+}
+
+#[utoipa::path(
+  delete,
+  path = "/v1/agent/recipes/{id}",
+  params(("id" = String, Path, description = "Recipe ID")),
+  responses(
+    (status = 200, description = "`{ \"deleted\": true }`, or false when it was already gone"),
+    (status = 401, description = "Unauthorized"),
+    (status = 500, description = "Internal server error")
+  ),
+  security(("bearer_auth" = [])),
+  tag = "agent"
+)]
+async fn agent_recipes_delete_api(
+  Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+  crate::recipes::delete_recipe(&id)
+    .await
+    .map(|deleted| Json(serde_json::json!({ "deleted": deleted })))
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
+}
+
+#[utoipa::path(
+  post,
+  path = "/v1/agent/recipes/{id}/run",
+  params(("id" = String, Path, description = "Recipe ID")),
+  request_body = RunRecipeBody,
+  responses(
+    (status = 200, description = "The replay started; the answer says so (a long recipe does not block the call)"),
+    (status = 401, description = "Unauthorized"),
+    (status = 404, description = "Recipe not found"),
+    (status = 500, description = "Internal server error")
+  ),
+  security(("bearer_auth" = [])),
+  tag = "agent"
+)]
+async fn agent_recipes_run_api(
+  Path(id): Path<String>,
+  Json(body): Json<RunRecipeBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+  crate::recipes::run_agent_recipe_now(id, body.profile_id)
+    .await
+    .map(Json)
+    .map_err(|e| {
+      let status = if e.contains("AGENT_RECIPE_NOT_FOUND") {
+        StatusCode::NOT_FOUND
+      } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+      };
+      (status, e)
+    })
 }
 
 #[utoipa::path(
