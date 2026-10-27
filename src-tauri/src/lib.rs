@@ -3648,6 +3648,7 @@ pub fn run_with_builder(
       validate_vless_uri,
       get_sync_settings,
       save_sync_settings,
+      sync::health::get_sync_health,
       check_sync_server_connection,
       sync::account_server::get_account_sync_server,
       sync::account_server::set_account_sync_server,
