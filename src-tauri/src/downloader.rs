@@ -972,6 +972,15 @@ impl Downloader {
       Plain(&version),
       started.elapsed().as_millis()
     );
+    // The journal is the local product's activity feed: every engine
+    // install is one of the few irreversible, worth-auditing acts.
+    if let Err(e) = crate::local_activity::record(
+      "engine.installed",
+      &format!("{browser_str} {version}"),
+      Some(&format!("elapsed_ms={}", started.elapsed().as_millis())),
+    ) {
+      log::warn!("Activity journal write failed err=\"{e}\"");
+    }
 
     // Emit completion
     let progress = DownloadProgress {

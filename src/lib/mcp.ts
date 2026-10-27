@@ -28,8 +28,9 @@ export const OPTIONAL_TOOLSETS = [
   "extensions",
   "cookies",
   "sync",
-  "remote",
+  "traffic",
   "recipes",
+  "remote",
 ] as const;
 export const CORE_TOOLSET = "core";
 

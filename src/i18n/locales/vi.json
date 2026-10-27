@@ -136,16 +136,16 @@
       "title": "Trình duyệt mặc định",
       "setAsDefault": "Đặt làm trình duyệt mặc định",
       "alreadyDefault": "Đã là trình duyệt mặc định",
-      "description": "Khi được đặt làm mặc định, donutOS sẽ xử lý các liên kết web và cho phép bạn chọn hồ sơ để sử dụng.",
-      "setSuccess": "donutOS hiện là trình duyệt mặc định của bạn",
+      "description": "Khi được đặt làm mặc định, donutos sẽ xử lý các liên kết web và cho phép bạn chọn hồ sơ để sử dụng.",
+      "setSuccess": "donutos hiện là trình duyệt mặc định của bạn",
       "setFailed": "Không thể đặt trình duyệt mặc định",
       "finishInSystemSettings": "Hoàn tất trong Cài đặt Windows",
-      "finishInSystemSettingsDescription": "donutOS đã được đăng ký. Cài đặt Windows đang mở: chọn donutOS trong mục Trình duyệt web để hoàn tất."
+      "finishInSystemSettingsDescription": "donutos đã được đăng ký. Cài đặt Windows đang mở: chọn donutos trong mục Trình duyệt web để hoàn tất."
     },
     "permissions": {
       "title": "Quyền hệ thống",
       "loading": "Đang tải quyền...",
-      "description": "Các quyền này cho phép trình duyệt được khởi chạy từ donutOS truy cập tài nguyên hệ thống. Mỗi trang web vẫn sẽ yêu cầu quyền riêng lẻ.",
+      "description": "Các quyền này cho phép trình duyệt được khởi chạy từ donutos truy cập tài nguyên hệ thống. Mỗi trang web vẫn sẽ yêu cầu quyền riêng lẻ.",
       "microphone": "Micro",
       "microphoneDescription": "Quyền truy cập micro cho ứng dụng trình duyệt",
       "camera": "Camera",
@@ -189,7 +189,7 @@
       "trialExpired": "Đã hết hạn dùng thử",
       "trialExpiredDescription": "Sử dụng cá nhân vẫn miễn phí. Sử dụng thương mại cần giấy phép.",
       "subscriptionActive": "Đã đăng ký — gói {{plan}}",
-      "subscriptionActiveDescription": "Đăng ký donutOS của bạn đang hoạt động. Sử dụng thương mại được cấp phép trong thời hạn gói."
+      "subscriptionActiveDescription": "Đăng ký donutos của bạn đang hoạt động. Sử dụng thương mại được cấp phép trong thời hạn gói."
     },
     "advanced": {
       "title": "Nâng cao",
@@ -202,7 +202,7 @@
       "copyLogsDescription": "Sao chép gói nhật ký gần đây đã được che thông tin nhạy cảm (tối đa 5 MB). Hãy xem lại trước khi chia sẻ vì việc che dữ liệu không thể nhận diện mọi loại dữ liệu cá nhân."
     },
     "disableAutoUpdates": "Tắt tự động cập nhật ứng dụng",
-    "disableAutoUpdatesDescription": "Ngăn ứng dụng tự động kiểm tra và cài đặt bản cập nhật donutOS. Cập nhật trình duyệt không bị ảnh hưởng.",
+    "disableAutoUpdatesDescription": "Ngăn ứng dụng tự động kiểm tra và cài đặt bản cập nhật donutos. Cập nhật trình duyệt không bị ảnh hưởng.",
     "keepDecryptedProfilesInRam": "Giữ hồ sơ đã giải mã trong RAM",
     "keepDecryptedProfilesInRamDescription": "Giữ bản sao đã giải mã trong RAM của hồ sơ được bảo vệ bằng mật khẩu giữa các lần khởi chạy để khởi động nhanh hơn. Bản sao trên ổ đĩa vẫn được mã hóa.",
     "privacy": {
@@ -232,9 +232,9 @@
       "chooseTitle": "Chọn một thư mục cho thư mục dữ liệu",
       "move": "Chuyển",
       "willMoveTo": "Mọi thứ sẽ chuyển đến",
-      "moved": "Đã chuyển thư mục dữ liệu. Khởi động lại donutOS để dùng nó.",
+      "moved": "Đã chuyển thư mục dữ liệu. Khởi động lại donutos để dùng nó.",
       "reading": "Đang đọc thư mục dữ liệu…",
-      "restartRequired": "Khởi động lại donutOS để dùng vị trí mới. Đến lúc đó nó vẫn chạy từ vị trí cũ.",
+      "restartRequired": "Khởi động lại donutos để dùng vị trí mới. Đến lúc đó nó vẫn chạy từ vị trí cũ.",
       "environmentOverride": "DONUTBROWSER_DATA_DIR đã được đặt, nên ứng dụng dùng vị trí đó dù bạn chọn gì ở đây.",
       "missing": "Không thấy thư mục dữ liệu đã chọn. Nếu nó nằm trên ổ rời, hãy cắm lại và khởi động lại.",
       "useDefault": "Dùng lại vị trí mặc định",
@@ -283,7 +283,7 @@
       "extensions": "Tiện ích mở rộng"
     },
     "newProfile": "Mới",
-    "donutLogo": "Logo donutOS",
+    "donutLogo": "Logo donutos",
     "scrollGroupsLeft": "Cuộn nhóm sang trái",
     "scrollGroupsRight": "Cuộn nhóm sang phải"
   },
@@ -1566,7 +1566,7 @@
     "launchHook": {
       "title": "URL hook khởi chạy",
       "label": "URL hook khởi chạy",
-      "description": "donutOS sẽ gửi yêu cầu GET đến URL này mỗi khi profile được khởi chạy.",
+      "description": "donutos sẽ gửi yêu cầu GET đến URL này mỗi khi profile được khởi chạy.",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "Nhập URL http:// hoặc https:// hợp lệ."
     },
@@ -2146,7 +2146,7 @@
   },
   "wayfernTerms": {
     "title": "Điều khoản và điều kiện Wayfern",
-    "description": "Trước khi sử dụng donutOS, bạn phải đọc và đồng ý với Điều khoản và Điều kiện của Wayfern.",
+    "description": "Trước khi sử dụng donutos, bạn phải đọc và đồng ý với Điều khoản và Điều kiện của Wayfern.",
     "reviewLabel": "Vui lòng xem lại Điều khoản và Điều kiện tại:",
     "agreeNotice": "Bằng cách nhấn \"Tôi chấp nhận\", bạn đồng ý bị ràng buộc bởi các điều khoản này.",
     "acceptButton": "Tôi chấp nhận",
@@ -2157,7 +2157,7 @@
   "commercialTrial": {
     "title": "Thời gian dùng thử thương mại đã hết",
     "description": "Thời gian dùng thử thương mại 2 tuần của bạn đã kết thúc.",
-    "body": "Nếu bạn sử dụng donutOS cho mục đích thương mại, bạn cần mua giấy phép thương mại để tiếp tục. Bạn vẫn có thể sử dụng miễn phí cho mục đích cá nhân.",
+    "body": "Nếu bạn sử dụng donutos cho mục đích thương mại, bạn cần mua giấy phép thương mại để tiếp tục. Bạn vẫn có thể sử dụng miễn phí cho mục đích cá nhân.",
     "understandButton": "Tôi hiểu",
     "failed": "Lưu xác nhận thất bại",
     "tryAgain": "Vui lòng thử lại"
@@ -2165,10 +2165,10 @@
   "permissionDialog": {
     "titleMicrophone": "Yêu cầu quyền truy cập micro",
     "titleCamera": "Yêu cầu quyền truy cập camera",
-    "descMicrophone": "donutOS cần quyền truy cập micro để bật tính năng micro trong trình duyệt web. Mỗi trang web muốn sử dụng micro vẫn sẽ hỏi quyền bạn riêng lẻ.",
-    "descCamera": "donutOS cần quyền truy cập camera để bật tính năng camera trong trình duyệt web. Mỗi trang web muốn sử dụng camera vẫn sẽ hỏi quyền bạn riêng lẻ.",
-    "grantedMicrophone": "Đã cấp quyền! Trình duyệt khởi chạy từ donutOS giờ có thể truy cập micro của bạn.",
-    "grantedCamera": "Đã cấp quyền! Trình duyệt khởi chạy từ donutOS giờ có thể truy cập camera của bạn.",
+    "descMicrophone": "donutos cần quyền truy cập micro để bật tính năng micro trong trình duyệt web. Mỗi trang web muốn sử dụng micro vẫn sẽ hỏi quyền bạn riêng lẻ.",
+    "descCamera": "donutos cần quyền truy cập camera để bật tính năng camera trong trình duyệt web. Mỗi trang web muốn sử dụng camera vẫn sẽ hỏi quyền bạn riêng lẻ.",
+    "grantedMicrophone": "Đã cấp quyền! Trình duyệt khởi chạy từ donutos giờ có thể truy cập micro của bạn.",
+    "grantedCamera": "Đã cấp quyền! Trình duyệt khởi chạy từ donutos giờ có thể truy cập camera của bạn.",
     "notGrantedMicrophone": "Chưa cấp quyền. Nhấn nút bên dưới để yêu cầu quyền truy cập micro.",
     "notGrantedCamera": "Chưa cấp quyền. Nhấn nút bên dưới để yêu cầu quyền truy cập camera.",
     "doneButton": "Xong",
@@ -2288,7 +2288,7 @@
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "Cập nhật donutOS thất bại",
+      "updateFailed": "Cập nhật donutos thất bại",
       "restartFailed": "Khởi động lại thất bại",
       "updateReady": "Bản cập nhật sẵn sàng, khởi động lại để áp dụng",
       "manualDownloadRequired": "Cần tải xuống thủ công",
@@ -2382,7 +2382,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "Quan trọng: mật khẩu này không thể khôi phục",
-      "forgetWarningBody": "donutOS không thể đặt lại, khôi phục hoặc bỏ qua mật khẩu này. Nếu bạn quên, bạn sẽ mất quyền truy cập vĩnh viễn vào dữ liệu profile này."
+      "forgetWarningBody": "donutos không thể đặt lại, khôi phục hoặc bỏ qua mật khẩu này. Nếu bạn quên, bạn sẽ mất quyền truy cập vĩnh viễn vào dữ liệu profile này."
     },
     "modes": {
       "set": "Đặt",
@@ -2465,20 +2465,20 @@
     "dnsRulesSaveFailed": "Không thể lưu quy tắc DNS.",
     "dnsRulesExportFailed": "Không thể xuất quy tắc DNS.",
     "fingerprintMatchFailed": "Không thể khớp vân tay với proxy.",
-    "proxySidecarVersionMismatch": "Một số tệp donutOS thuộc các phiên bản khác nhau. Hãy cài đặt lại bản cập nhật mới nhất; hồ sơ của bạn vẫn được giữ an toàn.",
+    "proxySidecarVersionMismatch": "Một số tệp donutos thuộc các phiên bản khác nhau. Hãy cài đặt lại bản cập nhật mới nhất; hồ sơ của bạn vẫn được giữ an toàn.",
     "updateProfilesRunning": "Hãy dừng tất cả hồ sơ đang chạy trước khi cài đặt bản cập nhật.",
-    "updatePreparationFailed": "donutOS không thể dừng an toàn một tiến trình mạng chạy nền. Hãy khởi động lại máy tính rồi thử cập nhật lại.",
+    "updatePreparationFailed": "donutos không thể dừng an toàn một tiến trình mạng chạy nền. Hãy khởi động lại máy tính rồi thử cập nhật lại.",
     "wayfernTermsRequired": "Hãy chấp nhận Điều khoản và Điều kiện của Wayfern để sử dụng Wayfern.",
     "apiPortUnavailable": "Máy chủ API không tìm thấy cổng khả dụng.",
     "mcpAgentUnknown": "Ứng dụng MCP này không được hỗ trợ.",
-    "mcpAgentInstallFailed": "Không thể thêm donutOS vào ứng dụng MCP: {{detail}}",
-    "mcpAgentRemoveFailed": "Không thể xóa donutOS khỏi ứng dụng MCP: {{detail}}",
+    "mcpAgentInstallFailed": "Không thể thêm donutos vào ứng dụng MCP: {{detail}}",
+    "mcpAgentRemoveFailed": "Không thể xóa donutos khỏi ứng dụng MCP: {{detail}}",
     "vlessConfigInvalid": "Liên kết chia sẻ không hợp lệ.",
     "xrayUnavailable": "Xray-core không khả dụng trên hệ thống này.",
     "xrayUnsupportedOs": "Proxy VLESS, VMess, Trojan và Hysteria2 yêu cầu macOS 12 trở lên.",
     "xrayStartFailed": "Không thể khởi động Xray-core.",
-    "cloudNotSignedIn": "Hãy đăng nhập tài khoản donutOS để dùng tính năng này.",
-    "cloudUnreachable": "Không kết nối được tới máy chủ donutOS. Hãy kiểm tra kết nối và thử lại.",
+    "cloudNotSignedIn": "Hãy đăng nhập tài khoản donutos để dùng tính năng này.",
+    "cloudUnreachable": "Không kết nối được tới máy chủ donutos. Hãy kiểm tra kết nối và thử lại.",
     "cloudRequestFailed": "Yêu cầu thất bại. Hãy thử lại sau giây lát.",
     "remoteRateLimited": "Quá nhiều yêu cầu. Hãy đợi một lát rồi thử lại.",
     "remoteNoCapacity": "Hiện không có máy từ xa nào rảnh. Hãy thử lại sau vài phút.",
@@ -2554,7 +2554,7 @@
     "profileExportFailed": "Không thể xuất hồ sơ này. {{detail}}",
     "profileExportTooLarge": "Hồ sơ này quá lớn để xuất. Hãy xóa bớt dữ liệu duyệt web rồi thử lại.",
     "profileImportFailed": "Không thể đọc tệp lưu trữ này. {{detail}}",
-    "profileImportTooNew": "Tệp này được tạo bởi phiên bản donutOS mới hơn. Hãy cập nhật ứng dụng rồi thử lại.",
+    "profileImportTooNew": "Tệp này được tạo bởi phiên bản donutos mới hơn. Hãy cập nhật ứng dụng rồi thử lại.",
     "profileImportUnsafeArchive": "Tệp này cố ghi ra ngoài thư mục hồ sơ nên đã bị từ chối.",
     "recordingAlreadyRunning": "Đã có một bản ghi đang chạy. Hãy dừng nó trước khi bắt đầu bản mới.",
     "profileNotRunning": "Trình duyệt của hồ sơ này chưa chạy. Hãy khởi động nó trước.",
@@ -2721,7 +2721,7 @@
       "importProfileHint": "Đưa profile từ công cụ khác",
       "keyboardShortcuts": "Phím tắt",
       "keyboardShortcutsHint": "Xem tất cả phím tắt",
-      "about": "Giới thiệu về donutOS",
+      "about": "Giới thiệu về donutos",
       "aboutHint": "Phiên bản và thông tin ứng dụng",
       "trash": "Thùng rác",
       "trashHint": "Khôi phục hồ sơ đã xóa",
@@ -2845,7 +2845,7 @@
       "stopProfile": "Dừng {{name}}",
       "profileInfo": "Thông tin — {{name}}",
       "createProfile": "Tạo hồ sơ",
-      "about": "Giới thiệu về donutOS"
+      "about": "Giới thiệu về donutos"
     }
   },
   "shortcuts": {
@@ -2867,13 +2867,13 @@
     "openTotp": "Mã 2FA từ khóa"
   },
   "closeConfirm": {
-    "title": "Đóng donutOS?",
+    "title": "Đóng donutos?",
     "description": "Bạn muốn thu nhỏ ứng dụng vào khay hệ thống hay thoát?",
     "minimize": "Thu nhỏ vào khay",
     "quit": "Thoát"
   },
   "tray": {
-    "show": "Hiển thị donutOS",
+    "show": "Hiển thị donutos",
     "quit": "Thoát"
   },
   "onboarding": {
@@ -2894,13 +2894,13 @@
       "finish": "Hoàn tất"
     },
     "thankYou": {
-      "title": "Cảm ơn bạn đã chọn donutOS",
+      "title": "Cảm ơn bạn đã chọn donutos",
       "body": "Hy vọng nó giúp việc duyệt web của bạn riêng tư hơn — mỗi danh tính được giữ riêng, và không có gì rời khỏi máy của bạn. Chúc bạn duyệt web vui vẻ.",
       "cta": "Bắt đầu duyệt web"
     }
   },
   "welcome": {
-    "title": "Chào mừng đến với donutOS",
+    "title": "Chào mừng đến với donutos",
     "tagline": "Trình duyệt chống phát hiện mã nguồn mở để quản lý nhiều danh tính cùng lúc.",
     "skip": "Bỏ qua",
     "next": "Tiếp theo",
@@ -2944,7 +2944,7 @@
     },
     "license": {
       "title": "Cấp phép",
-      "body": "donutOS là mã nguồn mở và miễn phí sử dụng.",
+      "body": "donutos là mã nguồn mở và miễn phí sử dụng.",
       "agree": "Tôi hiểu",
       "personalTitle": "Sử dụng cá nhân",
       "personalDesc": "Miễn phí vĩnh viễn.",
@@ -3545,7 +3545,7 @@
       "waitingTitle": "Đang chờ tác nhân của bạn",
       "waitingBody": "Thêm Donut vào tác nhân, rồi dán hướng dẫn bên dưới vào đó để nó trao đổi với bạn trong khi làm việc.",
       "starterLabel": "Hướng dẫn cho tác nhân",
-      "starter": "Bạn có thể điều khiển các hồ sơ donutOS của tôi bằng các công cụ Donut. Khi bắt đầu và giữa các bước, hãy gọi get_human_updates để đọc ghi chú của tôi và xem tôi đang dùng hồ sơ nào. Nếu không chắc phải làm gì, hãy hỏi tôi bằng ask_human. Nếu một trang cần đến người thật, chẳng hạn để đăng nhập, xác minh hoặc thanh toán, hãy gọi request_human_help và chờ đến khi tôi trả lại hồ sơ. Trong các công việc dài, hãy gọi report_progress để tôi biết bạn đã làm đến đâu.",
+      "starter": "Bạn có thể điều khiển các hồ sơ donutos của tôi bằng các công cụ Donut. Khi bắt đầu và giữa các bước, hãy gọi get_human_updates để đọc ghi chú của tôi và xem tôi đang dùng hồ sơ nào. Nếu không chắc phải làm gì, hãy hỏi tôi bằng ask_human. Nếu một trang cần đến người thật, chẳng hạn để đăng nhập, xác minh hoặc thanh toán, hãy gọi request_human_help và chờ đến khi tôi trả lại hồ sơ. Trong các công việc dài, hãy gọi report_progress để tôi biết bạn đã làm đến đâu.",
       "starterCopied": "Đã sao chép hướng dẫn"
     },
     "request": {
@@ -4174,6 +4174,17 @@
     "kind": {
       "auto": "Hằng ngày",
       "manual": "Thủ công"
+    }
+  },
+  "localActivity": {
+    "title": "Nhật ký hoạt động",
+    "description": "Máy tính này đã làm: khởi chạy, các lần chạy Cookie Bot, cài đặt engine.",
+    "loading": "Đang tải…",
+    "empty": "Chưa có hoạt động.",
+    "kinds": {
+      "profile_launched": "Đã khởi chạy hồ sơ: {{subject}}",
+      "cookiebot_run": "Lượt chạy Cookie Bot: {{subject}}",
+      "engine_installed": "Đã cài engine: {{subject}}"
     }
   }
 }

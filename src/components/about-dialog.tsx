@@ -254,7 +254,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                 )}
 
                 <div className="text-center">
-                  <p className="text-lg font-semibold">donutOS</p>
+                  <p className="text-lg font-semibold">donutos</p>
                   {systemInfo && (
                     <>
                       <p className="text-sm text-muted-foreground">

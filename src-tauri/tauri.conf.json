@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "donutOS",
+  "productName": "donutos",
   "version": "0.34.0",
   "identifier": "com.donutbrowser.free",
   "build": {
@@ -28,18 +28,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg",
-      "nsis",
-      "deb",
-      "rpm",
-      "appimage"
-    ],
+    "targets": ["app", "dmg", "nsis", "deb", "rpm", "appimage"],
     "category": "Productivity",
-    "externalBin": [
-      "binaries/xray"
-    ],
+    "externalBin": ["binaries/xray"],
     "resources": {
       "binaries/xray-LICENSE.txt": "licenses/Xray-core-LICENSE.txt"
     },
@@ -63,19 +54,11 @@
     "linux": {
       "deb": {
         "desktopTemplate": "donutbrowser.desktop",
-        "depends": [
-          "xdg-utils",
-          "libxdo3",
-          "libayatana-appindicator3-1"
-        ]
+        "depends": ["xdg-utils", "libxdo3", "libayatana-appindicator3-1"]
       },
       "rpm": {
         "desktopTemplate": "donutbrowser.desktop",
-        "depends": [
-          "xdg-utils",
-          "libxdo",
-          "libayatana-appindicator-gtk3"
-        ]
+        "depends": ["xdg-utils", "libxdo", "libayatana-appindicator-gtk3"]
       },
       "appimage": {
         "files": {
@@ -95,10 +78,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "http",
-          "https"
-        ]
+        "schemes": ["http", "https"]
       }
     }
   }

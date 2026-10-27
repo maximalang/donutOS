@@ -908,6 +908,15 @@ impl BrowserRunner {
         "{launched} elapsed_ms={}",
         launch_started.elapsed().as_millis()
       );
+      // Local activity journal: every launch is the unit of work the
+      // activity feed is built from.
+      if let Err(e) = crate::local_activity::record(
+        "profile.launched",
+        &updated_profile.name,
+        Some(&format!("browser={}", updated_profile.browser)),
+      ) {
+        log::warn!("Activity journal write failed err=\"{e}\"");
+      }
 
       // Update profile with the process info
       updated_profile.process_id = Some(process_id);

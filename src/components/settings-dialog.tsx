@@ -1969,7 +1969,7 @@ export function SettingsDialog({
               {systemInfo && !needle && (
                 <div className="border-t pt-2">
                   <p className="font-mono text-xs whitespace-pre-line text-muted-foreground select-all">
-                    {`donutOS ${systemInfo.app_version}\n${systemInfo.os} ${systemInfo.arch}${systemInfo.portable ? " (portable)" : ""}`}
+                    {`donutos ${systemInfo.app_version}\n${systemInfo.os} ${systemInfo.arch}${systemInfo.portable ? " (portable)" : ""}`}
                   </p>
                 </div>
               )}

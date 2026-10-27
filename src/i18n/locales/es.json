@@ -136,16 +136,16 @@
       "title": "Navegador Predeterminado",
       "setAsDefault": "Establecer como Navegador Predeterminado",
       "alreadyDefault": "Ya es el Navegador Predeterminado",
-      "description": "Cuando se establece como predeterminado, donutOS manejará los enlaces web y te permitirá elegir qué perfil usar.",
-      "setSuccess": "donutOS ya es tu navegador predeterminado",
+      "description": "Cuando se establece como predeterminado, donutos manejará los enlaces web y te permitirá elegir qué perfil usar.",
+      "setSuccess": "donutos ya es tu navegador predeterminado",
       "setFailed": "No se pudo establecer el navegador predeterminado",
       "finishInSystemSettings": "Termina en la Configuración de Windows",
-      "finishInSystemSettingsDescription": "donutOS está registrado. Se abrió la Configuración de Windows: elige donutOS en Navegador web para terminar."
+      "finishInSystemSettingsDescription": "donutos está registrado. Se abrió la Configuración de Windows: elige donutos en Navegador web para terminar."
     },
     "permissions": {
       "title": "Permisos del Sistema",
       "loading": "Cargando permisos...",
-      "description": "Estos permisos permiten que los navegadores iniciados desde donutOS accedan a los recursos del sistema. Cada sitio web seguirá pidiendo tu permiso individualmente.",
+      "description": "Estos permisos permiten que los navegadores iniciados desde donutos accedan a los recursos del sistema. Cada sitio web seguirá pidiendo tu permiso individualmente.",
       "microphone": "Micrófono",
       "microphoneDescription": "Acceso al micrófono para aplicaciones del navegador",
       "camera": "Cámara",
@@ -189,7 +189,7 @@
       "trialExpired": "Prueba expirada",
       "trialExpiredDescription": "El uso personal sigue siendo gratuito. El uso comercial requiere una licencia.",
       "subscriptionActive": "Suscrito — plan {{plan}}",
-      "subscriptionActiveDescription": "Tu suscripción a donutOS está activa. El uso comercial está autorizado mientras tu plan esté vigente."
+      "subscriptionActiveDescription": "Tu suscripción a donutos está activa. El uso comercial está autorizado mientras tu plan esté vigente."
     },
     "advanced": {
       "title": "Avanzado",
@@ -202,7 +202,7 @@
       "copyLogsDescription": "Copia un paquete censurado de los registros recientes (hasta 5 MB). Revísalo antes de compartirlo, ya que la censura no puede identificar todos los tipos de datos personales."
     },
     "disableAutoUpdates": "Desactivar Actualizaciones Automáticas de la App",
-    "disableAutoUpdatesDescription": "Evita que la aplicación busque e instale actualizaciones de donutOS automáticamente. Las actualizaciones de navegadores no se ven afectadas.",
+    "disableAutoUpdatesDescription": "Evita que la aplicación busque e instale actualizaciones de donutos automáticamente. Las actualizaciones de navegadores no se ven afectadas.",
     "keepDecryptedProfilesInRam": "Mantener Perfiles Descifrados en RAM",
     "keepDecryptedProfilesInRamDescription": "Conservar la copia descifrada en RAM de los perfiles protegidos por contraseña entre lanzamientos para un inicio más rápido. La copia en disco permanece cifrada en cualquier caso.",
     "privacy": {
@@ -233,9 +233,9 @@
       "chooseTitle": "Elige una carpeta para el directorio de datos",
       "move": "Mover",
       "willMoveTo": "Todo se mueve a",
-      "moved": "Directorio de datos movido. Reinicia donutOS para usarlo.",
+      "moved": "Directorio de datos movido. Reinicia donutos para usarlo.",
       "reading": "Leyendo el directorio de datos...",
-      "restartRequired": "Reinicia donutOS para usar la nueva ubicación. Hasta entonces sigue funcionando desde la anterior.",
+      "restartRequired": "Reinicia donutos para usar la nueva ubicación. Hasta entonces sigue funcionando desde la anterior.",
       "environmentOverride": "DONUTBROWSER_DATA_DIR está definido, así que la aplicación usa esa ubicación sea cual sea la elegida aquí.",
       "missing": "El directorio de datos elegido no está. Si está en una unidad extraíble, vuelve a conectarla y reinicia.",
       "useDefault": "Volver a la ubicación predeterminada",
@@ -284,7 +284,7 @@
       "extensions": "Extensiones"
     },
     "newProfile": "Nuevo",
-    "donutLogo": "Logotipo de donutOS",
+    "donutLogo": "Logotipo de donutos",
     "scrollGroupsLeft": "Desplazar grupos a la izquierda",
     "scrollGroupsRight": "Desplazar grupos a la derecha"
   },
@@ -1577,7 +1577,7 @@
     "launchHook": {
       "title": "URL del hook de inicio",
       "label": "URL del hook de inicio",
-      "description": "donutOS enviará una solicitud GET a esta URL cada vez que se inicie el perfil.",
+      "description": "donutos enviará una solicitud GET a esta URL cada vez que se inicie el perfil.",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "Introduce una URL válida http:// o https://."
     },
@@ -2166,7 +2166,7 @@
   },
   "wayfernTerms": {
     "title": "Términos y condiciones de Wayfern",
-    "description": "Antes de usar donutOS, debes leer y aceptar los Términos y Condiciones de Wayfern.",
+    "description": "Antes de usar donutos, debes leer y aceptar los Términos y Condiciones de Wayfern.",
     "reviewLabel": "Por favor, revisa los Términos y Condiciones en:",
     "agreeNotice": "Al hacer clic en \"Acepto\", aceptas estos términos.",
     "acceptButton": "Acepto",
@@ -2177,7 +2177,7 @@
   "commercialTrial": {
     "title": "Periodo de prueba comercial expirado",
     "description": "Tu periodo de prueba comercial de 2 semanas ha terminado.",
-    "body": "Si usas donutOS con fines comerciales, debes adquirir una licencia comercial para continuar. Puedes seguir usándolo de forma personal gratis.",
+    "body": "Si usas donutos con fines comerciales, debes adquirir una licencia comercial para continuar. Puedes seguir usándolo de forma personal gratis.",
     "understandButton": "Entendido",
     "failed": "Error al guardar el reconocimiento",
     "tryAgain": "Por favor, inténtalo de nuevo"
@@ -2185,10 +2185,10 @@
   "permissionDialog": {
     "titleMicrophone": "Se requiere acceso al micrófono",
     "titleCamera": "Se requiere acceso a la cámara",
-    "descMicrophone": "donutOS necesita acceso a tu micrófono para activar la funcionalidad de micrófono en los navegadores. Cada sitio web que quiera usar tu micrófono te lo pedirá individualmente.",
-    "descCamera": "donutOS necesita acceso a tu cámara para activar la funcionalidad de cámara en los navegadores. Cada sitio web que quiera usar tu cámara te lo pedirá individualmente.",
-    "grantedMicrophone": "¡Permiso concedido! Los navegadores lanzados desde donutOS ya pueden acceder a tu micrófono.",
-    "grantedCamera": "¡Permiso concedido! Los navegadores lanzados desde donutOS ya pueden acceder a tu cámara.",
+    "descMicrophone": "donutos necesita acceso a tu micrófono para activar la funcionalidad de micrófono en los navegadores. Cada sitio web que quiera usar tu micrófono te lo pedirá individualmente.",
+    "descCamera": "donutos necesita acceso a tu cámara para activar la funcionalidad de cámara en los navegadores. Cada sitio web que quiera usar tu cámara te lo pedirá individualmente.",
+    "grantedMicrophone": "¡Permiso concedido! Los navegadores lanzados desde donutos ya pueden acceder a tu micrófono.",
+    "grantedCamera": "¡Permiso concedido! Los navegadores lanzados desde donutos ya pueden acceder a tu cámara.",
     "notGrantedMicrophone": "Permiso no concedido. Haz clic en el botón para solicitar acceso a tu micrófono.",
     "notGrantedCamera": "Permiso no concedido. Haz clic en el botón para solicitar acceso a tu cámara.",
     "doneButton": "Hecho",
@@ -2308,7 +2308,7 @@
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "Error al actualizar donutOS",
+      "updateFailed": "Error al actualizar donutos",
       "restartFailed": "Error al reiniciar",
       "updateReady": "Actualización lista, reinicia para aplicar",
       "manualDownloadRequired": "Descarga manual requerida",
@@ -2402,7 +2402,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "Importante: esta contraseña no se puede recuperar",
-      "forgetWarningBody": "donutOS no puede restablecer, recuperar ni omitir esta contraseña. Si la olvidas, perderás permanentemente el acceso a los datos de este perfil."
+      "forgetWarningBody": "donutos no puede restablecer, recuperar ni omitir esta contraseña. Si la olvidas, perderás permanentemente el acceso a los datos de este perfil."
     },
     "modes": {
       "set": "Establecer",
@@ -2485,20 +2485,20 @@
     "dnsRulesSaveFailed": "No se pudieron guardar las reglas DNS.",
     "dnsRulesExportFailed": "No se pudieron exportar las reglas DNS.",
     "fingerprintMatchFailed": "No se pudo ajustar la huella al proxy.",
-    "proxySidecarVersionMismatch": "Algunos archivos de donutOS pertenecen a versiones diferentes. Reinstala la última actualización; tus perfiles permanecerán seguros.",
+    "proxySidecarVersionMismatch": "Algunos archivos de donutos pertenecen a versiones diferentes. Reinstala la última actualización; tus perfiles permanecerán seguros.",
     "updateProfilesRunning": "Detén todos los perfiles en ejecución antes de instalar la actualización.",
-    "updatePreparationFailed": "donutOS no pudo detener de forma segura un proceso de red en segundo plano. Reinicia el equipo y vuelve a intentar la actualización.",
+    "updatePreparationFailed": "donutos no pudo detener de forma segura un proceso de red en segundo plano. Reinicia el equipo y vuelve a intentar la actualización.",
     "wayfernTermsRequired": "Acepta los Términos y condiciones de Wayfern para usar Wayfern.",
     "apiPortUnavailable": "El servidor API no pudo encontrar un puerto disponible.",
     "mcpAgentUnknown": "Este cliente MCP no es compatible.",
-    "mcpAgentInstallFailed": "No se pudo añadir donutOS al cliente MCP: {{detail}}",
-    "mcpAgentRemoveFailed": "No se pudo eliminar donutOS del cliente MCP: {{detail}}",
+    "mcpAgentInstallFailed": "No se pudo añadir donutos al cliente MCP: {{detail}}",
+    "mcpAgentRemoveFailed": "No se pudo eliminar donutos del cliente MCP: {{detail}}",
     "vlessConfigInvalid": "El enlace para compartir no es válido.",
     "xrayUnavailable": "Xray-core no está disponible en este sistema.",
     "xrayUnsupportedOs": "Los proxies VLESS, VMess, Trojan y Hysteria2 requieren macOS 12 o posterior.",
     "xrayStartFailed": "No se pudo iniciar Xray-core.",
-    "cloudNotSignedIn": "Inicia sesión en tu cuenta de donutOS para usar esto.",
-    "cloudUnreachable": "No se pudo contactar con los servidores de donutOS. Comprueba tu conexión e inténtalo de nuevo.",
+    "cloudNotSignedIn": "Inicia sesión en tu cuenta de donutos para usar esto.",
+    "cloudUnreachable": "No se pudo contactar con los servidores de donutos. Comprueba tu conexión e inténtalo de nuevo.",
     "cloudRequestFailed": "La solicitud falló. Inténtalo de nuevo en un momento.",
     "remoteRateLimited": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
     "remoteNoCapacity": "Ahora mismo no hay ninguna máquina remota libre. Inténtalo de nuevo en unos minutos.",
@@ -2574,7 +2574,7 @@
     "profileExportFailed": "No se pudo exportar este perfil. {{detail}}",
     "profileExportTooLarge": "Este perfil es demasiado grande para exportarlo. Borra parte de sus datos de navegación e inténtalo de nuevo.",
     "profileImportFailed": "No se pudo leer este archivo. {{detail}}",
-    "profileImportTooNew": "Este archivo se creó con una versión más reciente de donutOS. Actualiza la aplicación e inténtalo de nuevo.",
+    "profileImportTooNew": "Este archivo se creó con una versión más reciente de donutos. Actualiza la aplicación e inténtalo de nuevo.",
     "profileImportUnsafeArchive": "Este archivo intenta escribir fuera de la carpeta del perfil, así que se rechazó.",
     "recordingAlreadyRunning": "Ya hay una grabación en curso. Deténla antes de empezar otra.",
     "profileNotRunning": "El navegador de este perfil no se está ejecutando. Inícialo primero.",
@@ -2741,7 +2741,7 @@
       "importProfileHint": "Trae perfiles de otra herramienta",
       "keyboardShortcuts": "Atajos de teclado",
       "keyboardShortcutsHint": "Ver todos los atajos",
-      "about": "Acerca de donutOS",
+      "about": "Acerca de donutos",
       "aboutHint": "Versión e información de la aplicación",
       "trash": "Papelera",
       "trashHint": "Restaurar perfiles eliminados",
@@ -2865,7 +2865,7 @@
       "stopProfile": "Detener {{name}}",
       "profileInfo": "Información — {{name}}",
       "createProfile": "Crear perfil",
-      "about": "Acerca de donutOS"
+      "about": "Acerca de donutos"
     }
   },
   "shortcuts": {
@@ -2887,13 +2887,13 @@
     "openTotp": "Código 2FA desde una clave"
   },
   "closeConfirm": {
-    "title": "¿Cerrar donutOS?",
+    "title": "¿Cerrar donutos?",
     "description": "¿Quieres enviar la aplicación a la bandeja del sistema o salir?",
     "minimize": "Minimizar a la bandeja",
     "quit": "Salir"
   },
   "tray": {
-    "show": "Mostrar donutOS",
+    "show": "Mostrar donutos",
     "quit": "Salir"
   },
   "onboarding": {
@@ -2914,13 +2914,13 @@
       "finish": "Finalizar"
     },
     "thankYou": {
-      "title": "Gracias por elegir donutOS",
+      "title": "Gracias por elegir donutos",
       "body": "Ojalá ayude a hacer tu navegación más privada: cada identidad por separado y sin que nada salga de tu equipo. ¡Que lo disfrutes!",
       "cta": "Empezar a navegar"
     }
   },
   "welcome": {
-    "title": "Te damos la bienvenida a donutOS",
+    "title": "Te damos la bienvenida a donutos",
     "tagline": "Un navegador antidetección de código abierto para gestionar muchas identidades a la vez.",
     "skip": "Omitir",
     "next": "Siguiente",
@@ -2964,7 +2964,7 @@
     },
     "license": {
       "title": "Licencias",
-      "body": "donutOS es de código abierto y de uso gratuito.",
+      "body": "donutos es de código abierto y de uso gratuito.",
       "agree": "Entendido",
       "personalTitle": "Uso personal",
       "personalDesc": "Gratis para siempre.",
@@ -3588,7 +3588,7 @@
       "waitingTitle": "Esperando a tu agente",
       "waitingBody": "Añade Donut a tu agente y después pégale las instrucciones de abajo para que se comunique contigo mientras trabaja.",
       "starterLabel": "Instrucciones para tu agente",
-      "starter": "Puedes controlar mis perfiles de donutOS con las herramientas de Donut. Al empezar, y entre un paso y otro, llama a get_human_updates para leer mis notas y ver qué perfiles estoy usando. Si no sabes qué hacer, pregúntame con ask_human. Si una página necesita a una persona, por ejemplo para iniciar sesión, una verificación o un pago, llama a request_human_help y espera hasta que te devuelva el perfil. En tareas largas, llama a report_progress para que pueda ver cuánto llevas.",
+      "starter": "Puedes controlar mis perfiles de donutos con las herramientas de Donut. Al empezar, y entre un paso y otro, llama a get_human_updates para leer mis notas y ver qué perfiles estoy usando. Si no sabes qué hacer, pregúntame con ask_human. Si una página necesita a una persona, por ejemplo para iniciar sesión, una verificación o un pago, llama a request_human_help y espera hasta que te devuelva el perfil. En tareas largas, llama a report_progress para que pueda ver cuánto llevas.",
       "starterCopied": "Instrucciones copiadas"
     },
     "request": {
@@ -4219,6 +4219,17 @@
     "kind": {
       "auto": "Diario",
       "manual": "Manual"
+    }
+  },
+  "localActivity": {
+    "title": "Diario de actividad",
+    "description": "Lo que hizo este equipo: lanzamientos, corridas de Cookie Bot, instalaciones de motores.",
+    "loading": "Cargando…",
+    "empty": "Aún sin actividad.",
+    "kinds": {
+      "profile_launched": "Perfil iniciado: {{subject}}",
+      "cookiebot_run": "Corrida de Cookie Bot: {{subject}}",
+      "engine_installed": "Motor instalado: {{subject}}"
     }
   }
 }

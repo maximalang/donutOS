@@ -61,6 +61,8 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
       "type_locator",
       "extract_structured",
       "pick_element",
+      "select_option",
+      "file_upload",
       // The person watching
       "ask_human",
       "request_human_help",

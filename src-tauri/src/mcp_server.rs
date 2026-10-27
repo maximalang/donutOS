@@ -12471,7 +12471,7 @@ mod tests {
     // tool was added or removed on purpose.
     assert_eq!(
       tools.len(),
-      107,
+      118,
       "the tool list is a published contract; update this number deliberately"
     );
 

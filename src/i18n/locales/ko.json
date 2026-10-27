@@ -136,16 +136,16 @@
       "title": "기본 브라우저",
       "setAsDefault": "기본 브라우저로 설정",
       "alreadyDefault": "이미 기본 브라우저입니다",
-      "description": "기본 브라우저로 설정하면 donutOS가 웹 링크를 처리하고 사용할 프로필을 선택할 수 있습니다.",
-      "setSuccess": "이제 donutOS가 기본 브라우저입니다",
+      "description": "기본 브라우저로 설정하면 donutos가 웹 링크를 처리하고 사용할 프로필을 선택할 수 있습니다.",
+      "setSuccess": "이제 donutos가 기본 브라우저입니다",
       "setFailed": "기본 브라우저를 설정하지 못했습니다",
       "finishInSystemSettings": "Windows 설정에서 완료하세요",
-      "finishInSystemSettingsDescription": "donutOS가 등록되었습니다. Windows 설정이 열려 있습니다. '웹 브라우저'에서 donutOS를 선택하면 완료됩니다."
+      "finishInSystemSettingsDescription": "donutos가 등록되었습니다. Windows 설정이 열려 있습니다. '웹 브라우저'에서 donutos를 선택하면 완료됩니다."
     },
     "permissions": {
       "title": "시스템 권한",
       "loading": "권한 불러오는 중...",
-      "description": "이 권한은 donutOS에서 실행된 브라우저가 시스템 리소스에 액세스할 수 있도록 합니다. 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
+      "description": "이 권한은 donutos에서 실행된 브라우저가 시스템 리소스에 액세스할 수 있도록 합니다. 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
       "microphone": "마이크",
       "microphoneDescription": "브라우저 애플리케이션의 마이크 액세스",
       "camera": "카메라",
@@ -189,7 +189,7 @@
       "trialExpired": "체험판이 만료되었습니다",
       "trialExpiredDescription": "개인 사용은 무료로 유지됩니다. 상업적 사용에는 라이선스가 필요합니다.",
       "subscriptionActive": "구독 중 — {{plan}} 플랜",
-      "subscriptionActiveDescription": "donutOS 구독이 활성 상태입니다. 플랜 기간 동안 상업적 사용이 라이선스됩니다."
+      "subscriptionActiveDescription": "donutos 구독이 활성 상태입니다. 플랜 기간 동안 상업적 사용이 라이선스됩니다."
     },
     "advanced": {
       "title": "고급",
@@ -202,7 +202,7 @@
       "copyLogsDescription": "최근 로그를 민감 정보가 제거된 묶음으로 복사합니다(최대 5MB). 모든 유형의 개인 데이터를 식별할 수는 없으므로 공유하기 전에 검토하세요."
     },
     "disableAutoUpdates": "앱 자동 업데이트 사용 안 함",
-    "disableAutoUpdatesDescription": "donutOS 업데이트를 앱이 자동으로 확인하고 설치하지 않도록 합니다. 브라우저 업데이트는 영향을 받지 않습니다.",
+    "disableAutoUpdatesDescription": "donutos 업데이트를 앱이 자동으로 확인하고 설치하지 않도록 합니다. 브라우저 업데이트는 영향을 받지 않습니다.",
     "keepDecryptedProfilesInRam": "복호화된 프로필을 RAM에 유지",
     "keepDecryptedProfilesInRamDescription": "비밀번호로 보호된 프로필의 복호화된 RAM 사본을 실행 사이에 유지하여 시작 속도를 높입니다. 디스크의 사본은 그대로 암호화된 상태로 유지됩니다.",
     "privacy": {
@@ -232,9 +232,9 @@
       "chooseTitle": "데이터 디렉터리로 쓸 폴더를 선택하세요",
       "move": "옮기기",
       "willMoveTo": "모두 옮겨질 위치",
-      "moved": "데이터 디렉터리를 옮겼습니다. donutOS를 다시 시작하면 적용됩니다.",
+      "moved": "데이터 디렉터리를 옮겼습니다. donutos를 다시 시작하면 적용됩니다.",
       "reading": "데이터 디렉터리를 읽는 중…",
-      "restartRequired": "새 위치를 쓰려면 donutOS를 다시 시작하세요. 그때까지는 이전 위치에서 동작합니다.",
+      "restartRequired": "새 위치를 쓰려면 donutos를 다시 시작하세요. 그때까지는 이전 위치에서 동작합니다.",
       "environmentOverride": "DONUTBROWSER_DATA_DIR이 설정되어 있어, 여기서 무엇을 골라도 앱은 그 위치를 사용합니다.",
       "missing": "선택한 데이터 디렉터리가 없습니다. 이동식 드라이브에 있다면 다시 연결하고 재시작하세요.",
       "useDefault": "기본 위치로 되돌리기",
@@ -283,7 +283,7 @@
       "extensions": "확장 프로그램"
     },
     "newProfile": "새로 만들기",
-    "donutLogo": "donutOS 로고",
+    "donutLogo": "donutos 로고",
     "scrollGroupsLeft": "그룹 왼쪽으로 스크롤",
     "scrollGroupsRight": "그룹 오른쪽으로 스크롤"
   },
@@ -1566,7 +1566,7 @@
     "launchHook": {
       "title": "실행 후크 URL",
       "label": "실행 후크 URL",
-      "description": "donutOS는 프로필이 실행될 때마다 이 URL로 GET 요청을 보냅니다.",
+      "description": "donutos는 프로필이 실행될 때마다 이 URL로 GET 요청을 보냅니다.",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "유효한 http:// 또는 https:// URL을 입력하세요."
     },
@@ -2146,7 +2146,7 @@
   },
   "wayfernTerms": {
     "title": "Wayfern 이용 약관",
-    "description": "donutOS를 사용하기 전에 Wayfern의 이용 약관을 읽고 동의해야 합니다.",
+    "description": "donutos를 사용하기 전에 Wayfern의 이용 약관을 읽고 동의해야 합니다.",
     "reviewLabel": "다음 위치에서 이용 약관을 검토하세요:",
     "agreeNotice": "\"동의함\"을 클릭하면 이 약관에 동의하는 것입니다.",
     "acceptButton": "동의함",
@@ -2157,7 +2157,7 @@
   "commercialTrial": {
     "title": "상업용 체험판 만료됨",
     "description": "2주 상업용 체험판 기간이 종료되었습니다.",
-    "body": "donutOS를 비즈니스 용도로 사용하는 경우 계속 사용하려면 상업용 라이선스를 구매해야 합니다. 개인 용도로는 계속 무료로 사용할 수 있습니다.",
+    "body": "donutos를 비즈니스 용도로 사용하는 경우 계속 사용하려면 상업용 라이선스를 구매해야 합니다. 개인 용도로는 계속 무료로 사용할 수 있습니다.",
     "understandButton": "이해했습니다",
     "failed": "확인 저장 실패",
     "tryAgain": "다시 시도하세요"
@@ -2165,10 +2165,10 @@
   "permissionDialog": {
     "titleMicrophone": "마이크 액세스가 필요합니다",
     "titleCamera": "카메라 액세스가 필요합니다",
-    "descMicrophone": "donutOS는 웹 브라우저에서 마이크 기능을 활성화하기 위해 마이크에 액세스해야 합니다. 마이크를 사용하려는 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
-    "descCamera": "donutOS는 웹 브라우저에서 카메라 기능을 활성화하기 위해 카메라에 액세스해야 합니다. 카메라를 사용하려는 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
-    "grantedMicrophone": "권한이 허용되었습니다! 이제 donutOS에서 실행된 브라우저가 마이크에 액세스할 수 있습니다.",
-    "grantedCamera": "권한이 허용되었습니다! 이제 donutOS에서 실행된 브라우저가 카메라에 액세스할 수 있습니다.",
+    "descMicrophone": "donutos는 웹 브라우저에서 마이크 기능을 활성화하기 위해 마이크에 액세스해야 합니다. 마이크를 사용하려는 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
+    "descCamera": "donutos는 웹 브라우저에서 카메라 기능을 활성화하기 위해 카메라에 액세스해야 합니다. 카메라를 사용하려는 각 웹사이트는 여전히 개별적으로 권한을 요청합니다.",
+    "grantedMicrophone": "권한이 허용되었습니다! 이제 donutos에서 실행된 브라우저가 마이크에 액세스할 수 있습니다.",
+    "grantedCamera": "권한이 허용되었습니다! 이제 donutos에서 실행된 브라우저가 카메라에 액세스할 수 있습니다.",
     "notGrantedMicrophone": "권한이 허용되지 않았습니다. 아래 버튼을 클릭하여 마이크에 대한 액세스를 요청하세요.",
     "notGrantedCamera": "권한이 허용되지 않았습니다. 아래 버튼을 클릭하여 카메라에 대한 액세스를 요청하세요.",
     "doneButton": "완료",
@@ -2288,7 +2288,7 @@
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "donutOS 업데이트 실패",
+      "updateFailed": "donutos 업데이트 실패",
       "restartFailed": "재시작 실패",
       "updateReady": "업데이트 준비됨, 적용하려면 재시작하세요",
       "manualDownloadRequired": "수동 다운로드 필요",
@@ -2382,7 +2382,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "중요: 이 비밀번호는 복구할 수 없습니다",
-      "forgetWarningBody": "donutOS는 이 비밀번호를 재설정, 복구 또는 우회할 수 없습니다. 잊어버리면 이 프로필의 데이터에 영구적으로 액세스할 수 없게 됩니다."
+      "forgetWarningBody": "donutos는 이 비밀번호를 재설정, 복구 또는 우회할 수 없습니다. 잊어버리면 이 프로필의 데이터에 영구적으로 액세스할 수 없게 됩니다."
     },
     "modes": {
       "set": "설정",
@@ -2465,20 +2465,20 @@
     "dnsRulesSaveFailed": "DNS 규칙을 저장하지 못했습니다.",
     "dnsRulesExportFailed": "DNS 규칙을 내보내지 못했습니다.",
     "fingerprintMatchFailed": "지문을 프록시에 맞추지 못했습니다.",
-    "proxySidecarVersionMismatch": "donutOS 파일에 서로 다른 버전이 섞여 있습니다. 최신 업데이트를 다시 설치해 주세요. 프로필은 안전하게 유지됩니다.",
+    "proxySidecarVersionMismatch": "donutos 파일에 서로 다른 버전이 섞여 있습니다. 최신 업데이트를 다시 설치해 주세요. 프로필은 안전하게 유지됩니다.",
     "updateProfilesRunning": "업데이트를 설치하기 전에 실행 중인 모든 프로필을 중지하세요.",
-    "updatePreparationFailed": "donutOS가 백그라운드 네트워크 프로세스를 안전하게 중지하지 못했습니다. 컴퓨터를 다시 시작한 후 업데이트를 다시 시도하세요.",
+    "updatePreparationFailed": "donutos가 백그라운드 네트워크 프로세스를 안전하게 중지하지 못했습니다. 컴퓨터를 다시 시작한 후 업데이트를 다시 시도하세요.",
     "wayfernTermsRequired": "Wayfern을 사용하려면 Wayfern 이용 약관에 동의하세요.",
     "apiPortUnavailable": "API 서버에서 사용 가능한 포트를 찾지 못했습니다.",
     "mcpAgentUnknown": "이 MCP 클라이언트는 지원되지 않습니다.",
-    "mcpAgentInstallFailed": "MCP 클라이언트에 donutOS를 추가하지 못했습니다: {{detail}}",
-    "mcpAgentRemoveFailed": "MCP 클라이언트에서 donutOS를 제거하지 못했습니다: {{detail}}",
+    "mcpAgentInstallFailed": "MCP 클라이언트에 donutos를 추가하지 못했습니다: {{detail}}",
+    "mcpAgentRemoveFailed": "MCP 클라이언트에서 donutos를 제거하지 못했습니다: {{detail}}",
     "vlessConfigInvalid": "공유 링크가 올바르지 않습니다.",
     "xrayUnavailable": "이 시스템에서는 Xray-core를 사용할 수 없습니다.",
     "xrayUnsupportedOs": "VLESS, VMess, Trojan, Hysteria2 프록시는 macOS 12 이상이 필요합니다.",
     "xrayStartFailed": "Xray-core를 시작할 수 없습니다.",
-    "cloudNotSignedIn": "이 기능을 사용하려면 donutOS 계정에 로그인하세요.",
-    "cloudUnreachable": "donutOS 서버에 연결하지 못했습니다. 연결 상태를 확인하고 다시 시도하세요.",
+    "cloudNotSignedIn": "이 기능을 사용하려면 donutos 계정에 로그인하세요.",
+    "cloudUnreachable": "donutos 서버에 연결하지 못했습니다. 연결 상태를 확인하고 다시 시도하세요.",
     "cloudRequestFailed": "요청이 실패했습니다. 잠시 후 다시 시도하세요.",
     "remoteRateLimited": "요청이 너무 많습니다. 잠시 기다렸다가 다시 시도하세요.",
     "remoteNoCapacity": "지금은 사용 가능한 원격 머신이 없습니다. 몇 분 후에 다시 시도하세요.",
@@ -2554,7 +2554,7 @@
     "profileExportFailed": "이 프로필을 내보낼 수 없습니다. {{detail}}",
     "profileExportTooLarge": "이 프로필은 너무 커서 내보낼 수 없습니다. 검색 데이터를 일부 지우고 다시 시도하세요.",
     "profileImportFailed": "이 아카이브를 읽을 수 없습니다. {{detail}}",
-    "profileImportTooNew": "이 아카이브는 더 새로운 버전의 donutOS에서 만들어졌습니다. 앱을 업데이트한 뒤 다시 시도하세요.",
+    "profileImportTooNew": "이 아카이브는 더 새로운 버전의 donutos에서 만들어졌습니다. 앱을 업데이트한 뒤 다시 시도하세요.",
     "profileImportUnsafeArchive": "이 아카이브가 프로필 폴더 밖에 쓰려고 해서 거부했습니다.",
     "recordingAlreadyRunning": "이미 기록이 진행 중입니다. 새로 시작하기 전에 중지하세요.",
     "profileNotRunning": "이 프로필의 브라우저가 실행 중이 아닙니다. 먼저 시작하세요.",
@@ -2721,7 +2721,7 @@
       "importProfileHint": "다른 도구에서 프로필 가져오기",
       "keyboardShortcuts": "키보드 단축키",
       "keyboardShortcutsHint": "모든 단축키 보기",
-      "about": "donutOS 정보",
+      "about": "donutos 정보",
       "aboutHint": "버전 및 앱 정보",
       "trash": "휴지통",
       "trashHint": "삭제한 프로필 복원",
@@ -2845,7 +2845,7 @@
       "stopProfile": "{{name}} 중지",
       "profileInfo": "정보 — {{name}}",
       "createProfile": "프로필 생성",
-      "about": "donutOS 정보"
+      "about": "donutos 정보"
     }
   },
   "shortcuts": {
@@ -2867,13 +2867,13 @@
     "openTotp": "키로 2FA 코드 보기"
   },
   "closeConfirm": {
-    "title": "donutOS를 닫으시겠습니까?",
+    "title": "donutos를 닫으시겠습니까?",
     "description": "앱을 시스템 트레이로 보내시겠습니까, 아니면 종료하시겠습니까?",
     "minimize": "트레이로 최소화",
     "quit": "종료"
   },
   "tray": {
-    "show": "donutOS 표시",
+    "show": "donutos 표시",
     "quit": "종료"
   },
   "onboarding": {
@@ -2894,13 +2894,13 @@
       "finish": "완료"
     },
     "thankYou": {
-      "title": "donutOS를 선택해 주셔서 감사합니다",
+      "title": "donutos를 선택해 주셔서 감사합니다",
       "body": "각 ID를 분리하고 어떤 데이터도 기기 밖으로 내보내지 않으면서 더 프라이빗한 브라우징에 도움이 되길 바랍니다. 즐겁게 사용하세요.",
       "cta": "브라우징 시작"
     }
   },
   "welcome": {
-    "title": "donutOS에 오신 것을 환영합니다",
+    "title": "donutos에 오신 것을 환영합니다",
     "tagline": "여러 ID를 한 번에 관리할 수 있는 오픈 소스 안티디텍트 브라우저입니다.",
     "skip": "건너뛰기",
     "next": "다음",
@@ -2944,7 +2944,7 @@
     },
     "license": {
       "title": "라이선스",
-      "body": "donutOS는 오픈 소스이며 무료로 사용할 수 있습니다.",
+      "body": "donutos는 오픈 소스이며 무료로 사용할 수 있습니다.",
       "agree": "이해했습니다",
       "personalTitle": "개인 사용",
       "personalDesc": "영구적으로 무료입니다.",
@@ -3545,7 +3545,7 @@
       "waitingTitle": "에이전트를 기다리는 중",
       "waitingBody": "에이전트에 Donut을 추가한 다음 아래 지침을 붙여 넣으세요. 에이전트가 작업하는 동안 사용자에게 확인합니다.",
       "starterLabel": "에이전트용 지침",
-      "starter": "Donut 도구로 내 donutOS 프로필을 제어할 수 있습니다. 시작할 때와 단계 사이마다 get_human_updates를 호출해 내 메모와 내가 사용 중인 프로필을 확인하세요. 무엇을 해야 할지 확실하지 않으면 ask_human으로 나에게 물어보세요. 로그인, 인증, 결제처럼 페이지에 사람이 필요하면 request_human_help를 호출하고 내가 프로필을 돌려줄 때까지 기다리세요. 오래 걸리는 작업 중에는 report_progress를 호출해 진행 상황을 알려 주세요.",
+      "starter": "Donut 도구로 내 donutos 프로필을 제어할 수 있습니다. 시작할 때와 단계 사이마다 get_human_updates를 호출해 내 메모와 내가 사용 중인 프로필을 확인하세요. 무엇을 해야 할지 확실하지 않으면 ask_human으로 나에게 물어보세요. 로그인, 인증, 결제처럼 페이지에 사람이 필요하면 request_human_help를 호출하고 내가 프로필을 돌려줄 때까지 기다리세요. 오래 걸리는 작업 중에는 report_progress를 호출해 진행 상황을 알려 주세요.",
       "starterCopied": "지침을 복사했습니다"
     },
     "request": {
@@ -4174,6 +4174,17 @@
     "kind": {
       "auto": "매일",
       "manual": "수동"
+    }
+  },
+  "localActivity": {
+    "title": "활동 저널",
+    "description": "이 데스크톱이 한 일: 실행, Cookie Bot 실행, 엔진 설치.",
+    "loading": "불러오는 중…",
+    "empty": "아직 활동이 없습니다.",
+    "kinds": {
+      "profile_launched": "프로필 실행: {{subject}}",
+      "cookiebot_run": "Cookie Bot 실행: {{subject}}",
+      "engine_installed": "엔진 설치됨: {{subject}}"
     }
   }
 }

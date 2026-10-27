@@ -779,6 +779,16 @@ async fn execute_warming(
           None
         }
       });
+      // Local activity journal: the run's footprint for the activity feed.
+      if let Err(e) = crate::local_activity::record(
+        "cookiebot.run",
+        &run.profile_id,
+        Some(&format!(
+          "status={status} visited={visited} failed={failed}"
+        )),
+      ) {
+        log::warn!("Activity journal write failed err=\"{e}\"");
+      }
     }
     // Keep the history bounded: the newest 500 runs stay.
     if doc.runs.len() > 500 {

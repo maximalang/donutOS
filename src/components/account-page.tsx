@@ -21,6 +21,7 @@ import {
   RemoteHoursMeter,
 } from "@/components/cookie-bot-shared";
 import { LoadingButton } from "@/components/loading-button";
+import { LocalActivityLog } from "@/components/local-activity-log";
 import { TeamAccess } from "@/components/team-access";
 import { TeamActivityLog } from "@/components/team-activity-log";
 import { TeamUsagePanel } from "@/components/team-usage-panel";
@@ -396,9 +397,7 @@ export function AccountPage({
                     <div className="min-w-0 flex-1">
                       {localBuild ? (
                         <>
-                          <h2 className="text-sm font-semibold">
-                            donutOS
-                          </h2>
+                          <h2 className="text-sm font-semibold">donutos</h2>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("account.localProduct")}
                           </p>
@@ -515,6 +514,8 @@ export function AccountPage({
                       </p>
                     )}
                 </SettingsPanel>
+
+                {localBuild && <LocalActivityLog />}
 
                 {remoteHoursVisible && (
                   // A headline block, not one field among six: the allowance
