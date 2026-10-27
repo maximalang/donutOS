@@ -5,8 +5,10 @@ import type {
   LegacyColumnDef as ColumnDef,
   LegacyTable as Table,
 } from "@tanstack/react-table/legacy";
+import { AnimatePresence, motion } from "motion/react";
 import {
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
   useCallback,
   useLayoutEffect,
@@ -14,6 +16,8 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { tableSelectionCounts } from "@/components/data-table-action-bar";
+import { RowNameProvider } from "@/components/entity-page";
 import {
   DATA_TABLE_CLASSES,
   TableColumnResizer,
@@ -33,8 +37,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useMotionAllowed } from "@/hooks/use-motion-allowed";
 import { useTablePreferences } from "@/hooks/use-table-preferences";
 import { useTableFilters, useTableKeyboard } from "@/hooks/use-table-tools";
+import { MOTION_DURATION, MOTION_EASE_OUT, MOTION_SPRING } from "@/lib/motion";
+import { proxyProtocolToken } from "@/lib/proxy-string";
+import { canonicalProxyType } from "@/lib/proxy-type";
 import {
   resolveTableVisibility,
   type TableFilter,
@@ -55,12 +63,13 @@ type Entity =
   | GroupWithCount
   | StoredProxy
   | VpnConfig;
-type EntityTableId = Exclude<TableId, "profiles">;
+type EntityTableId = Exclude<TableId, "profiles" | "trash">;
 const LABELS: Record<EntityTableId, Record<string, string>> = {
   proxies: {
     name: "common.labels.name",
     protocol: "proxies.management.protocolCol",
     hostPort: "proxies.management.hostPort",
+    check: "common.labels.status",
     udp: "proxies.management.udpCol",
     usage: "proxies.management.usage",
     sync: "proxies.management.syncCol",
@@ -68,6 +77,7 @@ const LABELS: Record<EntityTableId, Record<string, string>> = {
   vpns: {
     name: "common.labels.name",
     type: "common.labels.type",
+    check: "common.labels.status",
     usage: "proxies.management.usage",
     sync: "proxies.management.syncCol",
   },
@@ -87,6 +97,7 @@ const LABELS: Record<EntityTableId, Record<string, string>> = {
   groups: {
     name: "common.labels.name",
     count: "groupManagement.profilesCol",
+    bookmarks: "groupManagement.bookmarksCol",
     sync: "proxies.management.syncCol",
   },
 };
@@ -102,6 +113,8 @@ function entitySearch(row: Entity) {
 function extraValue(row: Entity, id: string): string | number {
   if (id === "sync") return row.sync_enabled ? 1 : 0;
   if (id === "count" && "count" in row) return row.count;
+  if (id === "bookmarks" && "bookmark_count" in row)
+    return row.bookmark_count ?? 0;
   if (id === "extensions" && "extension_ids" in row)
     return row.extension_ids.length;
   if (id === "type" && "vpn_type" in row) return row.vpn_type;
@@ -110,7 +123,8 @@ function extraValue(row: Entity, id: string): string | number {
   if (id === "compat" && "browser_compatibility" in row)
     return row.browser_compatibility.join(", ");
   if ("proxy_settings" in row) {
-    if (id === "protocol") return row.proxy_settings.proxy_type;
+    if (id === "protocol")
+      return canonicalProxyType(row.proxy_settings.proxy_type);
     if (id === "hostPort")
       return `${row.proxy_settings.host}:${row.proxy_settings.port}`;
   }
@@ -137,6 +151,7 @@ export function configureEntityColumns<T extends Entity>(
     const sortable = [
       "sync",
       "count",
+      "bookmarks",
       "extensions",
       "type",
       "source",
@@ -213,30 +228,27 @@ export function useEntityTableTools<T extends Entity>(
                       ? "extensions.source.unpacked"
                       : "extensions.source.archive",
                 )
-              : value.toUpperCase(),
+              : extra === "protocol"
+                ? proxyProtocolToken(value).toUpperCase()
+                : value.toUpperCase(),
         })),
       });
     }
     return result;
   }, [id, data, t]);
-  const clearSelection = useCallback(() => setSelection({}), [setSelection]);
-  const filters = useTableFilters(
-    data,
-    entitySearch,
-    definitions,
-    clearSelection,
-  );
+  const filters = useTableFilters(data, entitySearch, definitions, id);
+  // Rows a filter hides stay selected; rows that no longer exist do not.
   useLayoutEffect(() => {
-    const visible = new Set(filters.rows.map((row) => row.id));
+    const existing = new Set(data.map((row) => row.id));
     setSelection((prev) => {
       const ids = Object.keys(prev).filter((id) => prev[id]);
-      return ids.every((id) => visible.has(id))
+      return ids.every((id) => existing.has(id))
         ? prev
         : Object.fromEntries(
-            ids.filter((id) => visible.has(id)).map((id) => [id, true]),
+            ids.filter((id) => existing.has(id)).map((id) => [id, true]),
           );
     });
-  }, [filters.rows, setSelection]);
+  }, [data, setSelection]);
   const visibility = resolveTableVisibility(
     id === "proxies"
       ? { hostPort: width >= 672, protocol: width >= 672 }
@@ -249,20 +261,27 @@ export function useEntityTableTools<T extends Entity>(
   return { view, labels, filters, visibility, setWidth };
 }
 
+/** Above this many rows, rows enter, leave and move without animating. */
+const ANIMATED_ROW_LIMIT = 60;
+
 export function ManagedDataTable<T extends Entity>({
   table,
   tools,
   loading,
-  emptyText,
+  emptyText = "",
+  empty,
 }: {
   table: Table<T>;
   tools: ReturnType<typeof useEntityTableTools<T>>;
   loading: boolean;
-  emptyText: string;
+  emptyText?: string;
+  /** Takes the place of the table, controls included, while nothing exists. */
+  empty?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { view, labels, filters, setWidth } = tools;
   const keyboard = useTableKeyboard(table);
+  const motionAllowed = useMotionAllowed();
   const resizeRef = useCallback(
     (element: HTMLDivElement | null) => {
       if (!element) return;
@@ -274,6 +293,7 @@ export function ManagedDataTable<T extends Entity>({
     [setWidth],
   );
   const rows = table.getRowModel().rows;
+  const animateRows = motionAllowed && rows.length <= ANIMATED_ROW_LIMIT;
   const rowHeight = view.preferences.density === "comfortable" ? 48 : 36;
   const sized =
     Object.keys(view.preferences.sizing).length > 0 ||
@@ -290,6 +310,16 @@ export function ManagedDataTable<T extends Entity>({
           0,
         )
     : undefined;
+  if (!loading && filters.total === 0 && empty)
+    return (
+      <div
+        ref={resizeRef}
+        data-table-id={view.id}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {empty}
+      </div>
+    );
   return (
     <div
       ref={resizeRef}
@@ -307,7 +337,7 @@ export function ManagedDataTable<T extends Entity>({
       <FadingScrollArea
         className={cn(
           "min-h-0 flex-1",
-          table.getSelectedRowModel().rows.length > 0 &&
+          tableSelectionCounts(table).selected > 0 &&
             "pb-[calc(var(--table-action-bar-height,56px)+32px)]",
         )}
         style={{ "--scroll-fade-top-offset": "32px" } as React.CSSProperties}
@@ -381,11 +411,74 @@ export function ManagedDataTable<T extends Entity>({
                     colSpan={table.getVisibleLeafColumns().length}
                     style={{ height: rowHeight }}
                   >
-                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton
+                      className="h-3"
+                      style={{ width: `${66 - ((index * 13) % 30)}%` }}
+                    />
                   </TableCell>
                 </TableRow>
               ))
-            ) : rows.length === 0 ? (
+            ) : (
+              <AnimatePresence initial={false}>
+                {rows.map((row, index) => (
+                  <motion.tr
+                    key={row.id}
+                    data-slot="table-row"
+                    role="row"
+                    aria-rowindex={index + 2}
+                    aria-selected={row.getIsSelected()}
+                    data-table-row={row.id}
+                    data-state={row.getIsSelected() ? "selected" : undefined}
+                    className={DATA_TABLE_CLASSES.row}
+                    style={{ height: rowHeight }}
+                    layout={animateRows ? "position" : false}
+                    initial={animateRows ? { opacity: 0.5 } : false}
+                    animate={{ opacity: 1 }}
+                    exit={{
+                      opacity: 0,
+                      transition: {
+                        duration: animateRows ? MOTION_DURATION.fast : 0,
+                      },
+                    }}
+                    transition={{
+                      opacity: {
+                        duration: MOTION_DURATION.base,
+                        ease: MOTION_EASE_OUT,
+                      },
+                      layout: MOTION_SPRING.position,
+                    }}
+                  >
+                    <RowNameProvider name={row.original.name}>
+                      {row.getVisibleCells().map((cell, columnIndex) => (
+                        <TableCell
+                          key={cell.id}
+                          role="gridcell"
+                          aria-colindex={columnIndex + 1}
+                          {...keyboard.cellProps(row.id, cell.column.id)}
+                          className={cn(
+                            DATA_TABLE_CLASSES.cell,
+                            "relative max-w-0",
+                          )}
+                          style={{
+                            width:
+                              cell.column.id === "name" &&
+                              !view.preferences.sizing.name
+                                ? undefined
+                                : cell.column.getSize(),
+                          }}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </RowNameProvider>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            )}
+            {!loading && rows.length === 0 && (
               <TableRow className={DATA_TABLE_CLASSES.row}>
                 <TableCell
                   colSpan={table.getVisibleLeafColumns().length}
@@ -404,44 +497,6 @@ export function ManagedDataTable<T extends Entity>({
                   )}
                 </TableCell>
               </TableRow>
-            ) : (
-              rows.map((row, index) => (
-                <TableRow
-                  key={row.id}
-                  role="row"
-                  aria-rowindex={index + 2}
-                  aria-selected={row.getIsSelected()}
-                  data-table-row={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className={DATA_TABLE_CLASSES.row}
-                  style={{ height: rowHeight }}
-                >
-                  {row.getVisibleCells().map((cell, columnIndex) => (
-                    <TableCell
-                      key={cell.id}
-                      role="gridcell"
-                      aria-colindex={columnIndex + 1}
-                      {...keyboard.cellProps(row.id, cell.column.id)}
-                      className={cn(
-                        DATA_TABLE_CLASSES.cell,
-                        "relative max-w-0",
-                      )}
-                      style={{
-                        width:
-                          cell.column.id === "name" &&
-                          !view.preferences.sizing.name
-                            ? undefined
-                            : cell.column.getSize(),
-                      }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
             )}
           </TableBody>
         </TableElement>

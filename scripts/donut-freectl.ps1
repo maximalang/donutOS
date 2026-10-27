@@ -44,6 +44,9 @@ switch ($Action) {
     if (-not (Test-Path $exe)) { "ERROR: $exe not found"; break }
     $env:DONUT_AUTOMATION_TOKEN = $token
     $proc = Start-Process -FilePath $exe -WorkingDirectory $Base -PassThru
+    # Started on purpose: the ctl-stop marker is now stale and would keep the
+    # watchdog (on-demand mode) from ever treating a later death as a crash.
+    Remove-Item (Join-Path $Base 'logs\ctl-stop.flag') -Force -ErrorAction SilentlyContinue
     if (Wait-Port 60) {
       # Guard against the single-instance race: a just-killed sibling may
       # still answer health while the spawned child self-exits silently.
@@ -59,6 +62,12 @@ switch ($Action) {
   'stop' {
     $p = @(Get-Procs)
     if (-not $p.Count) { "not running"; break }
+    # Intentional-stop marker for donut-watchdog.ps1 (on-demand mode): written
+    # BEFORE the kill so a crash mid-stop still leaves the marker. Cleared by
+    # 'start'. Without it the watchdog resurrects an instance the operator
+    # just stopped on purpose.
+    New-Item -ItemType Directory -Force -Path (Join-Path $Base 'logs') | Out-Null
+    Set-Content -Path (Join-Path $Base 'logs\ctl-stop.flag') -Value (Get-Date -Format 's') -Encoding ASCII
     $p | Stop-Process -Force
     # Wait until the processes are really gone AND the port is released,
     # so a dying instance cannot answer the next start's health probe.

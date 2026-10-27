@@ -103,17 +103,17 @@
           (lib.makeSearchPath "lib/pkgconfig" (pkgConfigClosure ++ map lib.getDev pkgConfigClosure))
           (lib.makeSearchPath "share/pkgconfig" pkgConfigClosure)
         ];
-        releaseVersion = "0.34.0";
+        releaseVersion = "0.35.3";
         releaseAppImage =
           if system == "x86_64-linux" then
             pkgs.fetchurl {
-              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.34.0/Donut_0.34.0_amd64.AppImage";
-              hash = "sha256-4qtj/mBGxRUWxpY1BaFID/u4Ipry7ujw08lSqeyFrTc=";
+              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.3/Donut_0.35.3_amd64.AppImage";
+              hash = "sha256-eQsQcE2/F6+NXeKk0Wn5xlXEK+2QeH1MdQv9Zw94yVs=";
             }
           else if system == "aarch64-linux" then
             pkgs.fetchurl {
-              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.34.0/Donut_0.34.0_aarch64.AppImage";
-              hash = "sha256-ILAMa2QJoWKEt6XLloy6BQnlsf+bpcodJ9h2qRS4rbA=";
+              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.3/Donut_0.35.3_aarch64.AppImage";
+              hash = "sha256-pAcRtD95JatIjdOrJjKfWAE9TifNWEYS8tSCb3l3uxQ=";
             }
           else
             null;
@@ -192,12 +192,50 @@
               '';
             };
 
+        # tsrs, the type checker in package.json, installs a glibc build on
+        # Linux, which NixOS runs only through nix-ld. Its static musl build
+        # runs anywhere, so the shell and the apps point the npm launcher at
+        # it (TSRS_BINARY). When package.json moves to a tsrs version with no
+        # hash here, the launcher falls back to the binary in node_modules.
+        tsrsVersion = (builtins.fromJSON (builtins.readFile ./package.json)).devDependencies.tsrs;
+        tsrsHashes = {
+          "0.18.0-ts7.1.0-dev.20260929" = {
+            x86_64-linux = "sha512-LHk+AOAtXuTlhJhOJ2+elriEIX17ycXljojeNxrrzckOipTG1LksoVWuCSas2nu00EnWAzrdKpt9oqPylUKZfQ==";
+            aarch64-linux = "sha512-Lw7VVU/YQ9JcarODICEiwzMLdFqZprqh5RGTgbS5Uc6I95P635/g5xA1pOC8RVs4efBvAR30J54iDG3l5JEYiw==";
+          };
+        };
+        tsrsHash = (tsrsHashes.${tsrsVersion} or { }).${system} or null;
+        tsrsMusl =
+          if tsrsHash != null then
+            let
+              npmArch = if system == "x86_64-linux" then "x64" else "arm64";
+            in
+            pkgs.stdenvNoCC.mkDerivation {
+              pname = "tsrs";
+              version = tsrsVersion;
+              src = pkgs.fetchurl {
+                url = "https://registry.npmjs.org/@tsrs/linux-${npmArch}-musl/-/linux-${npmArch}-musl-${tsrsVersion}.tgz";
+                hash = tsrsHash;
+              };
+              dontFixup = true;
+              # The binary reads the lib.*.d.ts files next to it.
+              installPhase = ''
+                runHook preInstall
+                mkdir -p "$out/lib/tsrs"
+                cp -r . "$out/lib/tsrs/"
+                runHook postInstall
+              '';
+            }
+          else
+            null;
+
         linuxLibraryEnv = lib.optionalString isLinux ''
           export NIX_LD="${nixLd}"
           export NIX_LD_LIBRARY_PATH="${runtimeLibPath}:''${NIX_LD_LIBRARY_PATH:-}"
           export LD_LIBRARY_PATH="${runtimeLibPath}:''${LD_LIBRARY_PATH:-}"
           export LIBRARY_PATH="${runtimeLibPath}:''${LIBRARY_PATH:-}"
           export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share:${pkgs.gtk3}/share:''${XDG_DATA_DIRS:-}"
+          ${lib.optionalString (tsrsMusl != null) ''export TSRS_BINARY="${tsrsMusl}/lib/tsrs/tsrs"''}
         '';
         pkgConfigModules =
           (lib.optionals isLinux [ "gdk-3.0" "webkit2gtk-4.1" "javascriptcoregtk-4.1" "libsoup-3.0" "ayatana-appindicator3-0.1" ])

@@ -34,7 +34,6 @@ static ACCOUNT_KEY_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// values in the log lines.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reader {
-  #[allow(dead_code)]
   Person,
   Agent,
 }
@@ -62,12 +61,15 @@ pub async fn excerpt(
     }
     Reader::Agent => None,
   };
-  let sync = match crate::settings_manager::SettingsManager::instance().get_sync_settings() {
-    Ok(settings) if settings.sync_server_url.is_some() => "self_hosted",
-    _ => "off",
-  }
-  .to_string();
-  tokio::task::spawn_blocking(move || build(&log_dir, max_bytes, account.as_ref(), &sync))
+  let sync = match crate::sync::account_server::current().await {
+    None => "off",
+    Some(source) => match source.kind() {
+      crate::sync::account_server::SyncSourceKind::Cloud => "cloud",
+      crate::sync::account_server::SyncSourceKind::Account => "account_server",
+      crate::sync::account_server::SyncSourceKind::SelfHosted => "self_hosted",
+    },
+  };
+  tokio::task::spawn_blocking(move || build(&log_dir, max_bytes, account.as_ref(), sync))
     .await
     .map_err(std::io::Error::other)?
 }
@@ -125,7 +127,7 @@ fn build(
   };
   let mut out = format!("===== facts =====\n{facts}");
   let worker_budget = max_bytes.saturating_sub(out.len()) / WORKER_LOG_SHARE;
-  let workers = recent_log_files(
+  let workers = crate::settings_manager::recent_log_files(
     &std::env::temp_dir(),
     worker_budget,
     is_worker_log,
@@ -134,7 +136,7 @@ fn build(
   .unwrap_or_default();
   let app_budget = max_bytes.saturating_sub(out.len() + workers.len());
   let app = if log_dir.exists() {
-    recent_log_files(log_dir, app_budget, is_app_log, &prepare)?
+    crate::settings_manager::recent_log_files(log_dir, app_budget, is_app_log, &prepare)?
   } else {
     String::new()
   };
@@ -170,51 +172,6 @@ fn sorted(ids: impl Iterator<Item = String>) -> Vec<String> {
   let mut ids: Vec<String> = ids.collect();
   ids.sort();
   ids
-}
-
-/// The newest matching log files, redacted and tailed, within `budget` bytes.
-fn recent_log_files(
-  dir: &std::path::Path,
-  budget: usize,
-  is_log: fn(&str) -> bool,
-  prepare: &dyn Fn(&str) -> String,
-) -> Result<String, std::io::Error> {
-  let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)?
-    .filter_map(|entry| entry.ok())
-    .map(|entry| entry.path())
-    .filter(|path| {
-      path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(is_log)
-    })
-    .collect();
-  files.sort_by_key(|path| {
-    std::fs::metadata(path)
-      .and_then(|meta| meta.modified())
-      .ok()
-      .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-      .map(|duration| duration.as_secs())
-      .unwrap_or(0)
-  });
-  files.reverse();
-  let mut out = String::new();
-  for path in files {
-    if out.len() >= budget {
-      break;
-    }
-    let raw = std::fs::read_to_string(&path).unwrap_or_default();
-    let prepared = prepare(&raw);
-    let room = budget - out.len();
-    if prepared.len() > room {
-      // The newest tail is what matters; keep the end of the file.
-      let start = prepared.len() - room;
-      out.push_str(&prepared[start..]);
-    } else {
-      out.push_str(&prepared);
-    }
-  }
-  Ok(out)
 }
 
 pub(crate) fn is_app_log(name: &str) -> bool {
@@ -254,11 +211,7 @@ fn facts(
     info.app_version,
     info.os,
     info.arch,
-    if cfg!(feature = "free") {
-      "free"
-    } else {
-      "portable"
-    },
+    crate::app_auto_updater::AppAutoUpdater::install_kind(),
     if auto_updates_disabled { "off" } else { "on" },
   );
   let _ = writeln!(out, "{}", account_line(account, sync));

@@ -669,7 +669,9 @@ static REFRESH_STREAK: crate::log_streak::Streak =
 
 #[tauri::command]
 pub async fn get_dns_blocklist_cache_status() -> Result<Vec<BlocklistCacheStatus>, String> {
-  Ok(BlocklistManager::get_cache_status())
+  crate::profile::manager::run_blocking(BlocklistManager::get_cache_status)
+    .await
+    .map_err(|e| crate::backend_error_with_detail("INTERNAL_ERROR", e))
 }
 
 #[tauri::command]

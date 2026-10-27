@@ -365,3 +365,95 @@ fn server_code_in(msg: &str) -> Option<String> {
 }
 
 pub type SyncResult<T> = Result<T, SyncError>;
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn code(error: SyncError) -> String {
+    error.user_code().0
+  }
+
+  #[test]
+  fn every_sync_failure_has_a_code_and_no_english() {
+    assert_eq!(code(SyncError::NotConfigured), "SYNC_NOT_CONFIGURED");
+    assert_eq!(
+      code(SyncError::NetworkError("error sending request".into())),
+      "SYNC_SERVER_UNREACHABLE"
+    );
+    assert_eq!(
+      code(SyncError::AuthError("(401 Unauthorized) nope".into())),
+      "SYNC_AUTH_FAILED"
+    );
+    assert_eq!(
+      code(SyncError::AuthError("(429 Too Many Requests) slow".into())),
+      "SYNC_RATE_LIMITED"
+    );
+    assert_eq!(
+      code(SyncError::IoError("Failed to write /x".into())),
+      "SYNC_LOCAL_FILES_FAILED"
+    );
+    assert_eq!(
+      code(SyncError::InvalidData("E2E password not set".into())),
+      "NO_E2E_PASSWORD_SET"
+    );
+    assert_eq!(
+      code(SyncError::InvalidData(
+        "Failed to unseal proxy: bad tag".into()
+      )),
+      "SYNC_DECRYPT_FAILED"
+    );
+    let json = SyncError::IoError("Failed to write /Users/me/x".into()).to_code_json();
+    assert!(!json.contains("/Users"), "{json}");
+  }
+
+  #[test]
+  fn statuses_and_hosts_travel_as_params() {
+    let (code, params) =
+      SyncError::NetworkError("Upload failed with status 403 Forbidden: denied".into()).user_code();
+    assert_eq!(code, "SYNC_STORAGE_REJECTED");
+    assert_eq!(params["status"], "403");
+
+    let (code, params) =
+      SyncError::NetworkError("Download failed with status: 502 Bad Gateway".into()).user_code();
+    assert_eq!(code, "SYNC_SERVER_ERROR");
+    assert_eq!(params["status"], "502");
+
+    let (code, params) =
+      SyncError::NetworkError("connection refused (storage host minio:9000)".into()).user_code();
+    assert_eq!(code, "SYNC_SERVER_STORAGE_UNREACHABLE");
+    assert_eq!(params["endpoint"], "minio:9000");
+
+    let (code, params) = SyncError::AuthError("(418 I'm a teapot) x".into()).user_code();
+    assert_eq!(code, "SYNC_SERVER_REJECTED");
+    assert_eq!(params["status"], "418");
+  }
+
+  #[test]
+  fn a_server_code_in_the_refusal_body_is_kept() {
+    let error =
+      SyncError::AuthError("(403 Forbidden) {\"code\":\"TEAM_ROLE_READ_ONLY\"}".to_string());
+    assert_eq!(code(error), "TEAM_ROLE_READ_ONLY");
+    let nested = SyncError::AuthError(
+      "(400 Bad Request) {\"message\":{\"code\":\"SNAPSHOT_INVALID\"}}".to_string(),
+    );
+    assert_eq!(code(nested), "SNAPSHOT_INVALID");
+  }
+
+  #[test]
+  fn only_an_unreachable_server_counts_as_offline() {
+    assert!(SyncError::NetworkError("dns error".into()).is_offline());
+    assert!(!SyncError::AuthError("(401 Unauthorized) x".into()).is_offline());
+    assert!(!SyncError::NetworkError("Upload failed with status 500: x".into()).is_offline());
+  }
+
+  #[test]
+  fn engine_setup_failures_are_coded() {
+    assert!(engine_setup_code("Sync server URL not configured").contains("SYNC_NOT_CONFIGURED"));
+    assert!(engine_setup_code("Failed to get cloud sync token: 401").contains("SYNC_AUTH_FAILED"));
+    assert!(engine_setup_code("Failed to load settings: eof").contains("INTERNAL_ERROR"));
+    let offline = "Failed to get cloud sync token: error sending request for url";
+    assert!(engine_setup_is_offline(offline));
+    assert_eq!(engine_setup_code_name(offline), "SYNC_SERVER_UNREACHABLE");
+  }
+}

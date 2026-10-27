@@ -79,6 +79,7 @@ impl Engine {
   /// The engine a profile gets, by browser family first: an open Chromium
   /// install is never the native Wayfern engine, whatever its version number
   /// says, so it always takes the plain-CDP fallback paths.
+  #[allow(dead_code)]
   pub fn for_profile(browser: &str, version: &str) -> Self {
     if browser == "chromium" {
       Self::Fallback
@@ -121,6 +122,8 @@ pub enum WayfernError {
   PickerTimedOut { timeout_ms: u64 },
   /// The picker ended without a pick: "escape", "stopped" or "navigated".
   PickerCancelled { reason: String },
+  /// The node has no box on screen to act on.
+  NotVisible(String),
   /// A reply did not have the shape the protocol documents.
   Malformed(String),
 }
@@ -134,6 +137,7 @@ impl std::fmt::Display for WayfernError {
         write!(f, "no element was picked within {timeout_ms} ms")
       }
       Self::PickerCancelled { reason } => write!(f, "the element picker was cancelled ({reason})"),
+      Self::NotVisible(m) => f.write_str(m),
       Self::Malformed(m) => write!(f, "unexpected reply from the browser: {m}"),
     }
   }
@@ -259,7 +263,8 @@ impl LocatorDescription {
   }
 }
 
-/// Where a matched node is, in root-document CSS pixels.
+/// Where a matched node was when it was matched, in root-document viewport
+/// CSS pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct LocatorBounds {
   pub x: f64,
@@ -333,7 +338,8 @@ pub struct PerceptionRequest {
   /// Capture budget in milliseconds. Default 5000, clamped to [100, 60000].
   #[serde(default, alias = "budgetMs")]
   pub budget_ms: Option<u64>,
-  /// Per-frame node ceiling. Default 100000; 0 for no limit.
+  /// Per-frame node ceiling, counted in document order. Default 100000; 0 for
+  /// no limit. With `viewport_only` it bounds the nodes returned instead.
   #[serde(default, alias = "maxNodes")]
   pub max_nodes: Option<u64>,
   /// Include readable text. Default true.
@@ -391,7 +397,8 @@ pub struct PerceptionNode {
   pub id: String,
   pub frame_id: String,
   pub role: String,
-  /// Root-document page coordinates in CSS pixels, unclipped.
+  /// Root-document viewport coordinates in CSS pixels, unclipped: after a
+  /// scroll, what is above the window has a negative `y`.
   pub x: f64,
   pub y: f64,
   pub width: f64,
@@ -443,6 +450,10 @@ pub struct PerceptionStats {
   pub frames_visited: u64,
   /// Frames whose renderer did not answer within the budget.
   pub frames_failed: u64,
+  /// Frames whose renderer stopped at the node ceiling or its time, so their
+  /// trees end there. Older Wayfern builds do not count them and report 0.
+  #[serde(default)]
+  pub frames_truncated: u64,
 }
 
 /// A perception snapshot, or as much of one as the byte cap allowed.
@@ -824,6 +835,10 @@ pub async fn capture_page_perception(
         whole.stats.elapsed_ms += page.stats.elapsed_ms;
         whole.stats.frames_visited = whole.stats.frames_visited.max(page.stats.frames_visited);
         whole.stats.frames_failed = whole.stats.frames_failed.max(page.stats.frames_failed);
+        whole.stats.frames_truncated = whole
+          .stats
+          .frames_truncated
+          .max(page.stats.frames_truncated);
         whole.truncated = page.truncated;
         whole.cursor = page.cursor;
         whole
@@ -987,10 +1002,11 @@ pub async fn pick_element(
 /// Where to put the pointer for a node, in viewport CSS pixels.
 ///
 /// `Vellum` takes the coordinates `Input.dispatchMouseEvent` takes, which are
-/// relative to the viewport, while locator bounds are page coordinates. The
-/// node is scrolled into view first, and the point is the centre of the part
-/// of it that is actually visible, so an element taller than the window is
-/// still struck somewhere on screen.
+/// relative to the viewport, as locator bounds are; but those bounds are read
+/// before the node is scrolled into view. The node is scrolled into view
+/// first, and the point is the centre of the part of it that is actually
+/// visible, so an element taller than the window is still struck somewhere on
+/// screen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ViewportTarget {
   pub x: f64,
@@ -1048,8 +1064,9 @@ pub async fn viewport_target(
     .filter_map(|quad| quad_target(quad, viewport_width, viewport_height))
     .next()
     .ok_or_else(|| {
-      WayfernError::Malformed(
-        "the node has no visible box to strike; it may be hidden or clipped".into(),
+      WayfernError::NotVisible(
+        "The element has no visible box to click or type into; it may be hidden or clipped. Open, expand or scroll to the part of the page that shows it."
+          .into(),
       )
     })
 }
@@ -1383,6 +1400,34 @@ pub(crate) mod test_support {
     PickerSilent,
     /// Answer `Vellum.strike`, then emit `Page.loadEventFired`.
     StrikeNavigates,
+    /// `resolveLocator` matches, but its `backendNodeId` names another node,
+    /// as on Wayfern 152 to 155; the page finds the match as node 353.
+    RenumberedNodeIds,
+    /// As `RenumberedNodeIds`, but the id names a sibling with the same
+    /// attributes and other text.
+    RenumberedToSibling,
+    /// `resolveLocator` matches nothing, and the page's own resolver finds
+    /// node 353, or nothing for a locator naming "Nowhere".
+    NativeNoMatch,
+    /// Every perception capture reports it ran past the default budget.
+    SlowPerception,
+    /// Every perception capture reports a frame its renderer cut short.
+    CutPerception,
+    /// Every perception capture answers three nodes.
+    CrowdedPerception,
+    /// The page resets the field after typing: it reads back empty.
+    TypingLost,
+    /// The field never takes the focus.
+    FieldUnfocusable,
+    /// The node has no box: the page aims at nothing and the DOM has no quads.
+    HiddenControl,
+    /// The node is in a frame: the page leaves its position to the DOM.
+    FramedNode,
+    /// `resolveLocator` matches "First Name (optional)" and "First Name".
+    AmbiguousByName,
+    /// `resolveLocator` answers the ambiguity error, which lists no boxes, and
+    /// the page's own resolver settles on node 353.
+    AmbiguousForTheBrowser,
   }
 
   pub(crate) type Frames = Arc<Mutex<Vec<Value>>>;
@@ -1391,15 +1436,19 @@ pub(crate) mod test_support {
   fn canned_candidate() -> Value {
     serde_json::json!({
       "backendNodeId": 7, "role": "button", "name": "Save", "text": "Save",
-      "signature": "s7", "attributes": [{ "name": "id", "value": "save" }],
+      "signature": "s7", "attributes": [{ "name": "type", "value": "submit" }],
       "bounds": { "x": 10.0, "y": 20.0, "width": 30.0, "height": 40.0 }
     })
   }
 
   /// What the fallback scripts answer with, keyed off the script's own text.
   fn script_answer(expression: &str, behaviour: Fake) -> Value {
-    let value = if expression.contains("\"mode\":\"resolve\"") {
-      if behaviour == Fake::AmbiguousLocator {
+    let value = if expression.contains("\"mode\":\"pin\"") {
+      serde_json::json!({ "matchCount": 1 })
+    } else if expression.contains("\"mode\":\"resolve\"") {
+      if expression.contains("Nowhere") {
+        serde_json::json!({ "matchCount": 0, "candidates": [] })
+      } else if behaviour == Fake::AmbiguousLocator {
         serde_json::json!({
           "matchCount": 2,
           "candidates": [canned_candidate(), canned_candidate()]
@@ -1444,15 +1493,20 @@ pub(crate) mod test_support {
     let port = listener.local_addr().expect("a bound port").port();
     let frames: Frames = Arc::new(Mutex::new(Vec::new()));
     let recorded = frames.clone();
+    // What the keys put in the field, across every connection: key events
+    // arrive on a socket of their own.
+    let typed: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
 
     tokio::spawn(async move {
       while let Ok((socket, _)) = listener.accept().await {
         let recorded = recorded.clone();
+        let typed = typed.clone();
         tokio::spawn(async move {
           let Ok(mut stream) = tokio_tungstenite::accept_async(socket).await else {
             return;
           };
           let mut perception_page = 0u64;
+          let mut pair: Option<(Value, bool)> = None;
 
           while let Some(Ok(message)) = stream.next().await {
             let Message::Text(text) = message else {
@@ -1484,6 +1538,7 @@ pub(crate) mod test_support {
               }
               "Vellum.inscribe" => {
                 let text = params.get("text").and_then(Value::as_str).unwrap_or("");
+                typed.lock().unwrap().push_str(text);
                 ok(serde_json::json!({
                   "characters": text.chars().count(), "corrections": 1, "durationMs": 900.0
                 }))
@@ -1510,30 +1565,55 @@ pub(crate) mod test_support {
                 };
                 ok(serde_json::json!({}))
               }
+              "Input.insertText" => {
+                let text = params.get("text").and_then(Value::as_str).unwrap_or("");
+                typed.lock().unwrap().push_str(text);
+                ok(serde_json::json!({}))
+              }
+              "Input.dispatchKeyEvent" => {
+                if params["type"] == "keyDown" {
+                  let mut field = typed.lock().unwrap();
+                  match params.get("text").and_then(Value::as_str) {
+                    Some(text) => field.push_str(text),
+                    None if params["key"] == "Backspace" => {
+                      field.pop();
+                    }
+                    None => {}
+                  }
+                }
+                ok(serde_json::json!({}))
+              }
               "Vellum.release"
               | "Page.enable"
               | "Page.disable"
               | "Wayfern.stopElementPicker"
               | "DOM.scrollIntoViewIfNeeded"
-              | "Input.dispatchMouseEvent"
-              | "Input.dispatchKeyEvent" => ok(serde_json::json!({})),
+              | "Input.dispatchMouseEvent" => ok(serde_json::json!({})),
               "Wayfern.capturePagePerception" => {
                 perception_page += 1;
                 let endless = behaviour == Fake::EndlessPerception;
+                let count = if behaviour == Fake::CrowdedPerception { 3 } else { 1 };
+                let nodes: Vec<Value> = (0..count)
+                  .map(|n| {
+                    serde_json::json!({
+                      "id": format!("n{perception_page}-{n}"), "frameId": "f0", "role": "button",
+                      "x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0,
+                      "inViewport": true, "visible": true, "focused": false, "disabled": false,
+                      "name": "Save"
+                    })
+                  })
+                  .collect();
                 let mut result = serde_json::json!({
                   "snapshotId": "snap-1",
-                  "nodes": [{
-                    "id": format!("n{perception_page}"), "frameId": "f0", "role": "button",
-                    "x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0,
-                    "inViewport": true, "visible": true, "focused": false, "disabled": false,
-                    "name": "Save"
-                  }],
+                  "nodes": nodes,
                   "frames": [{ "frameId": "f0", "url": "https://example.com/", "crossOrigin": false }],
                   "text": format!("page {perception_page} "),
                   "truncated": endless,
                   "stats": {
                     "totalNodes": 999, "returnedNodes": 1, "bytes": 600,
-                    "elapsedMs": 5, "framesVisited": 1, "framesFailed": 0
+                    "elapsedMs": if behaviour == Fake::SlowPerception { 5_200 } else { 5 },
+                    "framesVisited": 1, "framesFailed": 0,
+                    "framesTruncated": u64::from(behaviour == Fake::CutPerception)
                   }
                 });
                 if endless {
@@ -1541,9 +1621,29 @@ pub(crate) mod test_support {
                 }
                 ok(result)
               }
-              "Wayfern.resolveLocator" if behaviour == Fake::AmbiguousLocator => error(
+              "Wayfern.resolveLocator"
+                if matches!(behaviour, Fake::AmbiguousLocator | Fake::AmbiguousForTheBrowser) =>
+              {
+                error(
                 "Ambiguous locator: 2 nodes match. Refine it with a role, a stable attribute, or more exact text. Candidates: [{\"backendNodeId\":7,\"role\":\"button\",\"name\":\"Save\",\"text\":\"Save\",\"signature\":\"s7\",\"attributes\":[]},{\"backendNodeId\":8,\"role\":\"button\",\"name\":\"Save\",\"text\":\"Save\",\"signature\":\"s8\",\"attributes\":[]}]",
-              ),
+                )
+              }
+              "Wayfern.resolveLocator" if behaviour == Fake::AmbiguousByName => {
+                let named = |name: &str, signature: &str| {
+                  let mut candidate = canned_candidate();
+                  candidate["role"] = Value::from("textField");
+                  candidate["name"] = Value::from(name);
+                  candidate["signature"] = Value::from(signature);
+                  candidate
+                };
+                error(&format!(
+                  "Ambiguous locator: 2 nodes match. Refine it with a role, a stable attribute, or more exact text. Candidates: {}",
+                  Value::Array(vec![named("First Name (optional)", "s7"), named("First Name", "s8")])
+                ))
+              }
+              "Wayfern.resolveLocator" if behaviour == Fake::NativeNoMatch => {
+                error("No node matches locator (id=save).")
+              }
               "Wayfern.resolveLocator" => ok(serde_json::json!({
                 "backendNodeId": 7, "matchCount": 1,
                 "match": canned_candidate(),
@@ -1554,14 +1654,48 @@ pub(crate) mod test_support {
                 "rowCount": 1, "pageCount": 1, "byteSize": 40, "truncated": false,
                 "stopReason": "complete"
               })),
+              "DOM.getContentQuads" if behaviour == Fake::HiddenControl => {
+                ok(serde_json::json!({ "quads": [] }))
+              }
               "DOM.getContentQuads" => ok(serde_json::json!({
                 "quads": [[100.0, 200.0, 180.0, 200.0, 180.0, 230.0, 100.0, 230.0]]
               })),
               "DOM.resolveNode" => ok(serde_json::json!({
                 "object": { "type": "object", "objectId": "obj-7" }
               })),
+              "Runtime.callFunctionOn" if params["arguments"][0]["value"] == "field" => {
+                ok(serde_json::json!({
+                  "result": { "type": "object", "subtype": "node", "objectId": "field-7" }
+                }))
+              }
               "Runtime.callFunctionOn" => {
-                ok(serde_json::json!({ "result": { "type": "boolean", "value": true } }))
+                let step = params["arguments"][0]["value"].as_str().unwrap_or_default();
+                let value = match step {
+                  "point" if behaviour == Fake::HiddenControl => serde_json::json!({ "hidden": true }),
+                  "point" if behaviour == Fake::FramedNode => serde_json::json!({ "frame": true }),
+                  "point" => {
+                    serde_json::json!({ "x": 140.0, "y": 215.0, "width": 80.0, "height": 30.0 })
+                  }
+                  "focus" => serde_json::json!({
+                    "focused": behaviour != Fake::FieldUnfocusable, "active": "body"
+                  }),
+                  "prepare" => {
+                    serde_json::json!({ "kind": "value", "type": "text", "value": "", "secret": false })
+                  }
+                  "read" => {
+                    let value = if behaviour == Fake::TypingLost {
+                      String::new()
+                    } else {
+                      typed.lock().unwrap().clone()
+                    };
+                    serde_json::json!({
+                      "kind": "value", "type": "text", "value": value, "secret": false, "focusMoved": false
+                    })
+                  }
+                  _ => Value::Bool(true),
+                };
+                let kind = if value.is_boolean() { "boolean" } else { "object" };
+                ok(serde_json::json!({ "result": { "type": kind, "value": value } }))
               }
               "Page.getLayoutMetrics" => ok(serde_json::json!({
                 "cssLayoutViewport": { "clientWidth": 1280.0, "clientHeight": 720.0 }
@@ -1571,7 +1705,63 @@ pub(crate) mod test_support {
                   .get("expression")
                   .and_then(Value::as_str)
                   .unwrap_or("");
-                ok(script_answer(expression, behaviour))
+                let answer = script_answer(expression, behaviour);
+                if expression.contains("\"returnElement\":true") {
+                  // Answered by reference: `[report, element]`, read back
+                  // through Runtime.getProperties.
+                  let report = answer["result"]["value"].clone();
+                  let found = report
+                    .as_str()
+                    .and_then(|r| serde_json::from_str::<Value>(r).ok())
+                    .is_some_and(|r| r["matchCount"] == 1);
+                  pair = Some((report, found));
+                  ok(serde_json::json!({
+                    "result": { "type": "object", "subtype": "array", "objectId": "pair-1" }
+                  }))
+                } else {
+                  ok(answer)
+                }
+              }
+              "Runtime.getProperties" => {
+                let (report, found) = pair.clone().unwrap_or((Value::Null, false));
+                let element = if found {
+                  serde_json::json!({ "type": "object", "subtype": "node", "objectId": "el-353" })
+                } else {
+                  serde_json::json!({ "type": "object", "subtype": "null", "value": null })
+                };
+                ok(serde_json::json!({ "result": [
+                  { "name": "0", "value": { "type": "string", "value": report } },
+                  { "name": "1", "value": element },
+                  { "name": "length", "value": { "type": "number", "value": 2 } }
+                ] }))
+              }
+              "Runtime.releaseObjectGroup" => ok(serde_json::json!({})),
+              "DOM.describeNode" => {
+                let text = if behaviour == Fake::RenumberedToSibling {
+                  "Cancel"
+                } else {
+                  " Save "
+                };
+                let element = |id: u64, name: &str, attributes: Value| {
+                  ok(serde_json::json!({ "node": {
+                    "nodeId": 0, "backendNodeId": id, "nodeType": 1,
+                    "nodeName": name, "localName": name.to_ascii_lowercase(),
+                    "attributes": attributes,
+                    "children": [{ "nodeId": 0, "nodeType": 3, "nodeName": "#text", "nodeValue": text }]
+                  } }))
+                };
+                if params["objectId"] == "el-353" {
+                  element(353, "BUTTON", serde_json::json!(["type", "submit"]))
+                } else if behaviour == Fake::RenumberedNodeIds {
+                  element(7, "SCRIPT", serde_json::json!(["src", "/app.js"]))
+                } else {
+                  // The id and class the index never carries do not count.
+                  element(
+                    7,
+                    "BUTTON",
+                    serde_json::json!(["id", "save", "class", "primary", "type", "submit"]),
+                  )
+                }
               }
               _ => error(&format!("'{method}' wasn't found")),
             };
@@ -2076,7 +2266,7 @@ mod tests {
     assert_eq!(wire["matchCount"], 1);
 
     // The strike point is scrolled to and read from the DOM, in viewport
-    // pixels, never from the page-coordinate bounds.
+    // pixels, never from the bounds read before the scroll.
     let point = viewport_target(&mut session, 7).await.unwrap();
     assert_eq!((point.x, point.y), (140.0, 215.0));
     assert_eq!((point.width, point.height), (80.0, 30.0));

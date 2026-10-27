@@ -81,6 +81,8 @@ pub struct AgentActivity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThreadKind {
+  /// The local AI's answer in a thread (free build).
+  Reply,
   Question,
   Help,
   Note,
@@ -88,8 +90,6 @@ pub enum ThreadKind {
   Joined,
   Left,
   Feedback,
-  /// The local AI's answer in the conversation.
-  Reply,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -247,14 +247,6 @@ static WAITERS: AtomicUsize = AtomicUsize::new(0);
 static CHANGES: LazyLock<tokio::sync::watch::Sender<u64>> =
   LazyLock::new(|| tokio::sync::watch::channel(0).0);
 
-/// Whether the person, not an agent, is driving this profile right now: they
-/// hold it, or every agent is paused. Network capture redacts what it reads
-/// while this is true, the same privacy the person has at the keyboard.
-pub fn person_in_control(profile_id: &str) -> bool {
-  let state = console();
-  state.paused.is_some() || state.holds.contains_key(profile_id)
-}
-
 fn console() -> std::sync::MutexGuard<'static, Console> {
   CONSOLE
     .lock()
@@ -402,6 +394,13 @@ fn targeted_profiles(arguments: &serde_json::Value) -> Vec<String> {
     }
   }
   ids
+}
+
+/// Whether the person has paused every agent or taken over this profile, so
+/// what happens in it now is theirs.
+pub fn person_in_control(profile_id: &str) -> bool {
+  let state = console();
+  state.paused.is_some() || state.holds.contains_key(profile_id)
 }
 
 /// `passive` tools (reads and the human tools) are never refused.
@@ -1080,6 +1079,7 @@ pub async fn send_agent_note(
 /// Append the AI's reply to the conversation thread and tell the UI.
 #[cfg(feature = "free")]
 fn push_reply(text: String, session_id: Option<String>, profile_id: Option<String>) {
+  use crate::agent_console::ThreadState;
   let item = {
     let mut state = console();
     let mut item = thread_item(ThreadKind::Reply, now_ms());

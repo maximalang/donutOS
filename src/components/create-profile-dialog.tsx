@@ -3,16 +3,18 @@
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import type * as React from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { GoPlus } from "react-icons/go";
 import {
   LuCheck,
   LuChevronDown,
   LuChevronRight,
+  LuClock,
+  LuEllipsis,
   LuFlame,
+  LuFolder,
   LuGlobe,
   LuLayoutTemplate,
   LuLoaderCircle,
@@ -23,9 +25,11 @@ import {
   LuShieldCheck,
   LuTrash2,
   LuTriangleAlert,
+  LuX,
 } from "react-icons/lu";
 import type { BrowserTypeString } from "@/app/page";
 import { DnsServerField } from "@/components/dns-server-field";
+import { EphemeralStorageNotice } from "@/components/ephemeral-storage-notice";
 import { LoadingButton } from "@/components/loading-button";
 import { ProfileGlyph } from "@/components/profile-glyph";
 import { ProxyFormDialog } from "@/components/proxy-form-dialog";
@@ -46,12 +50,14 @@ import {
 } from "@/components/ui/command";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SoftFields } from "@/components/ui/field-variant";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,16 +81,19 @@ import {
 } from "@/components/ui/tooltip";
 import { WayfernConfigForm } from "@/components/wayfern-config-form";
 import { useBrowserDownload } from "@/hooks/use-browser-download";
-import { useInputModality } from "@/hooks/use-input-modality";
+import { useGroupEvents } from "@/hooks/use-group-events";
+import { useMotionAllowed } from "@/hooks/use-motion-allowed";
 import { useProfileTemplates } from "@/hooks/use-profile-templates";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
+import { useEntityTrash } from "@/hooks/use-trash-events";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { translateBackendError } from "@/lib/backend-errors";
 import { getOSDisplayName, getOSIcon } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
 import { isLocalProductBuild } from "@/lib/entitlements";
-import { MOTION_EASE_OUT } from "@/lib/motion";
+import { MOTION_DURATION, MOTION_EASE_OUT, MOTION_SPRING } from "@/lib/motion";
 import { startPagesFromText } from "@/lib/start-pages";
+import { notifySystem } from "@/lib/system-notify";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type {
@@ -129,7 +138,8 @@ interface CreateProfileDialogProps {
     proxyId?: string;
     vpnId?: string;
     wayfernConfig?: WayfernConfig;
-    groupId?: string;
+    /** `null`: the person picked "No group". */
+    groupId?: string | null;
     extensionGroupId?: string;
     ephemeral?: boolean;
     dnsBlocklist?: string;
@@ -157,12 +167,18 @@ export function CreateProfileDialog({
   const osLabelId = useId();
   const osValueId = useId();
   const advancedOptionsId = useId();
-  const reduceMotion = useReducedMotion() ?? false;
-  const inputModality = useInputModality();
+  const motionAllowed = useMotionAllowed();
+  const groupListboxId = useId();
+  const groupValueId = useId();
   const [profileName, setProfileName] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedProxyId, setSelectedProxyId] = useState<string>();
   const [proxyPopoverOpen, setProxyPopoverOpen] = useState(false);
+  const [morePopoverOpen, setMorePopoverOpen] = useState(false);
+  // Where the new profiles go: the group the list shows, until changed.
+  const [destinationGroupId, setDestinationGroupId] = useState<string | null>(
+    null,
+  );
   const [osPopoverOpen, setOsPopoverOpen] = useState(false);
   const [showProxyForm, setShowProxyForm] = useState(false);
   const [dnsBlocklist, setDnsBlocklist] = useState("");
@@ -175,6 +191,8 @@ export function CreateProfileDialog({
   const [isCreating, setIsCreating] = useState(false);
   const [ephemeral, setEphemeral] = useState(false);
   const templates = useProfileTemplates();
+  const { request: requestTemplateTrash, remove: removeTemplates } =
+    useEntityTrash("template");
   const [appliedTemplate, setAppliedTemplate] =
     useState<ProfileTemplate | null>(null);
   const [count, setCount] = useState(1);
@@ -202,6 +220,23 @@ export function CreateProfileDialog({
     if (isOpen) void loadAllowance();
   }, [isOpen, loadAllowance]);
 
+  // A browser that starts or stops changes whether a fingerprint can be made.
+  useEffect(() => {
+    if (!isOpen) return;
+    let closed = false;
+    let unlisten: (() => void) | undefined;
+    void listen("profile-running-changed", () => void loadAllowance()).then(
+      (stop) => {
+        if (closed) stop();
+        else unlisten = stop;
+      },
+    );
+    return () => {
+      closed = true;
+      unlisten?.();
+    };
+  }, [isOpen, loadAllowance]);
+
   // The window frees a slot by itself, so look again once it should have.
   useEffect(() => {
     const wait = allowance?.retry_after_secs;
@@ -217,15 +252,21 @@ export function CreateProfileDialog({
     allowance !== null && allowance.used >= allowance.per_hour;
   const hourlyCapReached = overAllowance && allowance.enforcement === "hard";
   const creatingQuickly = overAllowance && allowance.enforcement === "soft";
+  const closeABrowser = allowance?.close_a_browser === true;
+
+  // The wait in the hourly-limit notice counts down by the minute.
+  useEffect(() => {
+    if (!isOpen || !hourlyCapReached) return;
+    const timer = window.setInterval(() => void loadAllowance(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isOpen, hourlyCapReached, loadAllowance]);
+
   // A batch stops at the hourly allowance on every plan, so it is never
   // offered past what is left.
   const maxCount =
     allowance === null
       ? MAX_BULK_CREATE
-      : Math.max(
-          1,
-          Math.min(MAX_BULK_CREATE, allowance.per_hour - allowance.used),
-        );
+      : Math.max(1, Math.min(MAX_BULK_CREATE, allowance.remaining));
   const many = count > 1;
   useEffect(() => {
     setCount((current) => Math.min(current, maxCount));
@@ -243,8 +284,12 @@ export function CreateProfileDialog({
   const [isLoadingReleaseTypes, setIsLoadingReleaseTypes] = useState(false);
   const [releaseTypesError, setReleaseTypesError] = useState(false);
   const versionRequestRef = useRef(0);
-  const { storedProxies } = useProxyEvents();
-  const { vpnConfigs } = useVpnEvents();
+  // The dialog stays mounted; its lists load only while it is open.
+  const { storedProxies } = useProxyEvents({ enabled: isOpen });
+  const { vpnConfigs } = useVpnEvents({ enabled: isOpen });
+  const { groups, isLoading: isLoadingGroups } = useGroupEvents({
+    enabled: isOpen,
+  });
   const {
     isBrowserDownloading,
     downloadBrowser,
@@ -319,6 +364,10 @@ export function CreateProfileDialog({
   );
 
   useEffect(() => {
+    if (isOpen) setDestinationGroupId(groupFromFilter(selectedGroupId));
+  }, [isOpen, selectedGroupId]);
+
+  useEffect(() => {
     if (!isOpen) return;
     void loadReleaseTypes(engine);
     void invoke<{ id: string; name: string; extension_ids: string[] }[]>(
@@ -344,12 +393,18 @@ export function CreateProfileDialog({
       ? latestVersion
       : downloadedVersions[0];
   const downloading = isBrowserDownloading(engine);
+  const batchRefused =
+    allowance !== null &&
+    (many || appliedTemplate !== null) &&
+    count > allowance.remaining;
   const isCreateDisabled =
     !profileName.trim() ||
     !creatableVersion ||
     downloading ||
     isCreating ||
     hourlyCapReached ||
+    closeABrowser ||
+    batchRefused ||
     !dnsServerValid;
   const selectedVpn = selectedProxyId?.startsWith("vpn-")
     ? vpnConfigs.find((vpn) => vpn.id === selectedProxyId.slice(4))
@@ -360,6 +415,16 @@ export function CreateProfileDialog({
   const proxyLabel = selectedVpn
     ? `WG — ${selectedVpn.name}`
     : (selectedProxy?.name ?? t("createProfile.proxy.noProxy"));
+  const destinationGroup = groups.find(
+    (group) => group.id === destinationGroupId,
+  );
+  // A group deleted since it was picked is no destination; while the list
+  // loads, the picked id is kept.
+  const groupIdForCreate = destinationGroup
+    ? destinationGroup.id
+    : isLoadingGroups
+      ? destinationGroupId
+      : null;
   const hostOs = getCurrentOS();
   const selectedOs = wayfernConfig.os ?? hostOs;
   const crossOs = selectedOs !== hostOs;
@@ -378,6 +443,7 @@ export function CreateProfileDialog({
     setAdvancedOpen(false);
     setSelectedProxyId(undefined);
     setProxyPopoverOpen(false);
+    setMorePopoverOpen(false);
     setOsPopoverOpen(false);
     setShowProxyForm(false);
     setDnsBlocklist("");
@@ -411,11 +477,7 @@ export function CreateProfileDialog({
       // A template that spreads its profiles over several proxies keeps
       // doing so while its first proxy is still the one chosen.
       proxy_ids: proxyId && spread[0] === proxyId ? spread : [],
-      group_id:
-        base?.group_id ??
-        (selectedGroupId && selectedGroupId !== "__all__"
-          ? selectedGroupId
-          : null),
+      group_id: groupIdForCreate,
       extension_group_id: selectedExtensionGroupId ?? null,
       dns_blocklist: dnsBlocklist || null,
       dns_server: dnsServer.trim() || null,
@@ -445,6 +507,7 @@ export function CreateProfileDialog({
     setLaunchHook(settings.launch_hook ?? "");
     setSelectedExtensionGroupId(settings.extension_group_id ?? undefined);
     setEphemeral(settings.ephemeral === true);
+    if (settings.group_id) setDestinationGroupId(settings.group_id);
     if (settings.ephemeral) clearPassword();
     if (!profileName.trim()) {
       setProfileName(settings.name_prefix ?? template.name);
@@ -475,13 +538,23 @@ export function CreateProfileDialog({
     }
   };
 
-  const deleteTemplate = async (template: ProfileTemplate) => {
-    try {
-      await invoke("delete_profile_template", { templateId: template.id });
-      if (appliedTemplate?.id === template.id) setAppliedTemplate(null);
-    } catch (error) {
-      showErrorToast(translateBackendError(t, error));
+  const afterTemplatesRemoved = (ids: string[]) => {
+    if (appliedTemplate && ids.includes(appliedTemplate.id)) {
+      setAppliedTemplate(null);
     }
+  };
+
+  // A template goes to the trash at once and the toast offers Undo. Only
+  // "Delete at once" asks first, inline in the picker.
+  const deleteTemplate = async (
+    template: ProfileTemplate,
+    confirm: () => void,
+  ) => {
+    afterTemplatesRemoved(await requestTemplateTrash([template], confirm));
+  };
+
+  const deleteTemplateNow = async (template: ProfileTemplate) => {
+    afterTemplatesRemoved(await removeTemplates([template]));
   };
 
   const changeCount = (next: number) => {
@@ -518,18 +591,17 @@ export function CreateProfileDialog({
           );
         }
       }
-      if (result.error) {
-        showErrorToast(
-          t("templates.stoppedEarly", {
+      const outcome = result.error
+        ? t("templates.stoppedEarly", {
             created: result.created.length,
             total: count,
             error: translateBackendError(t, result.error),
-          }),
-        );
-      } else {
-        showSuccessToast(
-          t("templates.created", { count: result.created.length }),
-        );
+          })
+        : t("templates.created", { count: result.created.length });
+      if (result.error) showErrorToast(outcome);
+      else showSuccessToast(outcome);
+      if (count > 1) {
+        void notifySystem({ title: t("templates.notifyTitle"), body: outcome });
       }
       handleClose();
     } catch (error) {
@@ -576,10 +648,7 @@ export function CreateProfileDialog({
         proxyId: isVpnSelection ? undefined : selectedProxyId,
         vpnId: isVpnSelection ? selectedProxyId?.slice(4) : undefined,
         wayfernConfig,
-        groupId:
-          selectedGroupId && selectedGroupId !== "__all__"
-            ? selectedGroupId
-            : undefined,
+        groupId: groupIdForCreate,
         extensionGroupId: selectedExtensionGroupId,
         ephemeral,
         dnsBlocklist: dnsBlocklist || undefined,
@@ -613,38 +682,58 @@ export function CreateProfileDialog({
     [],
   );
 
-  const animateEntry = !reduceMotion && inputModality === "pointer";
+  const animateEntry = motionAllowed;
   const rise = (delay: number) =>
     animateEntry
       ? {
           initial: { y: 6 },
           animate: { y: 0 },
-          transition: { ...ENTRY_SPRING, delay },
+          transition: { ...MOTION_SPRING.page, delay },
         }
       : {};
-  const createButton = (
-    <LoadingButton
-      data-slot="profile-create-submit"
-      onClick={handleCreate}
-      isLoading={isCreating && !progress}
-      disabled={isCreateDisabled || progress !== null}
-      className="h-9 rounded-md px-4 transition-[opacity,box-shadow,transform] duration-200"
-    >
-      {progress
-        ? t("templates.progress", progress)
-        : many
-          ? t("templates.createMany", { count })
-          : t("common.buttons.create")}
-    </LoadingButton>
-  );
+  const countHint: CountHintLine[] = [];
+  if (many) {
+    countHint.push({
+      text: t("templates.namesHint", {
+        name: profileName.trim() || t("createProfile.profileName"),
+      }),
+    });
+  }
+  if (allowance !== null && allowance.remaining > 0) {
+    countHint.push({
+      text: t("templates.allowanceLeft", { count: allowance.remaining }),
+      limit: maxCount < MAX_BULK_CREATE,
+    });
+  }
+  if (maxCount === MAX_BULK_CREATE) {
+    countHint.push({
+      text: t("backendErrors.bulkCreateCountInvalid", {
+        max: MAX_BULK_CREATE,
+      }),
+      limit: true,
+      atLimitOnly: true,
+    });
+  }
 
   const reveal = animateEntry
     ? {
         initial: { y: -6, scale: 0.985 },
         animate: { y: 0, scale: 1 },
-        transition: ENTRY_SPRING,
+        transition: MOTION_SPRING.page,
       }
     : {};
+
+  const createButton = (
+    <LoadingButton
+      data-slot="profile-create-submit"
+      onClick={handleCreate}
+      isLoading={isCreating}
+      disabled={isCreateDisabled}
+      className="h-9 rounded-md px-4 transition-[opacity,box-shadow,transform] duration-200"
+    >
+      {t("common.buttons.create")}
+    </LoadingButton>
+  );
 
   return (
     <Dialog
@@ -665,20 +754,32 @@ export function CreateProfileDialog({
         }
         aria-describedby={undefined}
         dismissible={!isCreating}
+        hideClose
       >
-        <DialogHeader className="shrink-0 flex-row items-center justify-between gap-2 space-y-0">
+        <DialogHeader className="shrink-0 flex-row items-center justify-between gap-2 space-y-0 pr-0">
           <DialogTitle className="text-base">
             {t("createProfile.title")}
           </DialogTitle>
-          <TemplatePicker
-            templates={templates}
-            applied={appliedTemplate}
-            onApply={applyTemplate}
-            onSave={saveTemplate}
-            onDelete={deleteTemplate}
-            disabled={isCreating}
-            animate={animateEntry}
-          />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <TemplatePicker
+              templates={templates}
+              applied={appliedTemplate}
+              onApply={applyTemplate}
+              onSave={saveTemplate}
+              onDelete={deleteTemplate}
+              onDeleteNow={deleteTemplateNow}
+              disabled={isCreating}
+              animate={animateEntry}
+            />
+            <DialogClose
+              data-slot="profile-create-close"
+              aria-label={t("common.buttons.close")}
+              className={cn(optionPill(false), "size-7 justify-center px-0")}
+              disabled={isCreating}
+            >
+              <LuX />
+            </DialogClose>
+          </div>
         </DialogHeader>
 
         <div
@@ -838,10 +939,7 @@ export function CreateProfileDialog({
             </motion.div>
           )}
 
-          <motion.div
-            className="flex flex-wrap items-center gap-1.5"
-            {...rise(0.04)}
-          >
+          <motion.div className="flex items-center gap-1.5" {...rise(0.04)}>
             <span id={proxyLabelId} className="sr-only">
               {t("createProfile.proxy.title")}
             </span>
@@ -854,7 +952,10 @@ export function CreateProfileDialog({
                   aria-expanded={proxyPopoverOpen}
                   aria-controls={proxyListboxId}
                   aria-labelledby={`${proxyLabelId} ${proxyValueId}`}
-                  className={optionPill(!!selectedProxyId)}
+                  className={cn(
+                    optionPill(!!selectedProxyId),
+                    "grow justify-center",
+                  )}
                   disabled={isCreating}
                 >
                   <PillIcon on={!!selectedProxyId} animate={animateEntry}>
@@ -948,7 +1049,7 @@ export function CreateProfileDialog({
                             />
                             <Badge
                               variant="soft"
-                              className="px-1 py-0 text-[10px] leading-tight"
+                              className="px-1 py-0 text-[11px] leading-tight"
                             >
                               WG
                             </Badge>
@@ -970,7 +1071,7 @@ export function CreateProfileDialog({
                           setShowProxyForm(true);
                         }}
                       >
-                        <GoPlus
+                        <LuPlus
                           className="size-4 shrink-0"
                           aria-hidden="true"
                         />
@@ -994,7 +1095,7 @@ export function CreateProfileDialog({
               disabled={isCreating || many}
               animate={animateEntry}
               icon={enablePassword ? <LuLock /> : <LuLockOpen />}
-              label={t("profiles.passwordProtectedBadge")}
+              label={t("profilePassword.fields.password")}
               hint={
                 many
                   ? t("templates.passwordOneOnly")
@@ -1014,7 +1115,113 @@ export function CreateProfileDialog({
               label={t("profiles.ephemeral")}
               hint={t("profiles.ephemeralDescription")}
             />
+            <Popover open={morePopoverOpen} onOpenChange={setMorePopoverOpen}>
+              <Tooltip delayDuration={600}>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      id="profile-more-options"
+                      type="button"
+                      data-slot="profile-create-more"
+                      aria-label={t("createProfile.moreOptions")}
+                      aria-haspopup="dialog"
+                      aria-expanded={morePopoverOpen}
+                      aria-describedby={
+                        destinationGroup ? groupValueId : undefined
+                      }
+                      className={cn(
+                        optionPill(!!destinationGroup),
+                        "w-8 shrink-0 justify-center px-0",
+                      )}
+                      disabled={isCreating}
+                    >
+                      <PillIcon on={!!destinationGroup} animate={animateEntry}>
+                        <LuEllipsis />
+                      </PillIcon>
+                      {destinationGroup && (
+                        <span id={groupValueId} className="sr-only">
+                          {destinationGroup.name}
+                        </span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={6} className="max-w-72">
+                  <p>{t("createProfile.moreOptions")}</p>
+                  {destinationGroup && (
+                    <p className="flex items-center gap-1 opacity-70">
+                      <LuFolder
+                        className="size-3 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{destinationGroup.name}</span>
+                    </p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+              <PopoverContent className="w-64 p-0" align="start" sideOffset={6}>
+                <Command>
+                  {groups.length > 6 && (
+                    <CommandInput
+                      placeholder={t("commandPalette.pages.group.placeholder")}
+                    />
+                  )}
+                  <CommandList id={groupListboxId}>
+                    <CommandEmpty>
+                      {t("createProfile.group.notFound")}
+                    </CommandEmpty>
+                    <CommandGroup heading={t("profiles.table.group")}>
+                      <CommandItem
+                        value="__no_group__"
+                        keywords={[t("groups.noGroup")]}
+                        onSelect={() => {
+                          setDestinationGroupId(null);
+                          setMorePopoverOpen(false);
+                        }}
+                      >
+                        <LuCheck
+                          className={cn(
+                            "size-4 shrink-0",
+                            !destinationGroup ? "opacity-100" : "opacity-0",
+                          )}
+                          aria-hidden="true"
+                        />
+                        {t("groups.noGroup")}
+                      </CommandItem>
+                      {groups.map((group) => (
+                        <CommandItem
+                          key={group.id}
+                          value={group.id}
+                          keywords={[group.name]}
+                          onSelect={() => {
+                            setDestinationGroupId(group.id);
+                            setMorePopoverOpen(false);
+                          }}
+                        >
+                          <LuCheck
+                            className={cn(
+                              "size-4 shrink-0",
+                              destinationGroup?.id === group.id
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                            aria-hidden="true"
+                          />
+                          <LuFolder
+                            className="size-3.5 shrink-0 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                          <span className="truncate">{group.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </motion.div>
+
+          {(ephemeral || enablePassword) && <EphemeralStorageNotice />}
 
           {enablePassword && (
             <motion.div className="space-y-1.5" {...reveal}>
@@ -1072,7 +1279,10 @@ export function CreateProfileDialog({
                   className="px-1 text-xs text-destructive-text"
                   initial={animateEntry ? { x: 0 } : false}
                   animate={animateEntry ? { x: [0, -4, 4, -2, 0] } : { x: 0 }}
-                  transition={{ duration: 0.32, ease: MOTION_EASE_OUT }}
+                  transition={{
+                    duration: MOTION_DURATION.slow,
+                    ease: MOTION_EASE_OUT,
+                  }}
                 >
                   {passwordError}
                 </motion.p>
@@ -1162,6 +1372,27 @@ export function CreateProfileDialog({
                 })}
               </p>
             ))
+          )}
+
+          {hourlyCapReached && (
+            <motion.p
+              role="status"
+              data-slot="hourly-limit"
+              className={cn(STATUS_CLASS, "items-start")}
+              {...reveal}
+            >
+              <LuClock
+                className="mt-0.5 size-3.5 shrink-0"
+                aria-hidden="true"
+              />
+              {t("createProfile.hourlyLimit.reached", {
+                limit: allowance.per_hour,
+                minutes: Math.max(
+                  1,
+                  Math.ceil((allowance.retry_after_secs ?? 60) / 60),
+                ),
+              })}
+            </motion.p>
           )}
 
           {creatingQuickly && (
@@ -1374,64 +1605,98 @@ export function CreateProfileDialog({
           </div>
         </div>
 
-        <DialogFooter className="items-center justify-between">
-          <Button
-            variant="subtle"
-            size="sm"
-            className="-ml-2 gap-1 rounded-lg px-2"
-            aria-expanded={advancedOpen}
-            aria-controls={advancedOptionsId}
-            onClick={() => setAdvancedOpen((open) => !open)}
-            disabled={isCreating}
-          >
-            <AnimatedDisclosureChevron open={advancedOpen}>
-              <LuChevronRight className="size-4" />
-            </AnimatedDisclosureChevron>
-            {t("createProfile.advancedOptions")}
-          </Button>
-          <div className="ml-auto flex items-center gap-2">
-            {progress ? (
-              <Button
-                variant="subtle"
-                data-slot="profile-create-stop"
-                onClick={() => void invoke("cancel_bulk_create_profiles")}
-              >
-                {t("templates.stop")}
-              </Button>
-            ) : (
-              <Button
-                variant="subtle"
-                onClick={handleClose}
-                disabled={isCreating}
-              >
-                {t("common.buttons.cancel")}
-              </Button>
-            )}
+        <DialogFooter className="items-center">
+          {/* Every control here keeps its size whatever the count, so the
+              row never reflows; the batch progress takes the place of
+              Advanced options without moving the buttons. */}
+          <div className="relative flex min-w-0 grow items-center">
+            <Button
+              variant="subtle"
+              size="sm"
+              className={cn(
+                "-ml-2 gap-1 rounded-lg px-2",
+                progress && "invisible",
+              )}
+              aria-expanded={advancedOpen}
+              aria-controls={advancedOptionsId}
+              onClick={() => setAdvancedOpen((open) => !open)}
+              disabled={isCreating}
+            >
+              <AnimatedDisclosureChevron open={advancedOpen}>
+                <LuChevronRight className="size-4" />
+              </AnimatedDisclosureChevron>
+              {t("createProfile.advancedOptions")}
+            </Button>
+            <p
+              role="status"
+              data-slot="profile-create-progress"
+              className="pointer-events-none absolute inset-0 flex min-w-0 items-center gap-2 text-xs text-muted-foreground tabular-nums"
+            >
+              {progress && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="h-1 w-12 shrink-0 overflow-hidden rounded-full bg-foreground/10"
+                  >
+                    <motion.span
+                      className="block h-full rounded-full bg-foreground"
+                      style={{ originX: 0 }}
+                      initial={false}
+                      animate={{
+                        scaleX: progress.total
+                          ? progress.done / progress.total
+                          : 0,
+                      }}
+                      transition={{
+                        duration: animateEntry ? MOTION_DURATION.slow : 0,
+                        ease: MOTION_EASE_OUT,
+                      }}
+                    />
+                  </span>
+                  <span className="truncate">
+                    {t("templates.progress", progress)}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Button
+              variant="subtle"
+              data-slot={progress ? "profile-create-stop" : undefined}
+              onClick={
+                progress
+                  ? () => void invoke("cancel_bulk_create_profiles")
+                  : handleClose
+              }
+              disabled={isCreating && !progress}
+            >
+              <SwapLabel
+                labels={[t("common.buttons.cancel"), t("templates.stop")]}
+                shown={progress ? 1 : 0}
+              />
+            </Button>
             <CountStepper
               value={count}
               max={maxCount}
               onChange={changeCount}
               disabled={isCreating}
+              hint={countHint}
             />
-            {hourlyCapReached ? (
-              <Tooltip
-                onOpenChange={(open) => {
-                  if (open) void loadAllowance();
-                }}
-              >
+            {closeABrowser ? (
+              <Tooltip delayDuration={300}>
                 <TooltipTrigger asChild>
-                  <span data-slot="hourly-limit" className="inline-flex">
+                  <span
+                    data-slot="profile-create-close-a-browser"
+                    // A disabled button takes no pointer events, so the
+                    // reason lives on its wrapper.
+                    className="inline-flex rounded-md"
+                  >
                     {createButton}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={6} className="max-w-64">
-                  {t("createProfile.hourlyLimit.reached", {
-                    limit: allowance.per_hour,
-                    minutes: Math.max(
-                      1,
-                      Math.ceil((allowance.retry_after_secs ?? 60) / 60),
-                    ),
-                  })}
+                <TooltipContent side="top" sideOffset={6} className="max-w-72">
+                  {t("backendErrors.tooManyBrowsersRunning")}
                 </TooltipContent>
               </Tooltip>
             ) : (
@@ -1448,12 +1713,10 @@ export function CreateProfileDialog({
   );
 }
 
-const ENTRY_SPRING = {
-  type: "spring" as const,
-  stiffness: 420,
-  damping: 34,
-  mass: 0.7,
-};
+/** The group a list filter names, or none for "All". */
+function groupFromFilter(filter: string | undefined): string | null {
+  return filter && filter !== "__all__" ? filter : null;
+}
 
 /** Mirror of `profile_generation_limiter::Allowance`. */
 interface ProfileCreationAllowance {
@@ -1461,6 +1724,8 @@ interface ProfileCreationAllowance {
   per_hour: number;
   used: number;
   retry_after_secs: number | null;
+  remaining: number;
+  close_a_browser: boolean;
 }
 
 const STATUS_CLASS =
@@ -1470,7 +1735,8 @@ const FIELD_LABEL_CLASS = "text-xs font-medium text-muted-foreground";
 
 function optionPill(on: boolean) {
   return cn(
-    "inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium outline-none select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:active:scale-100 [&_svg]:size-3.5 [&_svg]:shrink-0",
+    "inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:active:scale-100 [&_svg]:size-3.5 [&_svg]:shrink-0",
+    FOCUS_RING,
     on
       ? "bg-primary/10 text-foreground [&_svg]:text-primary-text"
       : "bg-foreground/5 text-muted-foreground hover:bg-foreground/8 hover:text-foreground",
@@ -1510,7 +1776,7 @@ function PillIcon({
         animate && mounted ? { scale: 0.4, rotate: on ? -24 : 24 } : false
       }
       animate={{ scale: 1, rotate: 0 }}
-      transition={{ type: "spring", stiffness: 560, damping: 22 }}
+      transition={MOTION_SPRING.snappy}
     >
       {children}
     </motion.span>
@@ -1535,7 +1801,7 @@ function PillLabel({
       className="min-w-0 truncate"
       initial={animate && mounted ? { y: 4 } : false}
       animate={{ y: 0 }}
-      transition={ENTRY_SPRING}
+      transition={MOTION_SPRING.page}
     >
       {label}
     </motion.span>
@@ -1574,7 +1840,7 @@ function OptionToggle({
           checked={checked}
           onCheckedChange={(state) => onCheckedChange(state === true)}
           disabled={disabled}
-          className={optionPill(checked)}
+          className={cn(optionPill(checked), "grow shrink-0 justify-center")}
         >
           <PillIcon on={checked} animate={animate}>
             {icon}
@@ -1596,6 +1862,7 @@ function TemplatePicker({
   onApply,
   onSave,
   onDelete,
+  onDeleteNow,
   disabled,
   animate,
 }: {
@@ -1603,7 +1870,10 @@ function TemplatePicker({
   applied: ProfileTemplate | null;
   onApply: (template: ProfileTemplate | null) => void;
   onSave: (name: string) => Promise<boolean>;
-  onDelete: (template: ProfileTemplate) => Promise<void>;
+  /** Moves it to the trash; calls `confirm` instead when the trash is off. */
+  onDelete: (template: ProfileTemplate, confirm: () => void) => Promise<void>;
+  /** Deletes it after the inline confirmation. */
+  onDeleteNow: (template: ProfileTemplate) => Promise<void>;
   disabled: boolean;
   animate: boolean;
 }) {
@@ -1711,7 +1981,7 @@ function TemplatePicker({
                         onClick={(event) => {
                           event.stopPropagation();
                           setConfirmingDelete(null);
-                          void onDelete(template);
+                          void onDeleteNow(template);
                         }}
                       >
                         {t("common.buttons.delete")}
@@ -1723,10 +1993,15 @@ function TemplatePicker({
                         aria-label={t("templates.delete", {
                           name: template.name,
                         })}
-                        className="grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-100 group-hover/template:opacity-100 group-data-[selected=true]/template:opacity-100 hover:bg-foreground/8 hover:text-destructive focus-visible:opacity-100 [&_svg]:size-3.5"
+                        className={cn(
+                          "grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity duration-100 group-hover/template:opacity-100 group-data-[selected=true]/template:opacity-100 hover:bg-foreground/8 hover:text-destructive focus-visible:opacity-100 [&_svg]:size-3.5",
+                          FOCUS_RING,
+                        )}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setConfirmingDelete(template.id);
+                          void onDelete(template, () =>
+                            setConfirmingDelete(template.id),
+                          );
                         }}
                       >
                         <LuTrash2 aria-hidden="true" />
@@ -1779,78 +2054,176 @@ function TemplatePicker({
   );
 }
 
-/** How many profiles to create, from 1 to `max`. */
+/** One line of the count stepper's tooltip. */
+interface CountHintLine {
+  text: string;
+  /** Says what bounds the count; stressed once the count is at the bound. */
+  limit?: boolean;
+  /** Shown only at the bound. */
+  atLimitOnly?: boolean;
+}
+
+/** Shows one label in the width of the widest, so swapping them moves nothing. */
+function SwapLabel({ labels, shown }: { labels: string[]; shown: number }) {
+  return (
+    <span className="inline-grid">
+      {labels.map((label, index) => (
+        <span
+          key={label}
+          aria-hidden={index !== shown}
+          className={cn(
+            "col-start-1 row-start-1",
+            index !== shown && "invisible",
+          )}
+        >
+          {label}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * How many profiles to create, from 1 to `max`. Its width never changes, and
+ * what the count means (the names, the allowance, the bound) shows in a
+ * tooltip while the pointer or focus is on it, so nothing around it moves.
+ */
 function CountStepper({
   value,
   max,
   onChange,
   disabled,
+  hint,
 }: {
   value: number;
   max: number;
   onChange: (value: number) => void;
   disabled: boolean;
+  hint: CountHintLine[];
 }) {
   const { t } = useTranslation();
+  const hintId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(String(value));
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     setDraft(String(value));
   }, [value]);
 
-  const commit = () => {
-    const parsed = Number.parseInt(draft, 10);
-    const next = Number.isFinite(parsed)
-      ? Math.min(max, Math.max(1, parsed))
-      : value;
-    setDraft(String(next));
-    if (next !== value) onChange(next);
+  const atLimit = value >= max;
+  const lines = hint.filter((line) => atLimit || !line.atLimitOnly);
+  const open =
+    !disabled && !dismissed && (hovered || focused) && lines.length > 0;
+
+  const set = (next: number) => {
+    const clamped = Math.min(max, Math.max(1, next));
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+    return clamped;
   };
-  const step =
-    "grid h-9 w-7 place-items-center text-muted-foreground transition-colors duration-100 hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5";
+  const stepBy = (delta: number, button: HTMLButtonElement) => {
+    const next = set(value + delta);
+    // The button disables at either end; the focus it held stays in the stepper.
+    if ((next >= max || next <= 1) && document.activeElement === button) {
+      inputRef.current?.focus();
+    }
+  };
+  const step = `grid h-9 w-7 place-items-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5 ${FOCUS_RING}`;
 
   return (
-    <div
-      role="group"
-      aria-label={t("templates.count")}
-      className="inline-flex h-9 items-center rounded-md bg-foreground/5"
-    >
-      <button
-        type="button"
-        aria-label={t("templates.fewer")}
-        data-slot="profile-count-fewer"
-        className={step}
-        disabled={disabled || value <= 1}
-        onClick={() => onChange(value - 1)}
+    <Tooltip open={open}>
+      <TooltipTrigger asChild>
+        <div
+          role="group"
+          aria-label={t("templates.count")}
+          data-slot="profile-count-stepper"
+          className="inline-flex h-9 shrink-0 items-center rounded-md bg-foreground/5"
+          onPointerEnter={() => {
+            setHovered(true);
+            setDismissed(false);
+          }}
+          onPointerLeave={() => setHovered(false)}
+          onFocus={(event) => {
+            // A click focuses a button without showing it; only a focus the
+            // person sees keeps the tooltip up once the pointer has left.
+            setFocused(event.target.matches(":focus-visible"));
+            setDismissed(false);
+          }}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setFocused(false);
+            }
+          }}
+        >
+          <button
+            type="button"
+            aria-label={t("templates.fewer")}
+            data-slot="profile-count-fewer"
+            className={step}
+            disabled={disabled || value <= 1}
+            onClick={(event) => stepBy(-1, event.currentTarget)}
+          >
+            <LuMinus aria-hidden="true" />
+          </button>
+          <input
+            ref={inputRef}
+            id="profile-count"
+            data-slot="profile-count"
+            inputMode="numeric"
+            aria-label={t("templates.count")}
+            aria-describedby={lines.length > 0 ? hintId : undefined}
+            value={draft}
+            disabled={disabled}
+            onChange={(event) => {
+              const digits = event.target.value.replace(/\D/g, "");
+              if (digits) set(Number.parseInt(digits, 10));
+              else setDraft("");
+            }}
+            onBlur={() => {
+              if (!draft) setDraft(String(value));
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                set(value + (event.key === "ArrowUp" ? 1 : -1));
+              }
+            }}
+            className="w-8 bg-transparent text-center text-sm tabular-nums outline-none disabled:opacity-50"
+          />
+          <button
+            type="button"
+            aria-label={t("templates.more")}
+            data-slot="profile-count-more"
+            className={step}
+            disabled={disabled || atLimit}
+            onClick={(event) => stepBy(1, event.currentTarget)}
+          >
+            <LuPlus aria-hidden="true" />
+          </button>
+          <span id={hintId} className="sr-only">
+            {lines.map((line) => line.text).join(" ")}
+          </span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        data-slot="profile-count-hint"
+        className="max-w-64 space-y-1"
+        onEscapeKeyDown={() => setDismissed(true)}
       >
-        <LuMinus aria-hidden="true" />
-      </button>
-      <input
-        id="profile-count"
-        data-slot="profile-count"
-        inputMode="numeric"
-        aria-label={t("templates.count")}
-        value={draft}
-        disabled={disabled}
-        onChange={(event) => setDraft(event.target.value.replace(/\D/g, ""))}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            commit();
-          }
-        }}
-        className="w-8 bg-transparent text-center text-sm tabular-nums outline-none disabled:opacity-50"
-      />
-      <button
-        type="button"
-        aria-label={t("templates.more")}
-        data-slot="profile-count-more"
-        className={step}
-        disabled={disabled || value >= max}
-        onClick={() => onChange(value + 1)}
-      >
-        <LuPlus aria-hidden="true" />
-      </button>
-    </div>
+        {lines.map((line) => (
+          <p
+            key={line.text}
+            data-limit={line.limit && atLimit ? "" : undefined}
+            className={cn(line.limit && atLimit && "font-medium")}
+          >
+            {line.text}
+          </p>
+        ))}
+      </TooltipContent>
+    </Tooltip>
   );
 }

@@ -1,6 +1,12 @@
 # Post-deploy acceptance for Donut-Free. Run AFTER deploy-free.cmd + donut-freectl.cmd start.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File acceptance-free.ps1 [-Base <deploy-dir>]
-param([string]$Base = "C:\Users\max\Desktop\Donut-Free")
+param(
+  [string]$Base = "C:\Users\max\Desktop\Donut-Free",
+  # e2e-absence probes are opt-in: every probe of a missing route writes a
+  # WARN 404 line into the instance's DonutBrowser.log (request-logging
+  # middleware), so the default post-deploy run stays log-silent.
+  [switch]$ProbeAbsence
+)
 $ErrorActionPreference = 'SilentlyContinue'
 $tokenFile = Join-Path $Base 'config\automation-token.txt'
 $token = if (Test-Path $tokenFile) { (Get-Content $tokenFile -Raw).Trim() } else { $null }
@@ -28,11 +34,18 @@ $h = Invoke-RestMethod "$B/v1/health" -Headers $AuthH -TimeoutSec 5
 Check 'health-ok' ($h.status -eq 'ok') "v$($h.version) build=$($h.build)"
 Check 'build-flavour-free' ($h.build -eq 'free') "build=$($h.build)"
 
-# 3. e2e routes compiled out
-$code = (& curl.exe -s -o NUL -w '%{http_code}' -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}' "$B/v1/e2e/mcp") -join ''
-Check 'e2e-mcp-404' ($code -eq '404') "status=$code"
-$code2 = (& curl.exe -s -o NUL -w '%{http_code}' -H "Authorization: Bearer $token" "$B/v1/e2e/status") -join ''
-Check 'e2e-status-404' ($code2 -eq '404') "status=$code2"
+# 3. e2e test surfaces compiled out of the free build. Opt-in via
+#    -ProbeAbsence: each probe of a missing route itself logs a WARN 404
+#    line in the instance's DonutBrowser.log (2026-10-19 noise report), so
+#    routine post-deploy runs skip them; release audits pass the switch.
+if ($ProbeAbsence) {
+  $code = (& curl.exe -s -o NUL -w '%{http_code}' -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}' "$B/v1/e2e/mcp") -join ''
+  $code2 = (& curl.exe -s -o NUL -w '%{http_code}' -H "Authorization: Bearer $token" "$B/v1/e2e/status") -join ''
+  Check 'e2e-mcp-404' ($code -eq '404') "status=$code"
+  Check 'e2e-status-404' ($code2 -eq '404') "status=$code2"
+} else {
+  Write-Output 'SKIP   e2e-absence (pass -ProbeAbsence to verify; probes log WARN 404 lines in the instance log)'
+}
 
 # 4. Local MCP endpoint (initialize must set the standard mcp-session-id header;
 #    PS5.1 IWR is fine for 200 responses - it only hid ERROR statuses)

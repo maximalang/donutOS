@@ -1,6 +1,6 @@
 # Donut-Free (внутренняя сборка)
 
-Бесплатный локальный клон Donut Browser v0.34.0 (upstream `zhom/donutbrowser`, AGPL-3.0).
+Бесплатный локальный клон Donut Browser v0.35.4 (upstream `zhom/donutbrowser`, AGPL-3.0).
 Режим сборки: cargo-фича `free`. **Без тест-флага e2e** — все локальные функции (включая
 proactive-скачивание движка/xray/GeoIP) работают в проде. Облако (backup, team, cookie bot,
 remote sessions) отключено честно. Апдейтер выключен compile-time; обновления — свой pipeline from upstream.

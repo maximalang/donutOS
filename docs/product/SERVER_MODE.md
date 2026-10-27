@@ -1,6 +1,6 @@
 # Server Mode — donutOS self-hosted configuration
 
-**Version:** 0.34.0 (free)  
+**Version:** 0.35.4 (free)  
 **Date:** 2026-10-25  
 **Scope:** Local MCP remote server, self-hosted sync, no vendor-cloud dependency
 

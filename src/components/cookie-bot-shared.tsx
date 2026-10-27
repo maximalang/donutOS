@@ -2,9 +2,28 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { TFunction } from "i18next";
-import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { animate, motion, useReducedMotion } from "motion/react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
+import type { IconType } from "react-icons";
+import {
+  LuCircleCheck,
+  LuCircleDashed,
+  LuCircleSlash,
+  LuCircleStop,
+  LuCircleX,
+  LuClock,
+  LuLoaderCircle,
+} from "react-icons/lu";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -128,7 +147,7 @@ export function weekdayNames(): { narrow: string; long: string }[] {
   });
 }
 
-/** A human cadence label. Unknown masks fall back to the night count. */
+/** A human cadence label. Unknown masks fall back to the day count. */
 export function describeCadence(t: TFunction, mask: number): string {
   const id = cadenceForMask(mask);
   if (id) {
@@ -215,6 +234,196 @@ export function formatDate(value: string | null | undefined): string | null {
   });
 }
 
+/** `Oct 6, 02:14`: a short moment for a narrow column. */
+export function formatShortDateTime(
+  value: string | null | undefined,
+): string | null {
+  const date = parseIso(value);
+  if (!date) return null;
+  return date.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * The wall-clock time in the enrolment's own zone. A zone name the server
+ * sends but this WebView does not know would throw from `Intl`; the local
+ * clock is the honest fallback, never a crash.
+ */
+export function clockInZone(at: Date, timeZone: string | null): string {
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  try {
+    return at.toLocaleTimeString(undefined, {
+      ...options,
+      timeZone: timeZone || undefined,
+    });
+  } catch {
+    return at.toLocaleTimeString(undefined, options);
+  }
+}
+
+/** Minutes past midnight right now in `timeZone`, or null for a zone `Intl` does not know. */
+export function minuteOfDayInZone(
+  now: number,
+  timeZone: string,
+): number | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: timeZone || undefined,
+    }).formatToParts(new Date(now));
+    const hour = Number(parts.find((part) => part.type === "hour")?.value);
+    const minute = Number(parts.find((part) => part.type === "minute")?.value);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    return (hour % 24) * 60 + minute;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The calendar day of `time` in `timeZone`, as a day count. Falls back to this
+ * machine's zone when `Intl` does not know the zone.
+ */
+function dayNumberInZone(time: number, timeZone: string | null): number {
+  const read = (zone: string | undefined) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      timeZone: zone,
+    }).formatToParts(new Date(time));
+    const part = (type: string) =>
+      Number(parts.find((item) => item.type === type)?.value);
+    return Date.UTC(part("year"), part("month") - 1, part("day")) / 86_400_000;
+  };
+  try {
+    return read(timeZone || undefined);
+  } catch {
+    return read(undefined);
+  }
+}
+
+/** A date option set in `timeZone`, or in this machine's zone when `Intl` does not know it. */
+function zonedDateString(
+  at: Date,
+  options: Intl.DateTimeFormatOptions,
+  timeZone: string | null,
+): string {
+  try {
+    return at.toLocaleDateString(undefined, {
+      ...options,
+      timeZone: timeZone || undefined,
+    });
+  } catch {
+    return at.toLocaleDateString(undefined, options);
+  }
+}
+
+/**
+ * When the next run is, as a person would say it: "In 25 min", "In 3 h",
+ * "Today", "Tomorrow", then the weekday or the date. Days are counted in
+ * `timeZone`, the zone the run's clock time is shown in.
+ */
+export function relativeRunLabel(
+  t: TFunction,
+  at: Date,
+  now: number,
+  timeZone: string | null,
+): string {
+  const diff = at.getTime() - now;
+  if (diff <= 60_000) return t("cookieBot.next.now");
+  if (diff < 60 * 60_000) {
+    return t("cookieBot.next.inMinutes", { count: Math.ceil(diff / 60_000) });
+  }
+  if (diff < 12 * 60 * 60_000) {
+    return t("cookieBot.next.inHours", {
+      count: Math.max(1, Math.round(diff / (60 * 60_000))),
+    });
+  }
+  const days =
+    dayNumberInZone(at.getTime(), timeZone) - dayNumberInZone(now, timeZone);
+  if (days <= 0) return t("cookieBot.next.today");
+  if (days === 1) return t("cookieBot.next.tomorrow");
+  if (days < 7) return zonedDateString(at, { weekday: "long" }, timeZone);
+  return zonedDateString(at, { day: "numeric", month: "short" }, timeZone);
+}
+
+/** The current time, read again every `intervalMs` while `active`. */
+export function useNow(intervalMs: number, active = true): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+    }, intervalMs);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [intervalMs, active]);
+  return now;
+}
+
+/**
+ * A number that counts to its new value when it changes. The first paint is
+ * the true value; only later changes animate, and reduced motion jumps.
+ */
+export function TickingNumber({
+  value,
+  format,
+  className,
+}: {
+  value: number;
+  format: (value: number) => string;
+  className?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const shown = useRef(value);
+  const formatRef = useRef(format);
+  formatRef.current = format;
+  const text = format(value);
+
+  // The text is written here rather than rendered, so a frame of the count
+  // never fights React over the same text node.
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const from = shown.current;
+    if (reduceMotion || from === value || !Number.isFinite(from)) {
+      shown.current = value;
+      node.textContent = text;
+      return;
+    }
+    const controls = animate(from, value, {
+      duration: 0.6,
+      ease: MOTION_EASE_OUT,
+      onUpdate: (latest) => {
+        shown.current = latest;
+        node.textContent = formatRef.current(latest);
+      },
+      onComplete: () => {
+        shown.current = value;
+        node.textContent = formatRef.current(value);
+      },
+    });
+    return () => {
+      controls.stop();
+    };
+  }, [value, reduceMotion, text]);
+
+  return <span ref={ref} className={cn("tabular-nums", className)} />;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Preflight                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -252,9 +461,9 @@ export function resolvedOs(profile: BrowserProfile): string | null {
 
 /**
  * The exact refusals `cookie_bot::bot_precondition` applies, evaluated here so
- * a user finds out at enrolment rather than at 02:00. Keeping the two in step
- * matters: a profile this says is fine but the backend refuses would burn a
- * schedule row and a night.
+ * a user finds out at enrolment rather than at the first run. Keeping the
+ * two in step matters: a profile this says is fine but the backend refuses
+ * would burn a schedule row and a run.
  */
 export function preflight(profile: BrowserProfile): PreflightResult {
   const syncMode = profile.sync_mode ?? "Disabled";
@@ -452,6 +661,7 @@ export const OUTCOME_KEYS: Record<string, string> = {
   // never learned it, so the one refusal whose fix is "use a public proxy"
   // printed as `proxy_local_only`.
   proxy_local_only: "cookieBot.outcome.proxyLocalOnly",
+  proxy_dead: "cookieBot.outcome.proxyDead",
   touch_fingerprint: "cookieBot.outcome.touchFingerprint",
   platform_unsupported: "cookieBot.outcome.platformUnsupported",
   no_sites: "cookieBot.outcome.noSites",
@@ -619,6 +829,137 @@ export function StatusDot({
   );
 }
 
+const TONE_BADGE: Record<StatusTone, string> = {
+  success: "bg-success/10 text-success-text",
+  warning: "bg-warning/12 text-warning-text",
+  destructive: "bg-destructive/10 text-destructive-text",
+  muted: "bg-foreground/6 text-muted-foreground",
+  live: "bg-primary/10 text-primary-text",
+};
+
+/**
+ * A state with a word and an icon, tinted by tone. Long text truncates inside
+ * the column it is given; pass `title` to keep the whole sentence reachable.
+ */
+export function StatusBadge({
+  tone,
+  icon: Icon,
+  spin,
+  children,
+  className,
+}: {
+  tone: StatusTone;
+  icon?: IconType;
+  spin?: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Badge
+      variant="soft"
+      className={cn(
+        "h-6 max-w-full min-w-0 shrink gap-1.5 rounded-md px-2 font-normal",
+        TONE_BADGE[tone],
+        className,
+      )}
+    >
+      {Icon && (
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0",
+            spin && "animate-spin motion-reduce:animate-none",
+          )}
+        />
+      )}
+      <span className="min-w-0 truncate">{children}</span>
+    </Badge>
+  );
+}
+
+/**
+ * An icon action in a table row. It shows on row hover or focus; a refused
+ * action stays visible on hover, dimmed, and its tooltip says why.
+ */
+export function RowAction({
+  label,
+  name,
+  forbidden,
+  forbiddenReason,
+  destructive,
+  onClick,
+  children,
+}: {
+  label: string;
+  /** The row's item; screen readers hear it after the label. */
+  name?: string;
+  forbidden?: boolean;
+  forbiddenReason?: string;
+  destructive?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="row-reveal inline-flex shrink-0">
+          <Button
+            variant="subtle"
+            size="icon"
+            className={cn(
+              "size-7 rounded-lg",
+              destructive &&
+                "hover:bg-destructive/10 hover:text-destructive-text",
+            )}
+            aria-label={
+              name ? t("tables.rowAction", { action: label, name }) : label
+            }
+            disabled={forbidden}
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {forbidden && forbiddenReason ? forbiddenReason : label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+const RUN_STATUS_ICON: Record<string, IconType> = {
+  pending: LuClock,
+  running: LuLoaderCircle,
+  succeeded: LuCircleCheck,
+  partial: LuCircleDashed,
+  skipped: LuCircleSlash,
+  failed: LuCircleX,
+  cancelled: LuCircleStop,
+};
+
+/** A run's status in the shared vocabulary, as a badge. */
+export function RunStatusBadge({
+  status,
+  className,
+}: {
+  status: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <StatusBadge
+      tone={runStatusTone(status)}
+      icon={RUN_STATUS_ICON[status] ?? LuCircleDashed}
+      spin={status === "running"}
+      className={className}
+    >
+      {runStatusLabel(t, status)}
+    </StatusBadge>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Numbers                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -698,6 +1039,7 @@ export function RemoteHoursMeter({
   variant?: "compact" | "full" | "inline";
   className?: string;
 }) {
+  const { t } = useTranslation();
   const reduceMotion = useReducedMotion();
   const granted = quota?.granted_hours ?? 0;
   const used = quota?.used_hours ?? 0;
@@ -708,8 +1050,9 @@ export function RemoteHoursMeter({
   const bar = (
     <div
       className={cn(
-        "h-1 overflow-hidden rounded-full bg-muted",
-        variant === "compact" ? "w-32" : "w-full",
+        "w-full overflow-hidden rounded-full",
+        variant === "inline" ? "h-1" : "h-1.5",
+        "bg-foreground/8",
       )}
     >
       <motion.div
@@ -718,7 +1061,10 @@ export function RemoteHoursMeter({
         transition={
           reduceMotion
             ? { duration: 0 }
-            : { duration: 0.22, ease: MOTION_EASE_OUT }
+            : {
+                duration: variant === "inline" ? 0.22 : 0.6,
+                ease: MOTION_EASE_OUT,
+              }
         }
         style={{ transformOrigin: "left", willChange: "transform" }}
         className={cn("h-full w-full", meterFill(ratio))}
@@ -730,11 +1076,18 @@ export function RemoteHoursMeter({
     return <div className={cn("w-full", className)}>{bar}</div>;
   }
 
-  return (
-    <div className={cn("flex flex-col items-end gap-1", className)}>
-      <div className="flex items-baseline gap-1.5">
+  const meter = (
+    <div
+      data-slot="remote-hours-meter"
+      className={cn(
+        "flex w-44 cursor-default flex-col gap-1.5",
+        variant === "full" && "w-full",
+        className,
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-3 text-xs">
         {isLoading ? (
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3.5 w-20" />
         ) : (
           <RemoteHoursReadout
             remaining={remaining}
@@ -743,9 +1096,32 @@ export function RemoteHoursMeter({
             isLocal={quota?.scope === "local"}
           />
         )}
+        {!isLoading && granted > 0 && (
+          <span className="shrink-0 tabular-nums text-muted-foreground">
+            {t("cookieBot.hours.remainingOf", { total: formatHours(granted) })}
+          </span>
+        )}
       </div>
       {bar}
     </div>
+  );
+
+  // A local quota has no period to talk about; the meter speaks for itself.
+  if (quota?.scope === "local" || isLoading || !resets) {
+    return meter;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{meter}</TooltipTrigger>
+      <TooltipContent>
+        {t("cookieBot.hours.used", {
+          used: formatHours(Math.round(used * 10) / 10),
+          total: formatHours(granted),
+        })}
+        {" · "}
+        {t("cookieBot.hours.resets", { date: resets })}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -768,22 +1144,8 @@ function RemoteHoursReadout({
       total: formatHours(granted),
     },
   );
-  if (isLocal || !resets) {
-    return (
-      <span className="text-xs tabular-nums text-muted-foreground">{text}</span>
-    );
-  }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="cursor-default text-xs tabular-nums text-muted-foreground">
-          {text}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>
-        {t("cookieBot.hours.resets", { date: resets })}
-      </TooltipContent>
-    </Tooltip>
+    <span className="text-xs tabular-nums text-muted-foreground">{text}</span>
   );
 }
 
@@ -797,18 +1159,7 @@ function RemoteHoursReadout({
  * changing digit never reflows the row.
  */
 export function useSecondTicker(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const id = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-    return () => {
-      window.clearInterval(id);
-    };
-  }, [active]);
-  return now;
+  return useNow(1000, active);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -865,16 +1216,45 @@ export function scheduleSortKey(schedule: CookieBotSchedule): number {
  */
 export function scheduleTone(schedule: CookieBotSchedule): StatusTone {
   if (!schedule.enabled) return "muted";
-  return schedule.blocked_by ? "warning" : "success";
+  return schedule.blocked_by || exitCheckFailed(schedule)
+    ? "warning"
+    : "success";
 }
 
-/** Why this enrolment cannot run tonight, translated, or null. */
+function exitCheckFailed(schedule: CookieBotSchedule): boolean {
+  return schedule.exit_check?.ok === false;
+}
+
+function checkedAt(schedule: CookieBotSchedule): string {
+  const at = schedule.exit_check?.checked_at;
+  return at == null
+    ? ""
+    : (formatShortDateTime(new Date(at * 1000).toISOString()) ?? "");
+}
+
+/**
+ * Why this enrolment cannot run next, translated, or null. A failed check of
+ * the exit from this computer counts before the server holds the schedule.
+ */
 export function scheduleBlockedReason(
   t: TFunction,
   schedule: CookieBotSchedule,
 ): string | null {
   if (!schedule.enabled) return null;
-  return outcomeLabel(t, schedule.blocked_by);
+  if (schedule.blocked_by) return outcomeLabel(t, schedule.blocked_by);
+  return exitCheckFailed(schedule)
+    ? t("cookieBot.exitCheck.failed", { time: checkedAt(schedule) })
+    : null;
+}
+
+/** When this computer last reached the enrolment's exit, or null. */
+export function exitCheckPassed(
+  t: TFunction,
+  schedule: CookieBotSchedule,
+): string | null {
+  return schedule.exit_check?.ok
+    ? t("cookieBot.exitCheck.passed", { time: checkedAt(schedule) })
+    : null;
 }
 
 /** Seconds a session has been alive, or null when the backend has not said. */
@@ -928,19 +1308,27 @@ export function sortByNextRun(
   });
 }
 
-export function useNextDue(schedules: CookieBotSchedule[]) {
+/**
+ * The next enrolment the server will start, and how many start within a day.
+ * A blocked enrolment is left out: its next run is one the server will refuse.
+ */
+export function useNextDue(schedules: CookieBotSchedule[], now: number) {
   return useMemo(() => {
     const enabled = schedules.filter((s) => s.enabled);
-    const sorted = sortByNextRun(enabled);
+    const runnable = enabled.filter((s) => !s.blocked_by);
+    const sorted = sortByNextRun(runnable);
     const first = sorted[0] ?? null;
     const firstAt = parseIso(first?.next_run_at ?? null);
-    const dueCount = firstAt
-      ? sorted.filter((s) => {
-          const at = parseIso(s.next_run_at);
-          if (!at) return false;
-          return at.getTime() - firstAt.getTime() < 12 * 60 * 60 * 1000;
-        }).length
-      : enabled.length;
-    return { next: first, nextAt: firstAt, dueCount };
-  }, [schedules]);
+    const dayAhead = now + 24 * 60 * 60 * 1000;
+    const dueCount = sorted.filter((s) => {
+      const at = parseIso(s.next_run_at);
+      return at !== null && at.getTime() <= dayAhead;
+    }).length;
+    return {
+      next: first,
+      nextAt: firstAt,
+      dueCount,
+      allBlocked: enabled.length > 0 && runnable.length === 0,
+    };
+  }, [schedules, now]);
 }

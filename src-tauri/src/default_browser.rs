@@ -137,10 +137,10 @@ mod macos {
         if status != 0 {
           let error_msg = match status {
             -54 => format!(
-              "Failed to set as default browser for scheme '{scheme}'. The app is not properly registered as a browser. Please:\n1. Build and install the app properly\n2. Manually set donutOS as default in System Settings > General > Default web browser\n3. Make sure the app is in your Applications folder"
+              "Failed to set as default browser for scheme '{scheme}'. The app is not properly registered as a browser. Please:\n1. Build and install the app properly\n2. Manually set donutos as default in System Settings > General > Default web browser\n3. Make sure the app is in your Applications folder"
             ),
             _ => format!(
-              "Failed to set as default browser for scheme '{scheme}'. Status code: {status}. Please manually set donutOS as default in System Settings > General > Default web browser."
+              "Failed to set as default browser for scheme '{scheme}'. Status code: {status}. Please manually set donutos as default in System Settings > General > Default web browser."
             )
           };
           return Err(error_msg);
@@ -162,8 +162,8 @@ mod windows {
   /// The key Windows knows us by. Never shown to a person.
   const APP_NAME: &str = "DonutBrowser";
   /// The name Windows shows in "Default apps" and in "Open with".
-  const DISPLAY_NAME: &str = "donutOS";
-  const DESCRIPTION: &str = "donutOS - Simple Yet Powerful Anti-Detect Browser";
+  const DISPLAY_NAME: &str = "donutos";
+  const DESCRIPTION: &str = "donutos - Simple Yet Powerful Anti-Detect Browser";
   const PROG_ID: &str = "DonutBrowser.HTML";
 
   /// A web browser registers under `StartMenuInternet`, and
@@ -335,11 +335,11 @@ mod windows {
       .map_err(|e| format!("Failed to create ProgID key: {e}"))?;
 
     prog_id_key
-      .set_value("", &"donutOS Document")
+      .set_value("", &"donutos Document")
       .map_err(|e| format!("Failed to set ProgID default value: {e}"))?;
 
     prog_id_key
-      .set_value("FriendlyTypeName", &"donutOS Document")
+      .set_value("FriendlyTypeName", &"donutos Document")
       .map_err(|e| format!("Failed to set FriendlyTypeName: {e}"))?;
 
     // The shell reads this block to put a name and an icon beside the ProgId in
@@ -557,7 +557,7 @@ mod windows {
     let code = result.0 as isize;
     if code <= 32 {
       return Err(format!(
-        "donutOS is registered, but Windows Settings did not open (code {code}). Open Settings, then Apps, then Default apps, find donutOS and set it for HTTP and HTTPS."
+        "donutos is registered, but Windows Settings did not open (code {code}). Open Settings, then Apps, then Default apps, find donutos and set it for HTTP and HTTPS."
       ));
     }
 
@@ -651,7 +651,7 @@ mod windows {
       }
     }
 
-    const EXE: &str = r"C:\Program Files\donutOS\donutbrowser.exe";
+    const EXE: &str = r"C:\Program Files\donutos\donutbrowser.exe";
 
     #[test]
     fn registration_writes_the_shape_the_shell_reads() {
@@ -853,7 +853,10 @@ mod linux {
   use crate::app_dirs::{linux_sandbox, LinuxSandbox};
   use std::process::Command;
 
-  const APP_DESKTOP_NAME: &str = "donutbrowser.desktop";
+  /// The desktop entry the deb and rpm install, then the name the snap gives
+  /// that entry.
+  const APP_DESKTOP_NAMES: [&str; 2] = ["Donut.desktop", SNAP_DESKTOP_NAME];
+  const SNAP_DESKTOP_NAME: &str = "donutbrowser.desktop";
 
   pub fn is_default_browser() -> Result<bool, String> {
     match linux_sandbox() {
@@ -888,7 +891,7 @@ mod linux {
       let current_handler = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
       // Check if our app is the default handler
-      if current_handler != APP_DESKTOP_NAME {
+      if !APP_DESKTOP_NAMES.contains(&current_handler.as_str()) {
         return Ok(false);
       }
     }
@@ -903,7 +906,7 @@ mod linux {
         return if snap_default_browser("check")? == "yes" {
           Ok(())
         } else {
-          Err("xdg-settings did not make donutOS the default browser".to_string())
+          Err("xdg-settings did not make donutos the default browser".to_string())
         };
       }
       Some(LinuxSandbox::Flatpak) => return Err(flatpak_cannot_manage_default()),
@@ -915,13 +918,12 @@ mod linux {
       return Err("xdg-mime utility not found. Please install xdg-utils package.".to_string());
     }
 
-    // Check if the desktop file exists in common locations
-    if !check_desktop_file_exists() {
+    let Some(desktop_name) = installed_desktop_name(&application_dirs()) else {
       return Err(format!(
-        "Desktop file '{}' not found in standard locations. Please ensure the application is properly installed. You can manually set donutOS as the default browser in your system settings.",
-        APP_DESKTOP_NAME
+        "Desktop file '{}' not found in standard locations. Please ensure the application is properly installed. You can manually set donutos as the default browser in your system settings.",
+        APP_DESKTOP_NAMES[0]
       ));
-    }
+    };
 
     let schemes = ["http", "https"];
     let mut all_succeeded = true;
@@ -932,7 +934,7 @@ mod linux {
 
       // Set our app as the default handler for this scheme
       let output = Command::new("xdg-mime")
-        .args(["default", APP_DESKTOP_NAME, &mime_type])
+        .args(["default", desktop_name, &mime_type])
         .output()
         .map_err(|e| format!("Failed to set default handler for {}: {}", scheme, e))?;
 
@@ -959,8 +961,8 @@ mod linux {
       Ok(false) => {
         // This is the common case where commands succeed but verification fails
         Err(format!(
-          "The xdg-mime commands completed successfully, but donutOS is not yet set as the default. This is common on some Linux distributions. Please try one of these options:\n\n1. Restart your desktop session and try again\n2. Log out and log back in\n3. Manually set donutOS as the default in your system settings:\n   - GNOME: Settings > Default Applications > Web\n   - KDE: System Settings > Applications > Default Applications > Web Browser\n   - XFCE: Settings > Preferred Applications > Web Browser\n   - Or run: xdg-settings set default-web-browser {}\n\nThe changes may take effect automatically after a desktop restart.",
-          APP_DESKTOP_NAME
+          "The xdg-mime commands completed successfully, but donutos is not yet set as the default. This is common on some Linux distributions. Please try one of these options:\n\n1. Restart your desktop session and try again\n2. Log out and log back in\n3. Manually set donutos as the default in your system settings:\n   - GNOME: Settings > Default Applications > Web\n   - KDE: System Settings > Applications > Default Applications > Web Browser\n   - XFCE: Settings > Preferred Applications > Web Browser\n   - Or run: xdg-settings set default-web-browser {}\n\nThe changes may take effect automatically after a desktop restart.",
+          desktop_name
         ))
       }
       Err(e) => Err(format!(
@@ -978,33 +980,34 @@ mod linux {
       .unwrap_or(false)
   }
 
-  fn check_desktop_file_exists() -> bool {
-    let desktop_locations = [
-      "~/.local/share/applications/",
-      "/usr/share/applications/",
-      "/usr/local/share/applications/",
-      "/var/lib/flatpak/exports/share/applications/",
-      "~/.local/share/flatpak/exports/share/applications/",
-    ];
-
-    for location in &desktop_locations {
-      let path = if location.starts_with('~') {
-        if let Ok(home) = std::env::var("HOME") {
-          location.replace('~', &home)
-        } else {
-          continue;
-        }
-      } else {
-        location.to_string()
-      };
-
-      let full_path = format!("{}{}", path, APP_DESKTOP_NAME);
-      if std::path::Path::new(&full_path).exists() {
-        return true;
-      }
+  /// Where desktop entries are installed, the person's own first.
+  fn application_dirs() -> Vec<std::path::PathBuf> {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let mut dirs = Vec::new();
+    if let Some(home) = &home {
+      dirs.push(home.join(".local/share/applications"));
     }
+    dirs.extend(
+      [
+        "/usr/share/applications",
+        "/usr/local/share/applications",
+        "/var/lib/flatpak/exports/share/applications",
+      ]
+      .map(std::path::PathBuf::from),
+    );
+    if let Some(home) = &home {
+      dirs.push(home.join(".local/share/flatpak/exports/share/applications"));
+    }
+    dirs
+  }
 
-    false
+  /// The name of Donut's desktop entry in the first of `dirs` that has one.
+  fn installed_desktop_name(dirs: &[std::path::PathBuf]) -> Option<&'static str> {
+    dirs.iter().find_map(|dir| {
+      APP_DESKTOP_NAMES
+        .into_iter()
+        .find(|name| dir.join(name).exists())
+    })
   }
 
   /// Inside a snap, `xdg-settings` is snapd's client for its
@@ -1028,7 +1031,7 @@ mod linux {
   /// snapd installs the snap's desktop file as `<snap>_donutbrowser.desktop`
   /// and adds that prefix to the name it is given, so the name goes in bare.
   fn snap_settings_args(action: &str) -> [&str; 3] {
-    [action, "default-web-browser", APP_DESKTOP_NAME]
+    [action, "default-web-browser", SNAP_DESKTOP_NAME]
   }
 
   /// No portal lets a Flatpak app read or change the default browser, and
@@ -1037,13 +1040,23 @@ mod linux {
     let app_id =
       std::env::var("FLATPAK_ID").unwrap_or_else(|_| "com.donutbrowser.DonutBrowser".to_string());
     format!(
-      "A Flatpak app cannot change the default browser. Choose donutOS in your system settings (GNOME: Settings > Default Applications > Web; KDE: System Settings > Default Applications > Web Browser), or run this outside the sandbox: xdg-settings set default-web-browser {app_id}.desktop"
+      "A Flatpak app cannot change the default browser. Choose donutos in your system settings (GNOME: Settings > Default Applications > Web; KDE: System Settings > Default Applications > Web Browser), or run this outside the sandbox: xdg-settings set default-web-browser {app_id}.desktop"
     )
   }
 
   #[cfg(test)]
   mod tests {
     use super::*;
+
+    #[test]
+    fn the_installed_desktop_entry_is_found_by_its_real_name() {
+      let empty = tempfile::tempdir().unwrap();
+      let packaged = tempfile::tempdir().unwrap();
+      std::fs::write(packaged.path().join("Donut.desktop"), "").unwrap();
+      let dirs = [empty.path().to_path_buf(), packaged.path().to_path_buf()];
+      assert_eq!(installed_desktop_name(&dirs), Some("Donut.desktop"));
+      assert_eq!(installed_desktop_name(&dirs[..1]), None);
+    }
 
     #[test]
     fn snapd_gets_the_desktop_name_without_its_snap_prefix() {

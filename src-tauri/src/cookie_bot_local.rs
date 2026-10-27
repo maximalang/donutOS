@@ -308,6 +308,7 @@ fn build_schedule(
   };
 
   Ok(CookieBotSchedule {
+    exit_check: None,
     profile_id: profile_id.to_string(),
     profile_name: input.profile_name.clone(),
     platform: input.platform.clone(),
@@ -1273,6 +1274,7 @@ mod tests {
 
   fn input() -> CookieBotScheduleInput {
     CookieBotScheduleInput {
+      exit_alive: false,
       profile_name: "Shopping".to_string(),
       platform: "windows".to_string(),
       enabled: true,
@@ -1544,6 +1546,7 @@ mod tests {
 
   fn empty_schedule() -> CookieBotSchedule {
     CookieBotSchedule {
+      exit_check: None,
       profile_id: String::new(),
       profile_name: String::new(),
       platform: "windows".to_string(),

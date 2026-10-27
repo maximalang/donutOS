@@ -6,10 +6,7 @@ import { useOnborda } from "onborda";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useInputModality } from "@/hooks/use-input-modality";
-import {
-  ONBOARDING_TOUR_CLOSED_EVENT,
-  ONBOARDING_TOUR_FINISHED_EVENT,
-} from "@/lib/onboarding-signal";
+import { setOnboardingActive } from "@/lib/onboarding-signal";
 
 // Custom Onborda card, themed with the app's CSS variables. Closing always
 // persists completion; finishing the last step also asks the page to celebrate.
@@ -35,7 +32,7 @@ export function OnboardingCard({
   const requiresAction = step.selector === '[data-onborda="create-profile"]';
   const closeTour = () => {
     closeOnborda();
-    window.dispatchEvent(new Event(ONBOARDING_TOUR_CLOSED_EVENT));
+    setOnboardingActive(false);
   };
 
   return (
@@ -93,7 +90,7 @@ export function OnboardingCard({
               size="sm"
               onClick={() => {
                 closeTour();
-                window.dispatchEvent(new Event(ONBOARDING_TOUR_FINISHED_EVENT));
+                setOnboardingActive(false);
               }}
             >
               {t("onboarding.buttons.finish")}

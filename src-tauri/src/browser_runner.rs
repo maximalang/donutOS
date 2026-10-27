@@ -374,10 +374,12 @@ impl BrowserRunner {
       let launch_started = std::time::Instant::now();
       let _launch_in_progress = crate::wayfern_identity_storage::yield_to_launch().await;
       let converted;
+      let mut launch_only = false;
       let profile = if crate::wayfern_identity_storage::needs_conversion(profile) {
         converted = crate::wayfern_identity_storage::convert_for_launch(profile)
           .await
           .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
+        launch_only = crate::wayfern_identity_storage::is_launch_only(&converted);
         &converted
       } else {
         profile
@@ -714,7 +716,11 @@ impl BrowserRunner {
         Some(prepared)
       } else {
         if profile.ephemeral {
-          crate::ephemeral_dirs::create_ephemeral_dir(&profile.id.to_string())
+          // Can mount a RAM disk or start the RAM volume's host and wait for it.
+          let id = profile.id.to_string();
+          tokio::task::spawn_blocking(move || crate::ephemeral_dirs::create_ephemeral_dir(&id))
+            .await
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() })?
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
         }
         None
@@ -782,7 +788,7 @@ impl BrowserRunner {
           )
           .await?
       } else {
-        self
+        let mut launched = self
           .wayfern_manager
           .launch_wayfern(
             &app_handle,
@@ -797,14 +803,47 @@ impl BrowserRunner {
             headless,
             kind,
           )
-          .await
-          .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-            // A refused apply reports itself as a structured error so the dialog
-            // can name the cause. Prefixing it would put English in front of the
-            // JSON the frontend parses, and the whole thing would reach the user
-            // as raw machine output.
-            crate::wrap_backend_error(e, "Failed to launch Wayfern").into()
-          })?
+          .await;
+        // The server drops a token on a plan change and after a day, and the
+        // engine then reads a paid account as one without a plan. One new
+        // token, one more try.
+        let refused_for_plan = launched
+          .as_ref()
+          .is_err_and(|e| e.to_string().contains("\"WAYFERN_CROSS_OS_REQUIRES_PLAN\""));
+        if refused_for_plan
+          && crate::cloud_auth::CLOUD_AUTH
+            .wayfern_token_after_refusal(None)
+            .await
+            .is_some()
+        {
+          log::info!(
+            "Browser launch retried with a new Wayfern token profile={}",
+            profile.id
+          );
+          launched = self
+            .wayfern_manager
+            .launch_wayfern(
+              &app_handle,
+              &updated_profile,
+              &profile_path_str,
+              &wayfern_config,
+              url.as_deref(),
+              proxy_url,
+              profile.ephemeral,
+              &extension_paths,
+              remote_debugging_port,
+              headless,
+              kind,
+            )
+            .await;
+        }
+        launched.map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+          // A refused apply reports itself as a structured error so the dialog
+          // can name the cause. Prefixing it would put English in front of the
+          // JSON the frontend parses, and the whole thing would reach the user
+          // as raw machine output.
+          crate::wrap_backend_error(e, "Failed to launch Wayfern").into()
+        })?
       };
 
       // Get the process ID from launch result
@@ -918,12 +957,27 @@ impl BrowserRunner {
         log::warn!("Activity journal write failed err=\"{e}\"");
       }
 
+      // The browser returned a config to store, and it is on disk already.
+      if let Some(stored) = wayfern_result.stored_profile.as_ref() {
+        updated_profile.wayfern_config = stored.wayfern_config.clone();
+        updated_profile.host_os = stored.host_os.clone();
+      }
+
       // Update profile with the process info
       updated_profile.process_id = Some(process_id);
       updated_profile.last_launch = Some(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
 
       // Save the updated profile
-      self.save_process_info(&updated_profile)?;
+      if launch_only {
+        let mut persisted = updated_profile.clone();
+        if let Some(disk) = crate::wayfern_identity_storage::read_profile(&updated_profile.id) {
+          persisted.wayfern_config = disk.wayfern_config;
+          persisted.host_os = disk.host_os;
+        }
+        self.save_process_info(&persisted)?;
+      } else {
+        self.save_process_info(&updated_profile)?;
+      }
       let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
         let _ = tm.rebuild_from_profiles(&self.profile_manager.list_profiles().unwrap_or_default());
       });
@@ -1043,6 +1097,7 @@ impl BrowserRunner {
       headless
     );
     Ok(crate::wayfern_manager::WayfernLaunchResult {
+      stored_profile: None,
       id: instance_id,
       processId: Some(pid),
       profilePath: Some(profile_path_str.to_string()),
@@ -1359,9 +1414,7 @@ impl BrowserRunner {
                 use tokio::time::{sleep, Duration};
                 sleep(Duration::from_millis(500)).await;
 
-                use sysinfo::{Pid, System};
-                let system = System::new_all();
-                process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
 
                 if !process_actually_stopped {
                   log::warn!(
@@ -1384,8 +1437,7 @@ impl BrowserRunner {
                       );
                     } else {
                       sleep(Duration::from_millis(500)).await;
-                      let system = System::new_all();
-                      process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                      process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                       if process_actually_stopped {
                         log::info!("Browser force killed profile={} pid={pid}", profile.id);
                       }
@@ -1406,8 +1458,7 @@ impl BrowserRunner {
                       );
                     } else {
                       sleep(Duration::from_millis(500)).await;
-                      let system = System::new_all();
-                      process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                      process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                       if process_actually_stopped {
                         log::info!("Browser force killed profile={} pid={pid}", profile.id);
                       }
@@ -1424,8 +1475,7 @@ impl BrowserRunner {
                       );
                     } else {
                       sleep(Duration::from_millis(500)).await;
-                      let system = System::new_all();
-                      process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                      process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                       if process_actually_stopped {
                         log::info!("Browser force killed profile={} pid={pid}", profile.id);
                       }
@@ -1458,9 +1508,7 @@ impl BrowserRunner {
                   } else {
                     use tokio::time::{sleep, Duration};
                     sleep(Duration::from_millis(500)).await;
-                    use sysinfo::{Pid, System};
-                    let system = System::new_all();
-                    process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                    process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                   }
                 }
                 #[cfg(target_os = "linux")]
@@ -1477,9 +1525,7 @@ impl BrowserRunner {
                   } else {
                     use tokio::time::{sleep, Duration};
                     sleep(Duration::from_millis(500)).await;
-                    use sysinfo::{Pid, System};
-                    let system = System::new_all();
-                    process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                    process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                   }
                 }
                 #[cfg(target_os = "windows")]
@@ -1495,9 +1541,7 @@ impl BrowserRunner {
                   } else {
                     use tokio::time::{sleep, Duration};
                     sleep(Duration::from_millis(500)).await;
-                    use sysinfo::{Pid, System};
-                    let system = System::new_all();
-                    process_actually_stopped = system.process(Pid::from(pid as usize)).is_none();
+                    process_actually_stopped = !crate::proxy_storage::is_process_running(pid);
                   }
                 }
               }
@@ -1626,6 +1670,8 @@ impl BrowserRunner {
       crate::extension_manager::ExtensionManager::cleanup_unpacked_for_profile(
         &profile.id.to_string(),
       );
+      crate::agent_uploads::remove_for_profile(&profile.id.to_string());
+      crate::network_capture::stop(&profile.id.to_string());
 
       // A temporary profile exists for one automation run, so the run ending
       // is what ends it. Destroyed rather than trashed: nothing here is worth
@@ -1721,6 +1767,7 @@ impl BrowserRunner {
     // notice of the fleet. A remote session whose state could not be read (a
     // dropped event stream plus an unreachable backend) fell straight through
     // to a local launch on a profile a host was writing to.
+    crate::remote_handoff::await_startup_check().await;
     crate::remote_handoff::ensure_local_launch_allowed(&profile.id.to_string())?;
     let acquired_team_lock = crate::team_lock::acquire_team_lock_if_needed(&profile).await?;
     if let Err(e) = crate::sync::download_before_first_launch(&app_handle, &profile).await {
@@ -1997,6 +2044,7 @@ async fn launch_browser_profile_tracked(
   // back yet. Checked before the profile lock because it answers without a
   // round trip and because it stays true after the session's lock is released:
   // the lock protects the browser, this protects the bytes it wrote.
+  crate::remote_handoff::await_startup_check().await;
   crate::remote_handoff::ensure_local_launch_allowed(&profile.id.to_string())?;
 
   // Team lock check: if profile is sync-enabled and user is on a team, acquire lock
@@ -2237,6 +2285,53 @@ pub async fn open_url_with_profile(
     .await
 }
 
+/// Where the browser of a profile running here takes DevTools connections.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DebugEndpoint {
+  pub port: u16,
+  /// `None` when the browser holds the port but did not answer in time.
+  pub ws_url: Option<String>,
+}
+
+/// The DevTools port `POST /v1/profiles/{id}/run` hands over for a browser
+/// already open, and its browser-level socket. `None` when not running here.
+async fn debug_endpoint(profile: &BrowserProfile) -> Option<DebugEndpoint> {
+  let port = crate::browser_tabs::local_port(profile).await?;
+  let ws_url = async {
+    let version: serde_json::Value = reqwest::Client::builder()
+      .no_proxy()
+      .timeout(Duration::from_secs(2))
+      .build()
+      .ok()?
+      .get(format!("http://127.0.0.1:{port}/json/version"))
+      .send()
+      .await
+      .ok()?
+      .json()
+      .await
+      .ok()?;
+    version
+      .get("webSocketDebuggerUrl")?
+      .as_str()
+      .map(str::to_string)
+  }
+  .await;
+  Some(DebugEndpoint { port, ws_url })
+}
+
+#[tauri::command]
+pub async fn get_profile_debug_endpoint(
+  profile_id: String,
+) -> Result<Option<DebugEndpoint>, String> {
+  let profile = ProfileManager::instance()
+    .list_profiles()
+    .map_err(|e| crate::backend_error_with_detail("INTERNAL_ERROR", e))?
+    .into_iter()
+    .find(|p| p.id.to_string() == profile_id)
+    .ok_or_else(|| crate::backend_error("PROFILE_NOT_FOUND"))?;
+  Ok(debug_endpoint(&profile).await)
+}
+
 // Global singleton instance
 static BROWSER_RUNNER: std::sync::LazyLock<BrowserRunner> =
   std::sync::LazyLock::new(BrowserRunner::new);
@@ -2244,6 +2339,18 @@ static BROWSER_RUNNER: std::sync::LazyLock<BrowserRunner> =
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[tokio::test]
+  async fn a_stopped_profile_has_no_debug_endpoint() {
+    let dir = tempfile::tempdir().unwrap();
+    let _data = crate::app_dirs::set_test_data_dir(dir.path().to_path_buf());
+    let profile = BrowserProfile {
+      id: uuid::Uuid::new_v4(),
+      process_id: None,
+      ..Default::default()
+    };
+    assert_eq!(debug_endpoint(&profile).await, None);
+  }
 
   #[test]
   fn a_refusal_names_the_override_to_drop() {

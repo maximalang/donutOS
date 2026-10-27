@@ -1,6 +1,7 @@
 pub mod account_server;
 mod client;
 pub mod config_entities;
+mod conflicts;
 pub mod encryption;
 mod engine;
 pub mod health;
@@ -57,10 +58,10 @@ static PIPELINE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(())
 
 /// Retire the running pipeline, both halves of it.
 pub fn stop_pipeline() {
-  health::reset();
   if let Some(scheduler) = get_global_scheduler() {
     scheduler.stop();
   }
+  health::reset();
   if let Ok(mut guard) = GLOBAL_SUBSCRIPTION.lock() {
     if let Some(subscription) = guard.as_mut() {
       subscription.stop();

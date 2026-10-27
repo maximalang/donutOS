@@ -34,23 +34,24 @@
       "saving": "正在保存…",
       "saved": "已保存",
       "copied": "已复制",
-      "learnMore": "了解更多"
+      "learnMore": "了解更多",
+      "undo": "撤销"
     },
     "status": {
       "active": "活跃",
-      "inactive": "未活跃",
       "running": "运行中",
       "stopped": "已停止",
       "enabled": "已启用",
       "disabled": "已禁用",
       "granted": "已授权",
-      "notGranted": "未授权",
       "connected": "已连接",
       "disconnected": "已断开",
       "synced": "已同步",
       "syncing": "同步中",
       "pending": "待处理",
-      "error": "错误"
+      "error": "错误",
+      "inactive": "未活跃",
+      "notGranted": "未授权"
     },
     "labels": {
       "name": "名称",
@@ -84,7 +85,17 @@
       "hideToken": "隐藏令牌"
     },
     "keys": {
-      "escape": "Esc"
+      "escape": "Esc",
+      "command": "Command",
+      "control": "Control",
+      "shift": "Shift",
+      "option": "Option",
+      "alt": "Alt",
+      "enter": "回车",
+      "backspace": "退格",
+      "arrowUp": "上箭头",
+      "arrowDown": "下箭头",
+      "tab": "Tab"
     },
     "errors": {
       "unknown": "发生未知错误"
@@ -116,12 +127,12 @@
       "themeDescription": "选择您喜欢的主题或跟随系统设置。自定义主题更改仅在保存时应用。",
       "themePreset": "主题预设",
       "customColors": "自定义颜色",
-      "selectTheme": "选择主题",
-      "selectThemePreset": "选择主题预设",
       "yourOwn": "自定义",
       "light": "浅色",
       "dark": "深色",
       "system": "跟随系统",
+      "selectTheme": "选择主题",
+      "selectThemePreset": "选择主题预设",
       "sounds": "界面音效",
       "soundsDescription": "按下按钮、切换开关，或操作成功或失败时，播放轻柔安静的声音。"
     },
@@ -129,38 +140,40 @@
       "title": "语言",
       "description": "选择应用程序界面的首选语言。",
       "systemDefault": "系统默认",
-      "selectLanguage": "选择语言",
-      "interface": "界面语言"
+      "interface": "界面语言",
+      "selectLanguage": "选择语言"
     },
     "defaultBrowser": {
       "title": "默认浏览器",
       "setAsDefault": "设为默认浏览器",
-      "alreadyDefault": "已是默认浏览器",
-      "description": "设为默认后，donutos 将处理网页链接并允许您选择使用哪个配置文件。",
-      "setSuccess": "donutos 现在是您的默认浏览器",
+      "description": "设为默认后，Donut Browser 将处理网页链接并允许您选择使用哪个配置文件。",
+      "setSuccess": "Donut Browser 现在是您的默认浏览器",
       "setFailed": "无法设置默认浏览器",
       "finishInSystemSettings": "请在 Windows 设置中完成",
-      "finishInSystemSettingsDescription": "donutos 已注册。Windows 设置已打开：在“Web 浏览器”中选择 donutos 即可完成。"
+      "finishInSystemSettingsDescription": "Donut Browser 已注册。Windows 设置已打开：在“Web 浏览器”中选择 Donut Browser 即可完成。",
+      "isDefault": "Donut Browser 是你的默认浏览器",
+      "notDefault": "Donut Browser 不是你的默认浏览器",
+      "alreadyDefault": "已是默认浏览器"
     },
     "permissions": {
       "title": "系统权限",
-      "loading": "加载权限中...",
-      "description": "这些权限允许从 donutos 启动的浏览器访问系统资源。每个网站仍会单独请求您的权限。",
+      "description": "这些权限允许从 Donut Browser 启动的浏览器访问系统资源。每个网站仍会单独请求您的权限。",
       "microphone": "麦克风",
       "microphoneDescription": "浏览器应用程序的麦克风访问权限",
       "camera": "摄像头",
       "cameraDescription": "浏览器应用程序的摄像头访问权限",
-      "accessRequested": "已请求 {{permission}} 访问权限"
+      "accessRequested": "已请求 {{permission}} 访问权限",
+      "loading": "加载权限中..."
     },
     "integrations": {
       "title": "集成",
       "description": "配置本地 API 和 MCP（模型上下文协议）以与外部工具和 AI 助手集成。",
-      "openSettings": "打开集成设置"
+      "openSettings": "打开集成设置",
+      "label": "本地 API 和 MCP"
     },
     "encryption": {
       "title": "同步加密",
       "description": "设置密码以启用E2E加密同步。如果您丢失此密码，加密的配置文件将无法恢复。",
-      "passwordSet": "已启用",
       "passwordSetDescription": "E2E加密密码已设置",
       "noPassword": "未设置密码",
       "passwordPlaceholder": "密码（至少8个字符）",
@@ -180,7 +193,10 @@
         "submit": "验证",
         "matchToast": "密码正确",
         "mismatchToast": "密码不匹配"
-      }
+      },
+      "ruleLength": "至少 {{min}} 个字符",
+      "ruleMatch": "密码一致",
+      "passwordSet": "已启用"
     },
     "commercial": {
       "title": "商业许可",
@@ -189,7 +205,7 @@
       "trialExpired": "试用期已过期",
       "trialExpiredDescription": "个人使用仍然免费。商业使用需要许可证。",
       "subscriptionActive": "已订阅 — {{plan}} 方案",
-      "subscriptionActiveDescription": "您的 donutos 订阅已激活。在订阅有效期内允许商业使用。"
+      "subscriptionActiveDescription": "您的 Donut Browser 订阅已激活。在订阅有效期内允许商业使用。"
     },
     "advanced": {
       "title": "高级",
@@ -199,10 +215,11 @@
       "copyLogs": "复制日志",
       "openLogDir": "打开日志文件夹",
       "copyLogsSuccess": "日志已复制到剪贴板",
-      "copyLogsDescription": "复制经过脱敏的近期日志包（最多 5 MB）。脱敏无法识别所有类型的个人数据，请在分享前检查内容。"
+      "copyLogsDescription": "复制经过脱敏的近期日志包（最多 5 MB）。脱敏无法识别所有类型的个人数据，请在分享前检查内容。",
+      "logs": "日志"
     },
     "disableAutoUpdates": "禁用应用自动更新",
-    "disableAutoUpdatesDescription": "阻止应用程序自动检查和安装 donutos 更新。浏览器更新不受影响。",
+    "disableAutoUpdatesDescription": "Donut Browser 不会自行下载或安装更新，但仍会在有新版本时提示。浏览器更新不受影响。",
     "keepDecryptedProfilesInRam": "在内存中保留已解密的配置文件",
     "keepDecryptedProfilesInRamDescription": "在启动之间保留密码保护配置文件的已解密内存副本,以便更快地启动。无论如何磁盘上的副本始终保持加密。",
     "privacy": {
@@ -232,9 +249,9 @@
       "chooseTitle": "为数据目录选择一个文件夹",
       "move": "移动",
       "willMoveTo": "全部移动到",
-      "moved": "数据目录已移动。重启 donutos 后生效。",
+      "moved": "数据目录已移动。重启 Donut Browser 后生效。",
       "reading": "正在读取数据目录…",
-      "restartRequired": "重启 donutos 以使用新位置。在此之前仍从旧位置运行。",
+      "restartRequired": "重启 Donut Browser 以使用新位置。在此之前仍从旧位置运行。",
       "environmentOverride": "已设置 DONUTBROWSER_DATA_DIR，因此无论在这里选择哪里，应用都会使用该位置。",
       "missing": "所选的数据目录不存在。如果它在可移动磁盘上，请重新接上并重启。",
       "useDefault": "重新使用默认位置",
@@ -251,6 +268,68 @@
     "trashRetentionOff": "立即删除",
     "scrollSectionsLeft": "向左滚动分区",
     "scrollSectionsRight": "向右滚动分区",
+    "changed": "已更改",
+    "open": "打开",
+    "manage": "管理",
+    "clear": "清除",
+    "dns": {
+      "label": "拦截广告、跟踪器和恶意软件"
+    },
+    "sounds": {
+      "title": "声音",
+      "description": "简短、安静的声音，告诉你发生了什么。",
+      "enabled": "界面音效",
+      "enabledDescription": "只有 Donut 窗口在前台时才会播放声音。",
+      "volume": "音量",
+      "preview": "试听",
+      "pack": "音效包",
+      "packs": {
+        "soft": {
+          "label": "柔和",
+          "description": "温暖圆润。"
+        },
+        "crisp": {
+          "label": "清脆",
+          "description": "短促、明亮、清晰。"
+        },
+        "retro": {
+          "label": "复古",
+          "description": "方波音色，像老式游戏机。"
+        }
+      },
+      "categories": {
+        "interface": {
+          "label": "界面",
+          "description": "按钮、开关，以及打开或关闭页面。"
+        },
+        "feedback": {
+          "label": "结果",
+          "description": "成功、错误、警告、复制、删除和恢复。"
+        },
+        "events": {
+          "label": "事件",
+          "description": "配置文件启动和停止、同步、下载，以及需要你处理的请求。"
+        }
+      },
+      "previewAria": "试听{{name}}声音"
+    },
+    "system": {
+      "title": "系统",
+      "launchAtLogin": "登录时打开 Donut",
+      "launchAtLoginDescription": "登录电脑时自动启动 Donut。",
+      "reopenRunning": "启动时重新打开运行中的配置文件",
+      "reopenRunningDescription": "Donut 关闭时正在运行的配置文件会在它打开时再次启动。",
+      "notifications": "系统通知",
+      "notificationsDescription": "Donut 在后台时，操作系统会通知你启动失败或代理提问等事件。"
+    },
+    "launches": {
+      "title": "批量启动",
+      "delay": "启动间隔",
+      "delayDescription": "同时启动多个配置文件时，Donut 在启动下一个之前等待的时间。",
+      "concurrency": "同时启动的配置文件数",
+      "concurrencyDescription": "可以同时启动的配置文件数量。数量越少，电脑负载越低。",
+      "seconds": "{{value}} 秒"
+    },
     "ai": {
       "title": "AI 提供商",
       "description": "您自己的 OpenAI 兼容端点应答代理对话并起草配方。API 密钥仅密封保存在本机。",
@@ -283,9 +362,10 @@
       "extensions": "扩展程序"
     },
     "newProfile": "新建",
-    "donutLogo": "donutos 标识",
+    "donutLogo": "Donut Browser 标识",
     "scrollGroupsLeft": "向左滚动分组",
-    "scrollGroupsRight": "向右滚动分组"
+    "scrollGroupsRight": "向右滚动分组",
+    "allGroups": "所有分组"
   },
   "search": {
     "helpLabel": "搜索语法",
@@ -329,6 +409,32 @@
       "a": "某个分组中正在运行的配置文件",
       "b": "没有标签但有代理的配置文件",
       "c": "超过 30 天未启动，且排除已归档的"
+    },
+    "suggest": {
+      "label": "搜索建议",
+      "matches": "匹配项",
+      "recent": "最近搜索",
+      "none": "未设置",
+      "any": "任意值",
+      "dates": {
+        "last7d": "过去 7 天",
+        "last30d": "过去 30 天",
+        "over30d": "30 天以前",
+        "over90d": "90 天以前",
+        "thisYear": "今年",
+        "never": "从未"
+      },
+      "keys": {
+        "choose": "选择",
+        "complete": "补全"
+      }
+    },
+    "issues": {
+      "unknownField": "{{name}} 不是字段，因此按文本搜索。是否想输入 {{field}}？",
+      "compare": "{{field}} 不能比较，因此按文本搜索。只有日期和版本可以比较。",
+      "date": "{{field}} 接受 2026-01-31 这样的日期，或表示过去 7 天的 7d。",
+      "enum": "{{field}} 接受 {{values}}。",
+      "boolean": "{{field}} 接受 yes 或 no。"
     }
   },
   "profiles": {
@@ -447,7 +553,10 @@
       "runSelected": "运行所选",
       "stopSelected": "停止所选",
       "proRequired": "批量运行/停止需要 Pro 套餐",
-      "distributeProxies": "分配代理"
+      "distributeProxies": "分配代理",
+      "runCount": "运行 {{count}} 个",
+      "stopCount": "停止 {{count}} 个",
+      "enableSync": "启用同步"
     },
     "passwordProtectedBadge": "密码保护",
     "launchHook": {
@@ -457,7 +566,13 @@
       "confirmTitle": "运行 {{count}} 个配置文件？",
       "confirmDescription": "一次启动 {{count}} 个配置文件可能会占用大量系统资源。是否继续？",
       "confirmButton": "运行 {{count}} 个",
-      "noneToRun": "没有选中可运行的配置文件。"
+      "noneToRun": "没有选中可运行的配置文件。",
+      "progress": "正在启动 {{done}} / {{total}}",
+      "failedSummary": "{{total}} 个启动中有 {{failed}} 个失败",
+      "showFailed": "显示",
+      "notStarted": "{{total}} 个启动中有 {{count}} 个未开始",
+      "finishedTitle": "批量启动已完成",
+      "finishedBody": "已启动 {{launched}} / {{total}} 个配置文件"
     },
     "bulkStop": {
       "confirmTitle": "停止 {{count}} 个配置文件？",
@@ -473,8 +588,18 @@
     },
     "remote": {
       "runningTooltip": "正在远程计算机上运行。停止后配置文件会回到本机。",
-      "pendingSyncTooltip": "正在下载远程会话所做的更改。完成后即可再次使用。"
-    }
+      "pendingSyncTooltip": "正在下载远程会话所做的更改。完成后即可再次使用。",
+      "starting": "正在云端启动 {{name}}"
+    },
+    "trash": {
+      "moved": "已将“{{name}}”移到回收站",
+      "movedMany": "已将 {{count}} 个配置文件移到回收站"
+    },
+    "stopAll": {
+      "none": "没有正在运行的配置文件。"
+    },
+    "duplicated": "已创建副本: {{name}}",
+    "lockedToast": "“{{name}}”已锁定"
   },
   "createProfile": {
     "title": "创建新配置文件",
@@ -526,10 +651,14 @@
     "downloadingSubtitle": "正在下载…",
     "browsersDownloading": "浏览器仍在下载中。下载完成后即可创建配置文件。",
     "advancedOptions": "高级选项",
+    "moreOptions": "更多选项",
     "hourlyLimit": {
       "reached": "你的套餐每小时可新建 {{limit}} 个配置文件。约 {{minutes}} 分钟后可创建下一个。",
       "warningTitle": "你创建配置文件的速度太快了",
       "warning": "请稍等片刻。一小时内创建过多配置文件会导致 24 小时或更长时间的临时封锁，期间无法生成新的身份。如需更高的每小时上限，欢迎通过付费套餐支持 Donut。"
+    },
+    "group": {
+      "notFound": "未找到分组。"
     },
     "engine": {
       "label": "浏览器引擎",
@@ -552,7 +681,6 @@
       "tabVpns": "VPN",
       "create": "创建",
       "loading": "正在加载代理...",
-      "noneCreated": "尚未创建代理。使用上方按钮创建第一个代理。",
       "usage": "使用情况",
       "syncCol": "同步",
       "syncCannotDisable": "此代理被同步的配置文件使用时无法禁用同步",
@@ -578,7 +706,10 @@
       "firstHopPlaintextTooltip": "第一跳未加密：与该代理的连接未加密。",
       "firstHopEncryptedTooltip": "第一跳已加密：与该代理的连接已加密。服务商仍然能看到你的访问目标。",
       "firstHopCipherTooltip": "第一跳取决于加密方式：该代理没有记录加密方式，因此与它的连接是否加密尚未确定。请编辑并设置 aes-256-gcm 这类真正的加密方式。",
-      "udpCol": "UDP"
+      "udpCol": "UDP",
+      "checkSelected": "检查所选项",
+      "checkSummary": "检查完成。通过：{{passed}}。失败：{{failed}}。",
+      "noneCreated": "尚未创建代理。使用上方按钮创建第一个代理。"
     },
     "add": "添加代理",
     "edit": "编辑代理",
@@ -736,13 +867,11 @@
     "title": "分组",
     "management": "分组管理",
     "add": "添加分组",
-    "edit": "编辑分组",
     "delete": "删除分组",
     "moveToDefault": "将配置文件移出分组",
     "noGroupDescription": "未分组的配置文件显示在「全部」筛选中。",
     "assignSuccess": "已成功将 {{count}} 个配置文件分配到 {{group}}",
     "noGroups": "暂无分组",
-    "noGroupsDescription": "创建分组来组织您的配置文件。",
     "form": {
       "name": "名称",
       "namePlaceholder": "输入分组名称"
@@ -780,7 +909,9 @@
     "all": "全部",
     "noGroup": "无分组",
     "pageTitle": "配置文件分组",
-    "pageDescription": "配置文件分组可让您按客户端、环境或使用场景整理浏览器。在多台设备之间同步分组以便共享。"
+    "pageDescription": "配置文件分组可让您按客户端、环境或使用场景整理浏览器。在多台设备之间同步分组以便共享。",
+    "edit": "编辑分组",
+    "noGroupsDescription": "创建分组来组织您的配置文件。"
   },
   "sync": {
     "mode": {
@@ -876,7 +1007,9 @@
     "enabledToast": "已启用同步",
     "disabledToast": "已禁用同步",
     "enabledDescription": "已启用配置文件同步",
-    "disabledDescription": "已禁用配置文件同步"
+    "disabledDescription": "已禁用配置文件同步",
+    "bulkEnabledToast": "已为 {{count}} 个配置文件开启同步",
+    "bulkEnableNone": "所选配置文件已开启同步。"
   },
   "integrations": {
     "title": "集成",
@@ -885,7 +1018,10 @@
       "add": "添加",
       "addedToClient": "已添加到 {{name}}",
       "removedFromClient": "已从 {{name}} 移除",
+      "updatedClient": "已更新 {{name}}",
       "removeAriaLabel": "从 {{name}} 移除",
+      "update": "更新",
+      "updateAriaLabel": "更新 {{name}} 中的凭据",
       "category": {
         "desktopApp": "桌面应用",
         "cli": "CLI",
@@ -919,6 +1055,10 @@
           "network": {
             "label": "网络",
             "description": "代理、VPN、IP 轮换和 DNS 规则"
+          },
+          "traffic": {
+            "label": "流量",
+            "description": "记录并读取页面发出的请求"
           },
           "fingerprint": {
             "label": "指纹",
@@ -965,7 +1105,6 @@
     "apiStartFailed": "启动 API 服务器失败",
     "tokenCopied": "令牌已复制",
     "mcpAcceptTermsFirst": "(请先在设置中接受 Wayfern 条款)",
-    "openSettings": "打开集成设置",
     "apiRunningOn": "运行于",
     "apiExampleRequest": "示例请求",
     "examples": {
@@ -978,7 +1117,7 @@
       "language": "语言",
       "paid": "需要付费套餐",
       "tokenIncluded": "复制的代码包含你的完整令牌。请妥善保管。",
-      "credentialTemplate": "仅显示凭据的开头部分。运行代码前请将其替换为完整凭据。",
+      "credentialIncluded": "复制的代码包含你的完整凭据。请妥善保管。",
       "languages": {
         "curl": "cURL",
         "javascript": "JavaScript",
@@ -1022,7 +1161,14 @@
           "title": "客户端配置",
           "description": "将此条目添加到列表中没有的客户端的 MCP 配置中。"
         }
-      }
+      },
+      "tryIt": "试一试",
+      "tryItDescription": "使用你的令牌将此请求发送到本地 API 并显示响应。",
+      "tryItNeedsApi": "请打开本地 API 以发送此请求。",
+      "tryItFailed": "请求未到达本地 API。请检查它是否正在运行。",
+      "liveResponse": "实时响应",
+      "tryItStatus": "HTTP {{status}} · {{ms}} 毫秒",
+      "credentialTemplate": "仅显示凭据的开头部分。运行代码前请将其替换为完整凭据。"
     },
     "tabRemote": "远程 MCP",
     "remote": {
@@ -1041,17 +1187,29 @@
       "exampleRequest": "请求示例",
       "credentialLabel": "凭据",
       "credentialPrefix": "{{prefix}}…",
+      "credentialCopy": "复制凭据",
+      "credentialCopied": "凭据已复制",
       "credentialNone": "尚无凭据。添加客户端时会创建一个。",
       "credentialHint": "会安装到下方的客户端中；此处仅显示其前几个字符。轮换会替换它并重新安装所有已连接的客户端。",
       "credentialRotate": "轮换",
       "credentialCreate": "创建",
       "credentialRotated": "凭据已轮换",
+      "credentialRestartClients": "请重启已打开的代理客户端，使其使用新凭据。",
       "credentialCreated": "凭据已创建",
       "credentialRotateFailed": "无法轮换凭据",
-      "credentialClientsFailed": "凭据已保存，但无法更新以下客户端：{{clients}}。请再次轮换以重试。",
+      "credentialClientsFailed": "凭据已保存，但无法更新以下客户端：{{clients}}。",
+      "credentialClientsUpdated": "客户端已更新",
       "fxHint": "fx 从 DONUT_MCP_TOKEN 读取凭据。请在启动 fx 的 shell 中导出该变量。",
-      "fxExportCopied": "已复制导出命令"
+      "fxReexport": "凭据已更改。请在启动 fx 的 shell 中重新导出，然后重启 fx。",
+      "fxExportCopied": "已复制导出命令",
+      "fxExportLabel": "fx 导出行",
+      "credentialForget": "删除",
+      "credentialForgetTitle": "删除凭据？",
+      "credentialForgetDescription": "Donut 会吊销此凭据并将其从这台电脑上删除。使用它的客户端会停止工作，直到你创建新的凭据。",
+      "credentialForgotten": "凭据已删除",
+      "credentialForgetFailed": "无法删除凭据"
     },
+    "openSettings": "打开集成设置",
     "tabAi": "AI",
     "members": {
       "title": "API 成员",
@@ -1349,7 +1507,7 @@
     "unknownError": "发生未知错误。请重试。",
     "noProfilesForUrl": "没有可用的配置文件。请先创建配置文件再打开 URL。",
     "createProfileFailed": "创建配置文件失败: {{error}}",
-    "launchBrowserFailed": "启动浏览器失败: {{error}}",
+    "launchBrowserFailed": "启动 {{name}} 失败: {{error}}",
     "cannotDeleteRunningProfile": "浏览器运行时无法删除配置文件。请先停止浏览器。",
     "deleteProfileFailed": "删除配置文件失败: {{error}}",
     "renameProfileFailed": "重命名配置文件失败: {{error}}",
@@ -1499,11 +1657,12 @@
     "enterAsJson": "以 JSON 格式输入 {{title}}",
     "launchArgs": "启动参数",
     "launchArgsDescription": "每行输入一个参数，格式为 --name 或 --name=value。只接受受支持的参数，例如 --disable-gpu、--mute-audio 或 --disable-features=Name。配置文件、代理、窗口和调试参数由 Donut 管理。",
-    "launchArgsSkipped": "{{profile}} 未使用自定义启动参数。{{reason}}"
+    "launchArgsSkipped": "{{profile}} 未使用自定义启动参数。{{reason}}",
+    "readingDevice": "正在读取此配置文件的指纹…"
   },
   "warnings": {
     "windowResizeTitle": "自定义窗口尺寸",
-    "windowResizeDescription": "更改浏览器窗口尺寸可能会增加网站检测到浏览器信息被伪装的概率。",
+    "windowResizeDescription": "更改浏览器窗口尺寸可能会向网站暴露您显示器的真实尺寸，并增加网站检测到浏览器信息被伪装的概率。",
     "dontShowAgain": "不再显示",
     "continue": "继续",
     "cancel": "取消"
@@ -1525,7 +1684,8 @@
   "crossOs": {
     "viewOnly": "此配置文件在 {{os}} 上创建，不受此系统支持",
     "cannotLaunch": "此配置文件在 {{os}} 上创建，不受此系统支持",
-    "cannotModify": "无法修改跨操作系统配置文件的同步设置"
+    "cannotModify": "无法修改跨操作系统配置文件的同步设置",
+    "cannotLaunchUnknown": "此配置文件在其他操作系统上创建，无法在此启动"
   },
   "profileInfo": {
     "title": "配置文件详情",
@@ -1576,12 +1736,13 @@
       "noRules": "未配置绕过规则。",
       "ruleTypes": "支持主机名、IP地址和正则表达式模式。",
       "vpnLabel": "VPN：{{name}}",
-      "proxyLabel": "代理：{{name}}"
+      "proxyLabel": "代理：{{name}}",
+      "removeRule": "移除 {{rule}}"
     },
     "launchHook": {
       "title": "启动钩子 URL",
       "label": "启动钩子 URL",
-      "description": "每次启动配置文件时，donutos 都会向此 URL 发送一个 GET 请求。",
+      "description": "每次启动配置文件时，Donut Browser 都会向此 URL 发送一个 GET 请求。",
       "placeholder": "https://example.com/hooks/profile-launch",
       "invalidUrlHint": "请输入有效的 http:// 或 https:// URL。"
     },
@@ -1612,7 +1773,9 @@
       "launchHook": "启动钩子",
       "transfer": "迁移",
       "startPages": "启动页",
-      "twoFactor": "2FA 验证码"
+      "twoFactor": "2FA 验证码",
+      "requests": "请求",
+      "logs": "日志"
     },
     "sectionDesc": {
       "fingerprint": "配置此配置文件如何对指纹脚本显示。",
@@ -1622,10 +1785,12 @@
       "sync": "配置此配置文件如何在设备间同步。",
       "automation": "在启动此配置文件时运行命令。",
       "security": "用密码加密配置文件数据。",
-      "launchHook": "每次启动配置文件时向此 URL 发送一个 GET 请求。"
+      "launchHook": "每次启动配置文件时向此 URL 发送一个 GET 请求。",
+      "requests": "浏览器运行时发出的请求。凭据已隐藏。",
+      "logs": "Donut 关于此配置文件的日志行。"
     },
     "badges": {
-      "locked": "已锁",
+      "locked": "已锁定",
       "active": "已启用"
     },
     "cookies": {
@@ -1635,12 +1800,15 @@
     "security": {
       "protected": "此配置文件已用密码加密。",
       "unprotected": "此配置文件未加密。设置密码以加密其数据。",
-      "cannotWhileRunning": "更改密码前请先停止此配置文件。"
+      "cannotWhileRunning": "更改密码前请先停止此配置文件。",
+      "unlockedTitle": "已在此设备上解锁",
+      "unlockedDescription": "在你锁定之前，其数据保持解密状态。"
     },
     "fingerprint": {
       "notSupported": "指纹编辑仅适用于 Wayfern 配置文件。",
       "lockedTitle": "查看和编辑指纹是 Pro 功能",
-      "lockedDescription": "每个配置文件中都会保护你的设备信息。查看和编辑配置文件的指纹需要有效的付费方案。"
+      "lockedDescription": "每个配置文件中都会保护你的设备信息。查看和编辑配置文件的指纹需要有效的付费方案。",
+      "customValuesKept": "你的自定义指纹值已保留。当账户拥有有效的 Pro 套餐时生效。"
     },
     "syncStatusValue": {
       "waiting": "等待中",
@@ -1663,6 +1831,28 @@
       "includeIndexedDb": "包含 IndexedDB",
       "indexedDbHint": "导出时会在后台短暂打开该配置文件，不会加载任何页面。",
       "importedWithIndexedDb": "已导入。Local Storage 项：{{items}} · 网站：{{origins}} · Cookie：{{cookies}} · IndexedDB 记录：{{records}}"
+    },
+    "drafts": {
+      "unsaved": "未保存的更改"
+    },
+    "aria": {
+      "runRemote": "在云端运行 {{name}}",
+      "moreActions": "{{name}} 的更多操作",
+      "close": "关闭 {{name}} 的详情",
+      "copyId": "复制 {{name}} 的 ID"
+    },
+    "runningBanner": "停止该配置文件后才能编辑。",
+    "debug": {
+      "title": "调试端点",
+      "description": "将 Playwright、Puppeteer 或其他 CDP 客户端连接到这个正在运行的浏览器。",
+      "notRunning": "启动该配置文件以获取其调试端点。",
+      "unavailable": "浏览器未在其调试端口上响应。",
+      "port": "端口",
+      "wsUrl": "WebSocket URL",
+      "wsPending": "浏览器响应后会显示 WebSocket URL。",
+      "copyPort": "复制端口",
+      "copyWsUrl": "复制 WebSocket URL",
+      "copyCode": "复制 {{tool}} 代码"
     }
   },
   "profileTransfer": {
@@ -1694,10 +1884,8 @@
     "managedNotice": "此处管理的扩展程序将在启动时替换配置文件中手动安装的所有扩展程序。",
     "proRequired": "扩展程序管理是 Pro 功能",
     "empty": "尚未上传任何扩展程序。",
-    "noGroups": "尚未创建任何扩展程序组。",
     "createGroup": "创建分组",
     "newGroup": "新建分组",
-    "addToGroup": "添加扩展程序...",
     "removeFromGroup": "从分组中移除",
     "deleteGroup": "删除分组",
     "extensionGroup": "扩展程序组",
@@ -1782,7 +1970,11 @@
     "fetchedIdentity": "{{name}} · 版本 {{version}}",
     "fetchedFrom": "下载自 {{source}}",
     "fetchSuccess": "扩展已下载。请确认名称后再添加。",
-    "fetchFailed": "下载扩展失败"
+    "fetchFailed": "下载扩展失败",
+    "searchExtensions": "搜索扩展",
+    "membersSelected": "已选 {{selected}}/{{total}}",
+    "noGroups": "尚未创建任何扩展程序组。",
+    "addToGroup": "添加扩展程序..."
   },
   "pro": {
     "badge": "PRO",
@@ -1801,7 +1993,6 @@
     "proPlus": "Pro++",
     "ultimate": "终极",
     "settingsDescription": "DNS 拦截列表在代理级别拦截广告、跟踪器和恶意软件域名。列表每 12 小时自动刷新一次。",
-    "manageLists": "管理 DNS 拦截列表",
     "refreshAll": "刷新所有列表",
     "refreshFailed": "刷新 DNS 拦截列表失败",
     "domains": "个域名",
@@ -1828,7 +2019,8 @@
     "custom.allowlistModeOn": "仅可访问下方域名，其余全部拦截。",
     "custom.allowlistModeOff": "拦截列表中的域名，允许其余所有域名。",
     "custom.allowedOnlyLabel": "允许的域名（仅限这些）",
-    "custom.allowedOnlyHint": "列表中域名的子域名也会被允许。列表为空时将禁用过滤。"
+    "custom.allowedOnlyHint": "列表中域名的子域名也会被允许。列表为空时将禁用过滤。",
+    "manageLists": "管理 DNS 拦截列表"
   },
   "dnsServer": {
     "label": "DNS 服务器",
@@ -1915,15 +2107,16 @@
     "namesHint": "配置文件将命名为 {{name}} 1、{{name}} 2 等，编号接在已用编号之后。",
     "allowanceLeft_one": "本小时内还可以创建 {{count}} 个。",
     "allowanceLeft_other": "本小时内还可以创建 {{count}} 个。",
-    "createMany_one": "创建 {{count}} 个配置文件",
-    "createMany_other": "创建 {{count}} 个配置文件",
     "progress": "正在创建第 {{done}} 个，共 {{total}} 个",
     "stop": "停止",
     "created_one": "已创建 {{count}} 个配置文件",
     "created_other": "已创建 {{count}} 个配置文件",
     "stoppedEarly": "已创建 {{created}} 个配置文件，共 {{total}} 个。{{error}}",
     "passwordOneOnly": "只有在创建单个配置文件时才能设置密码。",
-    "saveFromProfileDescription": "用此模板创建的新配置文件会获得它的设置以及各自的新设备。名称、备注和设备保留在此配置文件中。"
+    "saveFromProfileDescription": "用此模板创建的新配置文件会获得它的设置以及各自的新设备。名称、备注和设备保留在此配置文件中。",
+    "notifyTitle": "批量创建完成",
+    "createMany_one": "创建 {{count}} 个配置文件",
+    "createMany_other": "创建 {{count}} 个配置文件"
   },
   "vpns": {
     "form": {
@@ -1987,7 +2180,6 @@
     },
     "management": {
       "loading": "正在加载 VPN...",
-      "noneCreated": "尚未创建 VPN 配置。使用上方按钮导入或创建一个。",
       "editVpn": "编辑 VPN",
       "deleteVpn": "删除 VPN",
       "cannotDelete_one": "无法删除: 被 {{count}} 个配置文件使用",
@@ -1996,7 +2188,8 @@
       "deleteSuccess": "VPN 删除成功",
       "deleteFailed": "删除 VPN 失败",
       "deleteTitle": "删除 VPN",
-      "deleteDescription": "此操作无法撤消。VPN「{{name}}」将被永久删除。"
+      "deleteDescription": "此操作无法撤消。VPN「{{name}}」将被永久删除。",
+      "noneCreated": "尚未创建 VPN 配置。使用上方按钮导入或创建一个。"
     }
   },
   "importProfile": {
@@ -2008,10 +2201,10 @@
     "scanning": "正在扫描浏览器配置文件...",
     "noneFound": "在你的系统上未找到浏览器配置文件。",
     "noneFoundHint": "如果配置文件位于自定义位置,请尝试手动导入选项。",
-    "newProfileName": "新配置文件名称:",
+    "newProfileName": "新配置文件名称",
     "newProfileNamePlaceholder": "输入要导入的配置文件名称",
     "manualTitle": "手动配置文件导入",
-    "profileFolderPath": "配置文件夹路径:",
+    "profileFolderPath": "配置文件夹路径",
     "profileFolderPlaceholder": "输入配置文件夹的完整路径",
     "browseFolderTitle": "浏览文件夹",
     "examplePaths": "示例路径:",
@@ -2070,7 +2263,14 @@
       "securePreferencesReset": "主页、搜索引擎等受保护的设置已恢复为默认值。",
       "extensionsPartial": "部分扩展属于源浏览器，未被迁移。",
       "storeUnreadable": "某个数据库无法读取，已跳过而不是复制损坏的副本。"
-    }
+    },
+    "cancelImport": "取消导入",
+    "cancelling": "正在取消…",
+    "cancelHint": "取消会在当前配置文件完成后停止。已导入的配置文件会保留。",
+    "cancelledSummary": "导入已取消。已导入 {{imported}}/{{total}} 个。",
+    "statusCancelled": "未导入",
+    "importRemaining": "导入其余项",
+    "notifyTitle": "配置文件导入完成"
   },
   "syncTooltips": {
     "syncing": "同步中...",
@@ -2103,7 +2303,9 @@
       "description": "确定要删除 {{count}} 个分组吗？{{names}}。配置文件将被移至默认分组。",
       "description_one": "确定要删除 {{count}} 个分组吗？{{names}}。配置文件将被移至默认分组。",
       "confirmButton": "删除分组"
-    }
+    },
+    "newGroup": "新建分组",
+    "bookmarksCol": "书签"
   },
   "proxyAssignment": {
     "title": "分配代理 / VPN",
@@ -2147,21 +2349,28 @@
     "noResults": "没有匹配的配置文件",
     "selectButton": "选择",
     "launching": "正在启动...",
-    "chooseProfileTitle": "选择配置文件",
-    "openingUrl": "打开 URL:",
+    "openLink": "打开链接",
     "urlCopied": "URL 已复制到剪贴板!",
-    "selectProfileLabel": "选择配置文件:",
     "noneAvailableShort": "没有可用的配置文件。请先创建一个配置文件。",
     "noneAvailableLong": "关闭此对话框并从主窗口创建配置文件以开始使用。",
+    "badgeRunning": "运行中",
+    "openButton": "打开",
+    "busy": {
+      "launching": "此配置文件正在启动，请稍候。",
+      "stopping": "此配置文件正在停止，请稍候。",
+      "singleInstance": "{{browser}} 已在运行（{{names}}）。同一时间只能运行一个实例。",
+      "unavailable": "此配置文件现在无法打开链接。"
+    },
+    "chooseProfileTitle": "选择配置文件",
+    "openingUrl": "打开 URL:",
+    "selectProfileLabel": "选择配置文件:",
     "chooseAProfile": "选择一个配置文件",
     "badgeProxy": "代理",
-    "badgeRunning": "运行中",
-    "badgeUnavailable": "不可用",
-    "openButton": "打开"
+    "badgeUnavailable": "不可用"
   },
   "wayfernTerms": {
     "title": "Wayfern 条款和条件",
-    "description": "在使用 donutos 之前,你必须阅读并同意 Wayfern 的条款和条件。",
+    "description": "在使用 Donut Browser 之前,你必须阅读并同意 Wayfern 的条款和条件。",
     "reviewLabel": "请查看以下条款和条件:",
     "agreeNotice": "点击「我接受」即表示你同意受这些条款约束。",
     "acceptButton": "我接受",
@@ -2172,7 +2381,7 @@
   "commercialTrial": {
     "title": "商业试用期已过期",
     "description": "你的 2 周商业试用期已结束。",
-    "body": "如果你将 donutos 用于商业目的,需要购买商业许可证才能继续。你仍然可以免费用于个人用途。",
+    "body": "如果你将 Donut Browser 用于商业目的,需要购买商业许可证才能继续。你仍然可以免费用于个人用途。",
     "understandButton": "我明白了",
     "failed": "保存确认失败",
     "tryAgain": "请重试"
@@ -2180,10 +2389,10 @@
   "permissionDialog": {
     "titleMicrophone": "需要麦克风访问权限",
     "titleCamera": "需要摄像头访问权限",
-    "descMicrophone": "donutos 需要访问你的麦克风以在浏览器中启用麦克风功能。每个想使用麦克风的网站仍会单独请求你的许可。",
-    "descCamera": "donutos 需要访问你的摄像头以在浏览器中启用摄像头功能。每个想使用摄像头的网站仍会单独请求你的许可。",
-    "grantedMicrophone": "权限已授予!从 donutos 启动的浏览器现在可以访问你的麦克风。",
-    "grantedCamera": "权限已授予!从 donutos 启动的浏览器现在可以访问你的摄像头。",
+    "descMicrophone": "Donut Browser 需要访问你的麦克风以在浏览器中启用麦克风功能。每个想使用麦克风的网站仍会单独请求你的许可。",
+    "descCamera": "Donut Browser 需要访问你的摄像头以在浏览器中启用摄像头功能。每个想使用摄像头的网站仍会单独请求你的许可。",
+    "grantedMicrophone": "权限已授予!从 Donut Browser 启动的浏览器现在可以访问你的麦克风。",
+    "grantedCamera": "权限已授予!从 Donut Browser 启动的浏览器现在可以访问你的摄像头。",
     "notGrantedMicrophone": "未授予权限。点击下方按钮请求访问你的麦克风。",
     "notGrantedCamera": "未授予权限。点击下方按钮请求访问你的摄像头。",
     "doneButton": "完成",
@@ -2295,15 +2504,56 @@
     "tagsHeader": "标签",
     "noteHeader": "备注",
     "vpnsHeading": "VPN",
-    "createByCountryHeading": "按国家创建"
+    "createByCountryHeading": "按国家创建",
+    "aria": {
+      "details": "{{name}} 的详情",
+      "launch": "启动 {{name}}",
+      "stop": "停止 {{name}}",
+      "proxy": "{{name}} 的代理：{{value}}",
+      "tags": "{{name}} 的标签",
+      "note": "{{name}} 的备注",
+      "extensionGroup": "{{name}} 的扩展分组",
+      "dns": "{{name}} 的 DNS 拦截列表",
+      "status": "{{name}} 的状态",
+      "rename": "重命名 {{name}}",
+      "sync": "{{name}} 的同步：{{status}}",
+      "launchError": "上次启动失败：{{error}}",
+      "health": "{{name}} 的连接：{{status}}",
+      "traffic": "{{name}} 的流量详情"
+    },
+    "menu": {
+      "openDetails": "打开详情",
+      "rename": "重命名",
+      "moveToGroup": "移动到分组",
+      "copyId": "复制 ID",
+      "runRemote": "在云端运行",
+      "lockNow": "立即锁定",
+      "moveToTrash": "移到回收站"
+    },
+    "emptyGroupTitle": "此分组为空",
+    "emptyGroupHint": "在此分组中创建配置文件，或将现有配置文件移到这里。",
+    "emptyGroupCreate": "在此新建配置文件",
+    "emptyGroupMove": "将配置文件移到这里",
+    "health": {
+      "degraded": "连接缓慢或不稳定",
+      "down": "连接已中断"
+    },
+    "route": "代理 / VPN：{{name}}",
+    "routeNone": "无代理或 VPN",
+    "launchTooltip": {
+      "launching": "正在启动…",
+      "stopping": "正在停止…",
+      "singleInstance": "此浏览器同一时间只能运行一个实例。请先停止正在运行的实例。"
+    }
   },
   "dataTableActionBar": {
     "selected": "已选择 {{count}}",
-    "clearSelection": "清除选择"
+    "clearSelection": "清除选择",
+    "selectedHidden": "已选择 {{selected}} · {{hidden}} 个被筛选隐藏"
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "更新 donutos 失败",
+      "updateFailed": "更新 Donut Browser 失败",
       "restartFailed": "重启失败",
       "updateReady": "更新就绪，请重启以应用",
       "manualDownloadRequired": "需要手动下载",
@@ -2397,7 +2647,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "重要:此密码无法恢复",
-      "forgetWarningBody": "donutos 无法重置、恢复或绕过此密码。如果忘记,您将永久无法访问此配置文件的数据。"
+      "forgetWarningBody": "Donut Browser 无法重置、恢复或绕过此密码。如果忘记,您将永久无法访问此配置文件的数据。"
     },
     "modes": {
       "set": "设置",
@@ -2480,20 +2730,22 @@
     "dnsRulesSaveFailed": "保存 DNS 规则失败。",
     "dnsRulesExportFailed": "导出 DNS 规则失败。",
     "fingerprintMatchFailed": "无法将指纹匹配到代理。",
-    "proxySidecarVersionMismatch": "部分 donutos 文件来自不同版本。请重新安装最新更新；你的配置文件将保持安全。",
+    "proxySidecarVersionMismatch": "部分 Donut Browser 文件来自不同版本。请重新安装最新更新；你的配置文件将保持安全。",
+    "proxySidecarNotResponding": "Donut 代理助手 (donut-proxy) 未在 {{seconds}} 秒内完成。可能是安全软件拦截了它：请在杀毒软件中允许 donut-proxy，然后重试。",
+    "wayfernNotResponding": "Wayfern 已启动，但未在 {{seconds}} 秒内响应。可能是安全软件拦截了它，或它无法打开窗口。请在杀毒软件中允许 Wayfern，然后重试。",
     "updateProfilesRunning": "安装更新前，请停止所有正在运行的配置文件。",
-    "updatePreparationFailed": "donutos 无法安全停止后台网络进程。请重启电脑，然后再次尝试更新。",
+    "updatePreparationFailed": "Donut Browser 无法安全停止后台网络进程。请重启电脑，然后再次尝试更新。",
     "wayfernTermsRequired": "请先接受 Wayfern 条款与条件，再使用 Wayfern。",
     "apiPortUnavailable": "API 服务器找不到可用端口。",
     "mcpAgentUnknown": "不支持此 MCP 客户端。",
-    "mcpAgentInstallFailed": "无法将 donutos 添加到 MCP 客户端：{{detail}}",
-    "mcpAgentRemoveFailed": "无法从 MCP 客户端移除 donutos：{{detail}}",
+    "mcpAgentInstallFailed": "无法将 Donut Browser 添加到 MCP 客户端：{{detail}}",
+    "mcpAgentRemoveFailed": "无法从 MCP 客户端移除 Donut Browser：{{detail}}",
     "vlessConfigInvalid": "分享链接无效。",
     "xrayUnavailable": "此系统无法使用 Xray-core。",
     "xrayUnsupportedOs": "VLESS、VMess、Trojan 和 Hysteria2 代理需要 macOS 12 或更高版本。",
     "xrayStartFailed": "无法启动 Xray-core。",
-    "cloudNotSignedIn": "请先登录你的 donutos 账号再使用此功能。",
-    "cloudUnreachable": "无法连接 donutos 服务器。请检查网络后重试。",
+    "cloudNotSignedIn": "请先登录你的 Donut Browser 账号再使用此功能。",
+    "cloudUnreachable": "无法连接 Donut Browser 服务器。请检查网络后重试。",
     "cloudRequestFailed": "请求失败。请稍后再试。",
     "remoteRateLimited": "请求过于频繁。请稍候再试。",
     "remoteNoCapacity": "当前没有空闲的远程机器。请几分钟后再试。",
@@ -2522,6 +2774,7 @@
     "cookieBotUnsupportedPlatform": "Cookie Bot 无法运行 {{platform}} 配置文件。仅支持 Windows、macOS 和 Linux 配置文件。",
     "cookieBotRequiresExitNode": "请先绑定代理或 VPN。否则运行会从数据中心地址发出，损害配置文件的身份。",
     "cookieBotRequiresRemoteExitNode": "此配置文件的代理仅在本机可用（例如 127.0.0.1 或局域网地址）。Cookie Bot 在我们的主机上运行，因此需要具有公网地址的代理。",
+    "cookieBotExitCheckFailed": "上次检查无法连接到此配置文件的代理或 VPN。请检查后重试。",
     "cookieBotProxyKindUnsupported": "此配置文件使用 {{kind}} 代理，它需要我们主机未运行的 Xray 组件。Cookie Bot 在我们的主机上运行，请改用 HTTP、HTTPS、SOCKS 或 WireGuard 出口。",
     "unknownCode": "出现问题: {{code}}",
     "cookieBotTouchFingerprintUnsupported": "该配置文件声称是触摸设备，机器人无法操作。请使用桌面端指纹。",
@@ -2557,9 +2810,10 @@
     "wayfernFingerprintApplyFailed": "无法应用此配置文件的指纹，因此浏览器未启动。{{detail}}",
     "wayfernFingerprintGenerationFailed": "无法为此配置文件创建指纹。{{detail}}",
     "wayfernGenerationLimitReached": "已达到临时指纹生成上限。请稍后再试。",
-    "wayfernCrossOsRequiresPlan": "此配置文件声明为 {{detail}}，需要付费套餐并保持登录。请登录，或将配置文件切换为您自己的操作系统。",
+    "wayfernCrossOsRequiresPlan": "此配置文件以 {{detail}} 身份运行，而这台电脑使用其他操作系统。要在此处打开，需要 Pro 或 Team 套餐。",
     "wayfernIdentityRefused": "浏览器未以此配置文件的身份启动，因此已被关闭。{{detail}}",
     "wayfernInstanceLimitReached": "当前套餐下打开的浏览器过多。请关闭一个浏览器后重试。",
+    "tooManyBrowsersRunning": "请关闭一个浏览器窗口以继续。",
     "wayfernPlanCheckUnavailable": "目前无法检查你的套餐。请稍后再试。",
     "wayfernCustomFingerprintRequiresPlan": "你的套餐不包含自定义指纹。",
     "wayfernGenerationUnavailable": "目前无法创建指纹。请稍后再试。",
@@ -2569,7 +2823,7 @@
     "profileExportFailed": "无法导出此配置文件。{{detail}}",
     "profileExportTooLarge": "此配置文件太大，无法导出。请清理部分浏览数据后重试。",
     "profileImportFailed": "无法读取此存档。{{detail}}",
-    "profileImportTooNew": "此存档由更新版本的 donutos 写入。请更新应用后重试。",
+    "profileImportTooNew": "此存档由更新版本的 Donut Browser 写入。请更新应用后重试。",
     "profileImportUnsafeArchive": "此存档试图写入配置文件目录之外的位置，已被拒绝。",
     "recordingAlreadyRunning": "已经有一个录制在进行。请先停止它再开始新的。",
     "profileNotRunning": "该配置文件的浏览器未在运行，请先启动它。",
@@ -2596,8 +2850,8 @@
     "remoteSessionNotDrivable": "此远程会话尚未就绪，无法控制。请等待其变为在线状态。",
     "remotePlatformUnsupported": "远程会话仅在 macOS、Windows 或 Linux 主机上运行。此配置文件的平台是 {{platform}}。",
     "remoteProfileNotSynced": "此配置文件尚未完成上传到云同步。请等待首次同步完成后再试。",
-    "trashEntryNotFound": "此配置文件已不在回收站中。",
-    "trashRestoreConflict": "已存在相同 ID 的配置文件，因此无法恢复。",
+    "trashEntryNotFound": "此项已不在回收站中。",
+    "trashRestoreConflict": "已存在相同 ID 的项目，因此无法恢复。",
     "recipesNotEntitled": "配方需要 Pro 或更高方案。",
     "agentRecipeInvalid": "配方需要名称和至少一个步骤。",
     "agentRecipeNotFound": "该配方已不存在。",
@@ -2716,6 +2970,40 @@
     "syncServerAddressMismatch": "服务器的地址是 {{address}}。请输入该地址。",
     "remoteNeedsDonutSync": "远程会话和 Cookie Bot 从 Donut 云同步获取配置文件。此计算机正在与你自己的服务器同步。",
     "accountSyncUnavailable": "Donut 暂时无法登录你自己的服务器。请稍后重试。",
+    "selfHostedTeamSeat": "团队账户无法与使用同步令牌的服务器同步。",
+    "agentTargetInvalid": "请选择配方的运行位置：这台电脑或远程机群。",
+    "agentTargetOffline": "这台电脑未连接到 Donut 云。请在“集成”中打开远程控制，然后重试。",
+    "agentPlatformInvalid": "远程机群无法运行此配置文件的操作系统。",
+    "agentRunLimitReached": "正在进行的运行太多。请等待其中一个完成后重试。",
+    "remoteRequiresCloudSync": "请先为此配置文件开启云同步。远程主机没有其他方式获取它。",
+    "remoteEncryptedSyncUnsupported": "此配置文件使用端到端加密同步，远程主机无法解密。请切换为常规同步以远程运行。",
+    "remoteUnknownPlatform": "此配置文件没有记录操作系统，因此没有匹配的远程主机。",
+    "networkCaptureFailed": "浏览器未接受网络捕获：{{detail}}",
+    "networkCaptureNotRunning": "此配置文件没有正在运行的网络捕获。",
+    "vpnKeyUnreadable": "无法读取用于打开已保存 VPN 的密钥，因此未做任何更改。请检查应用数据文件夹中 vpn 文件夹的权限。",
+    "entityInUse_one": "有 {{count}} 个配置文件正在使用。请先将它们改用其他代理或 VPN。",
+    "entityInUse_other": "有 {{count}} 个配置文件正在使用。请先将它们改用其他代理或 VPN。",
+    "syncCancelled": "同步已取消。",
+    "syncServerError": "同步服务器出错（状态 {{status}}）。稍后将重试同步。",
+    "syncStorageRejected": "同步存储拒绝了此次传输（状态 {{status}}）。",
+    "syncTransferIncomplete": "部分文件未能传输。稍后将重试同步。",
+    "syncAuthFailed": "同步登录已失效。请重新登录或检查同步令牌。",
+    "syncForbidden": "同步服务器不允许此更改。",
+    "syncTooLarge": "此项目对同步服务器来说过大。",
+    "syncRateLimited": "同步服务器繁忙。稍后将重试同步。",
+    "syncServerRejected": "同步服务器拒绝了请求（状态 {{status}}）。",
+    "syncLocalFilesFailed": "无法读写此计算机上的文件。",
+    "syncDataInvalid": "无法读取已同步的副本。",
+    "syncDecryptFailed": "无法解密已同步的数据。请检查加密密码。",
+    "syncCrossOsProfile": "来自其他操作系统的配置文件只同步其设置。",
+    "syncEphemeralProfile": "临时配置文件无法同步。",
+    "syncTombstoneNotCleared": "无法连接同步服务器，因此此配置文件的同步保持关闭。",
+    "syncNotEnabled": "此配置文件的同步已关闭。",
+    "proxyUpstreamUnreachable": "无法连接到代理。",
+    "proxyUpstreamTimeout": "代理没有响应。",
+    "proxyAuthFailed": "代理拒绝了用户名或密码。",
+    "vpnUnreachable": "VPN 服务器没有响应。",
+    "entityInUse": "有 {{count}} 个配置文件正在使用。请先将它们改用其他代理或 VPN。",
     "aiNotConfigured": "请先配置 AI 提供商（集成 → AI）。",
     "aiRequestFailed": "无法连接 AI 提供商。",
     "aiBadResponse": "AI 提供商返回了无法解析的应答。",
@@ -2736,7 +3024,7 @@
       "importProfileHint": "从其他工具导入",
       "keyboardShortcuts": "键盘快捷键",
       "keyboardShortcutsHint": "查看所有快捷键",
-      "about": "关于 donutos",
+      "about": "关于 Donut Browser",
       "aboutHint": "版本和应用信息",
       "trash": "回收站",
       "trashHint": "恢复已删除的配置文件",
@@ -2828,40 +3116,120 @@
     "automationActiveHere": "浏览器自动化已在此设备上启用。",
     "viewTeamUsage": "查看团队用量",
     "ownServer": {
+      "donutCloud": "Donut 云",
+      "accountsOn": "此服务器接受 Donut 账户。",
+      "cloudOnly": "远程会话和 Cookie Bot 需要 Donut 云同步。",
+      "teamNote": "团队的所有成员必须使用同一台服务器。",
+      "backToCloud": "已重新与 Donut 云同步。",
+      "label": "同步服务器",
+      "change": "更改",
+      "remove": "移除",
+      "removed": "已移除同步服务器。",
+      "switched": "正在与 {{server}} 同步。",
+      "tokenServer": "{{host}}（同步令牌）",
       "title": "你自己的同步服务器",
       "description": "将此账户与你自己运行的 donut-sync 服务器同步，而不是与 Donut 云同步。你的套餐配置文件上限以及团队的角色和分组访问权限保持不变。",
       "current": "正在与 {{server}} 同步",
       "currentCloud": "正在与 Donut 云同步",
-      "donutCloud": "Donut 云",
       "useDonutCloud": "使用 Donut 云",
-      "accountsOn": "此服务器接受 Donut 账户。",
-      "cloudOnly": "远程会话和 Cookie Bot 需要 Donut 云同步。",
-      "teamNote": "团队的所有成员必须使用同一台服务器。",
-      "saved": "同步服务器已保存。",
-      "backToCloud": "已重新与 Donut 云同步。"
+      "saved": "同步服务器已保存。"
     },
     "localProduct": "本地模式 · 无云账号"
   },
   "shortcutsPage": {
     "title": "键盘快捷键",
-    "description": "使用这些快捷键加速您的工作流程。"
+    "description": "使用这些快捷键加速您的工作流程。",
+    "paletteHint": "搜索所有页面、配置文件和操作。",
+    "holdHint": "按住这些键，可查看使用它们的快捷键。",
+    "paletteKeys": {
+      "title": "在命令面板中",
+      "move": "在结果之间移动",
+      "run": "执行所选命令",
+      "back": "搜索为空时返回",
+      "close": "关闭面板"
+    }
   },
   "commandPalette": {
     "placeholder": "输入命令或搜索...",
-    "empty": "未找到结果。",
     "groups": {
       "navigation": "导航",
       "profiles": "配置文件",
       "actions": "操作",
-      "profileGroups": "配置文件分组"
+      "profileGroups": "配置文件分组",
+      "recent": "最近使用"
     },
     "actions": {
       "launchProfile": "启动 {{name}}",
       "stopProfile": "停止 {{name}}",
       "profileInfo": "信息 — {{name}}",
       "createProfile": "创建配置文件",
-      "about": "关于 donutos"
-    }
+      "about": "关于 Donut Browser"
+    },
+    "pages": {
+      "launch": {
+        "entry": "启动配置文件…",
+        "title": "启动",
+        "placeholder": "搜索要启动的配置文件...",
+        "empty": "所有配置文件都已在运行。"
+      },
+      "stop": {
+        "entry": "停止配置文件…",
+        "title": "停止",
+        "placeholder": "搜索运行中的配置文件...",
+        "empty": "没有正在运行的配置文件。"
+      },
+      "info": {
+        "entry": "打开配置文件信息…",
+        "title": "配置文件信息",
+        "placeholder": "搜索配置文件...",
+        "empty": "还没有配置文件。"
+      },
+      "group": {
+        "entry": "转到分组…",
+        "title": "分组",
+        "placeholder": "搜索分组...",
+        "empty": "还没有分组。"
+      }
+    },
+    "emptyFor": "没有与“{{query}}”匹配的结果。",
+    "emptyHint": "可搜索页面、配置文件、分组和操作。",
+    "emptyPageHint": "按 Esc 返回全部命令。",
+    "footer": {
+      "move": "移动",
+      "run": "执行",
+      "open": "打开",
+      "back": "返回",
+      "close": "关闭"
+    },
+    "keywords": {
+      "openPalette": "命令 搜索 查找 执行",
+      "openShortcuts": "键盘 按键 快捷键 帮助",
+      "openTips": "提示 帮助 学习 功能",
+      "sendFeedback": "错误 报告 问题 支持 联系 建议",
+      "openTotp": "双重验证 2fa otp totp 验证器 验证码 mfa",
+      "importProfile": "导入 添加 加载 迁移 chrome firefox",
+      "goProfiles": "首页 浏览器 列表 全部",
+      "goProxies": "代理 vpn wireguard 网络 socks http",
+      "goExtensions": "扩展 插件 附加组件",
+      "goGroups": "分组 文件夹 整理",
+      "goCookieBot": "cookie 预热 机器人 浏览",
+      "goAgent": "ai mcp 助手 自动化",
+      "goIntegrations": "api mcp rest 令牌 集成 自动化",
+      "goAccount": "账户 云 登录 订阅 套餐 账单 团队 同步",
+      "goSettings": "偏好 选项 主题 语言 声音 外观",
+      "goTrash": "回收站 已删除 恢复",
+      "createProfile": "新建 添加 配置文件 浏览器",
+      "about": "版本 许可证 关于",
+      "launch": "启动 打开 运行 浏览器",
+      "stop": "停止 退出 关闭",
+      "info": "详情 信息 编辑 配置文件",
+      "group": "分组 筛选 切换 文件夹",
+      "newProfile": "新建 添加 创建 配置文件 浏览器",
+      "stopAllRunning": "停止 全部 运行 关闭 退出",
+      "focusSearch": "搜索 查找 筛选",
+      "goBack": "返回 退出 主页"
+    },
+    "empty": "未找到结果。"
   },
   "shortcuts": {
     "openPalette": "打开命令面板",
@@ -2879,23 +3247,27 @@
     "goAgent": "前往智能体",
     "openTips": "打开小贴士",
     "sendFeedback": "发送反馈",
-    "openTotp": "由密钥生成 2FA 验证码"
+    "openTotp": "由密钥生成 2FA 验证码",
+    "newProfile": "新建配置文件",
+    "stopAllRunning": "停止所有运行中的配置文件",
+    "focusSearch": "搜索配置文件",
+    "goBack": "返回配置文件"
   },
   "closeConfirm": {
-    "title": "关闭 donutos？",
+    "title": "关闭 Donut Browser？",
     "description": "您想将应用最小化到系统托盘还是退出？",
     "minimize": "最小化到托盘",
     "quit": "退出"
   },
   "tray": {
-    "show": "显示 donutos",
+    "show": "显示 Donut Browser",
     "quit": "退出"
   },
   "onboarding": {
     "steps": {
       "createProfile": {
         "title": "创建你的第一个配置文件",
-        "content": "点击这里创建您的第一个配置文件。浏览器请选择 {{browser}}——推荐的、具备指纹保护的 Chromium。"
+        "content": "点击这里创建您的第一个配置文件。浏览器请选择 Wayfern——推荐的、具备指纹保护的 Chromium。"
       },
       "dnsBlocking": {
         "title": "DNS 拦截",
@@ -2904,18 +3276,20 @@
     },
     "buttons": {
       "skip": "跳过",
+      "finish": "完成",
       "back": "返回",
-      "next": "下一步",
-      "finish": "完成"
+      "next": "下一步"
     },
     "thankYou": {
-      "title": "感谢您选择 donutos",
+      "title": "感谢您选择 Donut Browser",
       "body": "希望它能让您的网络浏览更加私密——每个身份彼此独立，数据不会离开您的设备。祝您使用愉快！",
       "cta": "开始浏览"
-    }
+    },
+    "stepOf": "第 {{current}} 步，共 {{total}} 步",
+    "progress": "导览进度"
   },
   "welcome": {
-    "title": "欢迎使用 donutos",
+    "title": "欢迎使用 Donut Browser",
     "tagline": "一款开源的反检测浏览器，可同时管理多个身份。",
     "skip": "跳过",
     "next": "下一步",
@@ -2928,7 +3302,7 @@
     },
     "ready": {
       "title": "正在准备",
-      "descDownloading": "正在下载你的第一个浏览器（{{browser}}）。此一次性设置在后台运行——请稍候。",
+      "descDownloading": "正在下载你的第一个浏览器（Wayfern）。此一次性设置在后台运行——请稍候。",
       "descReady": "你的浏览器已就绪。来创建你的第一个配置文件吧。",
       "cta": "创建我的第一个配置文件",
       "downloading": "正在下载…",
@@ -2959,14 +3333,15 @@
     },
     "license": {
       "title": "许可",
-      "body": "donutos 是开源软件，可免费使用。",
+      "body": "Donut Browser 是开源软件，可免费使用。",
       "agree": "我知道了",
       "personalTitle": "个人使用",
       "personalDesc": "永久免费。",
       "commercialTitle": "商业使用",
       "trialBadge": "2 周免费",
       "commercialDesc": "在 2 周评估期内免费。之后需要付费方案，这有助于本项目的持续维护与发展。"
-    }
+    },
+    "progress": "设置进度"
   },
   "wayfernBlocked": {
     "title": "浏览器自动化已暂停",
@@ -2987,16 +3362,66 @@
     "noOtherTargets": "未选择其他 Wayfern 配置文件"
   },
   "about": {
-    "title": "关于",
-    "version": "版本 {{version}}",
-    "portableBadge": "便携版",
-    "licenseNotice": "开源反检测浏览器。",
     "website": "官网",
-    "github": "GitHub",
     "licenses": "许可证",
     "searchLicenses": "搜索许可证…",
     "noMatchingLicenses": "没有匹配的许可证。",
     "openSource": "查看 {{name}} 源代码",
+    "channel": {
+      "stable": "稳定版",
+      "nightly": "Nightly",
+      "development": "开发版"
+    },
+    "portable": "便携版",
+    "whatsNew": "此版本的新功能",
+    "update": {
+      "checking": "正在检查更新…",
+      "development": "开发版已关闭更新",
+      "current": "已是最新版本",
+      "checkAgain": "再次检查",
+      "failed": "无法检查更新",
+      "available": "版本 {{version}} 可用",
+      "packageManager": "版本 {{version}} 可通过包管理器获取",
+      "update": "更新",
+      "download": "下载",
+      "downloading": "正在下载版本 {{version}}…",
+      "downloadingPercent": "正在下载版本 {{version}}… {{percent}}%",
+      "ready": "版本 {{version}} 已可安装",
+      "restart": "重启以更新"
+    },
+    "diagnostics": {
+      "title": "诊断",
+      "version": "版本",
+      "channel": "渠道",
+      "system": "系统",
+      "yes": "是",
+      "no": "否",
+      "notInstalled": "未安装",
+      "copy": "复制详细信息",
+      "copyFailed": "无法复制详细信息",
+      "openLogs": "打开日志文件夹",
+      "openLogsFailed": "无法打开日志文件夹"
+    },
+    "help": {
+      "title": "帮助",
+      "reportBug": "报告问题"
+    },
+    "sourceCode": "源代码",
+    "lab": {
+      "hint": "拖动可旋转，点击可咬一口。",
+      "status_one": "{{count}} 口 · 剩余 {{left}}%",
+      "status_other": "{{count}} 口 · 剩余 {{left}}%",
+      "label": "甜甜圈，剩余 {{left}}%",
+      "description": "一个用文本字符绘制的 3D 甜甜圈。拖动或使用方向键旋转，点击或按空格键咬一口。",
+      "eaten": "只剩下碎屑了。",
+      "bakeAnother": "再烤一个",
+      "close": "关闭甜甜圈"
+    },
+    "title": "关于",
+    "version": "版本 {{version}}",
+    "portableBadge": "便携版",
+    "licenseNotice": "开源反检测浏览器。",
+    "github": "GitHub",
     "snack": {
       "found": "你发现了零食抽屉。",
       "finished": "只有碎屑，没有 Cookie。",
@@ -3021,7 +3446,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "按计划在本地预热配置文件。运行时设备需保持开机；计划和历史记录保留在本设备上。",
+    "description": "按你的计划在远程机器上养号。",
     "tabs": {
       "overview": "概览",
       "schedule": "计划",
@@ -3030,19 +3455,12 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "计划在本设备本地运行，设备关机时暂停。"
+      "hint": "Cookie Bot 会在你选择的时间于远程机器上养号，无需开着你的电脑也能保住 Cookie 和历史记录。"
     },
     "empty": {
       "title": "尚未加入任何配置文件",
-      "hint": "选一个配置文件，机器人会在远程机器上通宵养号。你的电脑可以关机。",
+      "hint": "选一个配置文件，机器人会在你设定的时间于远程机器上养号。你的电脑可以关机。",
       "cta": "加入一个配置文件"
-    },
-    "tonight": {
-      "label": "今晚",
-      "nextRun": "下次运行 {{time}}",
-      "dueCount_one": "{{count}} 个配置文件待运行",
-      "dueCount_other": "{{count}} 个配置文件待运行",
-      "nothingScheduled": "没有安排"
     },
     "lastDay": {
       "label": "最近 24 小时",
@@ -3055,40 +3473,47 @@
       "failed_other": "{{count}} 次失败"
     },
     "chart": {
-      "machineTime": "每晚机器时长",
-      "minutes": "{{minutes}} 分钟"
+      "machineTime": "每日机器时长",
+      "minutes": "{{minutes}} 分钟",
+      "total": "共 {{duration}}",
+      "empty": "此期间没有运行",
+      "noRuns": "无运行",
+      "runs_one": "{{count}} 次运行",
+      "runs_other": "{{count}} 次运行"
     },
     "hours": {
-      "label": "本地运行预算",
-      "remaining": "剩余 {{remaining}} 小时 / 共 {{total}}",
+      "label": "远程时长",
       "remainingOf": "/ {{total}} 小时",
       "used": "{{total}} 小时中已用 {{used}} 小时",
-      "resets": "年度周期于 {{date}} 结束",
+      "resets": "{{date}} 重置",
       "exhausted": "远程时长已用完。计划仍然保留，将在下个周期恢复。",
       "exhaustedOn": "远程时长已用完。计划仍然保留，将于 {{date}} 恢复。",
       "estimate": "每周约 {{hours}} 小时 · 本周期还剩 {{remaining}} 小时",
       "estimateOverBudget": "每周约需 {{hours}} 小时，但只剩 {{remaining}} 小时",
       "estimateOnly": "每周约 {{hours}} 小时",
+      "left": "剩余 {{hours}} 小时",
+      "remaining": "剩余 {{remaining}} 小时 / 共 {{total}}",
       "localRemaining": "已使用本地预算 {{remaining}} 小时；每年可用 {{total}} 小时。"
     },
     "enrolled": {
       "columnProfile": "配置文件",
-      "columnCadence": "频率",
-      "columnTime": "时间",
       "columnNextRun": "下次运行",
       "columnLastRun": "上次运行",
       "enrolProfiles": "加入配置文件",
       "edit": "编辑计划",
       "neverRun": "从未",
-      "pausedNoHours": "已暂停 — 时长用尽",
-      "profileMissing": "该配置文件不在这台电脑上。"
+      "pausedNoHours": "已暂停：时长用尽",
+      "profileMissing": "该配置文件不在这台电脑上。",
+      "columnCadence": "频率",
+      "columnTime": "时间"
     },
     "schedule": {
       "empty": "还没有任何安排。",
       "unenrol": "从 Cookie Bot 移除",
       "unenrolTitle": "将 {{name}} 从 Cookie Bot 移除？",
-      "unenrolDescription": "今晚起停止养号。以往的运行记录仍保留在“活动”中。",
-      "unenrolled": "已从 Cookie Bot 移除"
+      "unenrolDescription": "之后的运行将停止。以往的运行记录仍保留在“活动”中。",
+      "unenrolled": "已从 Cookie Bot 移除",
+      "localTime": "现在 {{time}}"
     },
     "status": {
       "provisioning": "正在准备机器",
@@ -3159,7 +3584,7 @@
     },
     "picker": {
       "title": "加入配置文件",
-      "description": "选择机器人应在夜间养号的配置文件。",
+      "description": "选择机器人要养号的配置文件。",
       "searchPlaceholder": "搜索配置文件…",
       "noProfiles": "没有匹配的配置文件。",
       "alreadyEnrolled": "已加入",
@@ -3172,25 +3597,25 @@
       "titleCount_other": "加入 {{count}} 个配置文件",
       "editTitle": "编辑计划",
       "description": "机器人会在远程机器上打开配置文件，浏览你列出的网站。你的电脑可以关机。",
-      "summaryNightly": "每晚 {{time}} 运行，每次最多 {{minutes}} 分钟。",
+      "summaryNightly": "每天 {{time}} 运行，每次最多 {{minutes}} 分钟。",
       "summaryWeeknights": "周一至周五 {{time}} 运行，每次最多 {{minutes}} 分钟。",
-      "summaryAlternate": "隔晚 {{time}} 运行，每次最多 {{minutes}} 分钟。",
-      "summaryCustom_one": "每周 {{count}} 晚，于 {{time}} 运行，每次最多 {{minutes}} 分钟。",
-      "summaryCustom_other": "每周 {{count}} 晚，于 {{time}} 运行，每次最多 {{minutes}} 分钟。",
-      "confirm": "今晚起加入",
-      "confirmSome": "今晚加入 {{total}} 个中的 {{eligible}} 个",
+      "summaryAlternate": "隔天 {{time}} 运行，每次最多 {{minutes}} 分钟。",
+      "summaryCustom_one": "每周 {{count}} 天，于 {{time}} 运行，每次最多 {{minutes}} 分钟。",
+      "summaryCustom_other": "每周 {{count}} 天，于 {{time}} 运行，每次最多 {{minutes}} 分钟。",
+      "confirm": "加入",
+      "confirmSome": "加入 {{total}} 个中的 {{eligible}} 个",
       "fixFirst": "请先解决这些问题",
       "saving": "正在加入…",
       "saved": "计划已保存",
       "enrolled_one": "已加入 {{count}} 个配置文件",
       "enrolled_other": "已加入 {{count}} 个配置文件",
-      "adjust": "调整计划",
+      "adjust": "时长与深度",
       "cadenceLabel": "频率",
-      "cadenceNightly": "每晚",
-      "cadenceWeeknights": "工作日夜间",
-      "cadenceAlternate": "隔晚一次",
-      "cadenceCustom_one": "每周 {{count}} 晚",
-      "cadenceCustom_other": "每周 {{count}} 晚",
+      "cadenceNightly": "每天",
+      "cadenceWeeknights": "工作日",
+      "cadenceAlternate": "隔天",
+      "cadenceCustom_one": "每周 {{count}} 天",
+      "cadenceCustom_other": "每周 {{count}} 天",
       "timeLabel": "开始时间",
       "timeHint": "按各配置文件指纹所在时区计算。",
       "maxMinutesLabel": "最长分钟数",
@@ -3203,8 +3628,8 @@
       "presetsUnavailable": "无法加载深度预设。请稍后再试。",
       "confirmBulkTitle_one": "将 {{count}} 个配置文件加入 Cookie Bot？",
       "confirmBulkTitle_other": "将 {{count}} 个配置文件加入 Cookie Bot？",
-      "confirmBulkDescription_one": "这会占用共享远程时长预订一次夜间运行。时间和网站将在下一步选择。",
-      "confirmBulkDescription_other": "这会占用共享远程时长预订 {{count}} 次夜间运行。时间和网站将在下一步选择。",
+      "confirmBulkDescription_one": "这会占用共享远程时长预订一次每日运行。时间和网站将在下一步选择。",
+      "confirmBulkDescription_other": "这会占用共享远程时长预订 {{count}} 次每日运行。时间和网站将在下一步选择。",
       "confirmBulkButton_one": "继续（{{count}} 个配置文件）",
       "confirmBulkButton_other": "继续（{{count}} 个配置文件）",
       "sitesRequired": "请至少添加一个网站。",
@@ -3214,7 +3639,7 @@
       "sourceCurated": "精选",
       "sourceSaved": "已保存",
       "curatedEmpty": "目前没有可用的精选列表。",
-      "curatedNote": "由我们持续维护的精选列表。每个配置文件都会从中抽取各自的样本，因此不会有两个配置文件浏览同一组网站——这正是让列表本身不会变成特征的原因。地址只保留在我们这边。",
+      "curatedNote": "由我们持续维护的精选列表。每个配置文件都会从中抽取各自的样本，因此不会有两个配置文件浏览同一组网站，这正是让列表本身不会变成特征的原因。地址只保留在我们这边。",
       "savedEmpty": "还没有保存任何内容。请在“我的列表”中输入列表，然后从那里保存。",
       "savedNote": "保存计划时会把网站复制到计划中，因此以后编辑列表不会影响已有的计划。",
       "savedUnavailable": "无法加载你保存的列表。",
@@ -3240,7 +3665,12 @@
       "listSites_other": "{{count}} 个网站",
       "summarySlots_one": "每周运行 {{count}} 次，每次最多 {{minutes}} 分钟。",
       "summarySlots_other": "每周运行 {{count}} 次，每次最多 {{minutes}} 分钟。",
-      "templateNameInvalidNoMax": "该名称不能用于已保存的列表。"
+      "templateNameInvalidNoMax": "该名称不能用于已保存的列表。",
+      "shuffleTime": "换一个时间",
+      "ownTimes": "每个配置文件使用不同时间",
+      "timeRandom": "各自随机",
+      "summaryOwnTimes_one": "每个配置文件每周运行 {{count}} 次，各自在随机时间，每次最多 {{minutes}} 分钟。",
+      "summaryOwnTimes_other": "每个配置文件每周运行 {{count}} 次，各自在随机时间，每次最多 {{minutes}} 分钟。"
     },
     "preset": {
       "light": "轻度",
@@ -3257,7 +3687,7 @@
       "reasonSync": "同步已关闭",
       "reasonEncrypted": "端到端加密",
       "reasonNoFingerprint": "没有记录操作系统",
-      "reasonCrossOs": "为 {{os}} 创建 — 没有匹配的远程机器",
+      "reasonCrossOs": "为 {{os}} 创建：没有匹配的远程机器",
       "reasonNoExitNode": "没有代理或 VPN",
       "fixSync": "开启同步",
       "fixEncrypted": "打开同步设置",
@@ -3322,6 +3752,7 @@
       "encryptedSync": "不支持端到端加密同步",
       "proxyRequired": "未绑定代理或 VPN",
       "proxyLocalOnly": "代理仅在本机可用，请改用具有公网地址的代理",
+      "proxyDead": "上次检查无法连接到代理或 VPN。请检查。",
       "touchFingerprint": "不支持触摸设备指纹",
       "platformUnsupported": "没有机器可运行该配置文件的系统",
       "noSites": "没有要访问的网站",
@@ -3329,13 +3760,38 @@
       "profileLocked": "该配置文件已在别处打开",
       "noCapacity": "没有空闲机器",
       "managerError": "机器集群未能启动浏览器",
-      "budgetExceeded": "当晚的时长预算已用完",
-      "browsingIncomplete": "浏览器已启动，但当晚的浏览未完成",
+      "budgetExceeded": "本次运行的时长预算已用完",
+      "browsingIncomplete": "浏览器已启动，但浏览未完成",
       "proxyUnsupported": "没有主机能使用这种类型的代理，请改用 HTTP、SOCKS 或 WireGuard 出口",
       "profileNotSynced": "云端副本不完整，请在桌面端完成同步",
       "profileOsMismatch": "配置文件来自与运行它的主机不同的操作系统",
       "cancelledByUser": "已手动停止",
       "unknown": "未知原因（{{code}}）"
+    },
+    "exitCheck": {
+      "failed": "上次检查（{{time}}）无法连接到代理或 VPN。请检查。",
+      "passed": "已连接代理或 VPN：{{time}}"
+    },
+    "next": {
+      "label": "下次运行",
+      "now": "即将开始",
+      "inMinutes_one": "{{count}} 分钟后",
+      "inMinutes_other": "{{count}} 分钟后",
+      "inHours_one": "{{count}} 小时后",
+      "inHours_other": "{{count}} 小时后",
+      "today": "今天",
+      "tomorrow": "明天",
+      "dueSoon_one": "未来 24 小时内有 {{count}} 个配置文件",
+      "dueSoon_other": "未来 24 小时内有 {{count}} 个配置文件",
+      "nothingScheduled": "没有安排",
+      "blocked": "没有可运行的配置文件。请查看下方列表。"
+    },
+    "tonight": {
+      "label": "今晚",
+      "nextRun": "下次运行 {{time}}",
+      "dueCount_one": "{{count}} 个配置文件待运行",
+      "dueCount_other": "{{count}} 个配置文件待运行",
+      "nothingScheduled": "没有安排"
     },
     "localDescription": "按计划在本地预热配置文件。运行时设备需保持开机；计划和历史记录保留在本设备上。"
   },
@@ -3368,7 +3824,10 @@
     "vpnExtensionEntryNoVersion": " — {{capability}}、{{source}}",
     "scanIncompleteMissing": "此配置文件尚未启动过，因此只能检查由 Donut 管理的扩展。",
     "exitUnverifiedTimezone": "此配置文件的指纹未声明时区，因此出口检测无法进行验证。启动不会被阻止，但也没有进行任何比较。",
-    "exitUnverifiedLanguage": "此配置文件的指纹语言无法与出口国家/地区比较，因此该项检测属于未验证，而非通过。"
+    "exitUnverifiedLanguage": "此配置文件的指纹语言无法与出口国家/地区比较，因此该项检测属于未验证，而非通过。",
+    "routeProxyHeading": "代理无响应",
+    "routeVpnHeading": "VPN 无响应",
+    "routeExplainer": "页面可能无法加载。请检查代理或 VPN，或仍然启动。"
   },
   "profileMotion": {
     "inspectorSections": "配置文件分区",
@@ -3420,9 +3879,9 @@
     "hint": "选择一个配置文件，然后更改其 Cookie 或路由。",
     "changed": "{{name}} 已更改。另一个配置文件保留了自己的 Cookie 和路由。",
     "resetDone": "已重置两个示例。",
-    "replay": "探索配置文件隔离",
     "device": "设备",
-    "site": "网站"
+    "site": "网站",
+    "replay": "探索配置文件隔离"
   },
   "appFeedback": {
     "saveFailed": "无法保存设置",
@@ -3479,7 +3938,11 @@
     "confirmed": "是",
     "unavailable": "否",
     "apiProbeScope": "使用已保存的凭据检查正在运行的本地 API。不会启动任何配置文件。",
-    "remoteProbeScope": "检查已保存的 MCP 凭据。远程控制还需要已连接的设备和符合条件的套餐；已配置的客户端不代表活动会话。"
+    "remoteProbeScope": "检查已保存的 MCP 凭据。远程控制还需要已连接的设备和符合条件的套餐；已配置的客户端不代表活动会话。",
+    "probeNotConfigured": "未保存凭据。",
+    "probeUnreachable": "服务器没有响应。",
+    "probeRefused": "服务器拒绝了凭据。",
+    "probeUnverified": "服务器返回 HTTP {{status}}，因此未检查凭据。"
   },
   "easterEgg": {
     "konami": {
@@ -3489,15 +3952,17 @@
   },
   "trash": {
     "title": "回收站",
-    "description": "已删除的配置文件会保留在这里直到过期。恢复后，其身份、代理和标签会一并找回。",
+    "description": "已删除的配置文件、代理、VPN、分组、扩展程序和模板会保留在这里直到过期。恢复后会原样找回。",
     "empty": "回收站是空的",
-    "emptyHint": "删除的配置文件会显示在这里，过期前都可以恢复。",
+    "emptyHint": "删除的内容会显示在这里，过期前都可以恢复。",
     "columns": {
-      "name": "配置文件",
+      "name": "名称",
       "browser": "浏览器",
       "deleted": "删除时间",
       "expires": "过期",
-      "size": "大小"
+      "size": "大小",
+      "kind": "类型",
+      "detail": "详情"
     },
     "expiresIn_one": "{{count}} 天后",
     "expiresIn_other": "{{count}} 天后",
@@ -3509,17 +3974,48 @@
     "confirmDeleteForeverTitle": "永久删除？",
     "confirmDeleteForeverDescription": "“{{name}}”及其全部数据将被销毁。此操作无法撤销。",
     "confirmEmptyTitle": "清空回收站？",
-    "confirmEmptyDescription_one": "{{count}} 个配置文件及其全部数据将被销毁。此操作无法撤销。",
-    "confirmEmptyDescription_other": "{{count}} 个配置文件及其全部数据将被销毁。此操作无法撤销。",
+    "confirmEmptyDescription_one": "{{count}} 项及其全部数据将被销毁。此操作无法撤销。",
+    "confirmEmptyDescription_other": "{{count}} 项及其全部数据将被销毁。此操作无法撤销。",
     "restored": "已恢复“{{name}}”",
     "restoredSyncOff": "无法重新开启同步，因此该配置文件仅保存在此设备上。请重新设置其同步模式，以便在其他设备上使用。",
-    "restoreFailed": "无法恢复配置文件：{{error}}",
+    "restoreFailed": "无法恢复：{{error}}",
     "deletedForever": "已永久删除“{{name}}”",
-    "deleteForeverFailed": "无法删除配置文件：{{error}}",
-    "emptied_one": "已从回收站移除 {{count}} 个配置文件",
-    "emptied_other": "已从回收站移除 {{count}} 个配置文件",
+    "deleteForeverFailed": "无法永久删除：{{error}}",
+    "emptied_one": "已从回收站移除 {{count}} 项",
+    "emptied_other": "已从回收站移除 {{count}} 项",
     "emptyFailed": "无法清空回收站：{{error}}",
-    "loadFailed": "无法加载回收站：{{error}}"
+    "loadFailed": "无法加载回收站：{{error}}",
+    "kinds": {
+      "all": "全部",
+      "profile": "配置文件",
+      "proxy": "代理",
+      "vpn": "VPN",
+      "group": "分组",
+      "extension": "扩展程序",
+      "extension_group": "扩展程序分组",
+      "template": "模板"
+    },
+    "kind": {
+      "profile": "配置文件",
+      "proxy": "代理",
+      "vpn": "VPN",
+      "group": "分组",
+      "extension": "扩展程序",
+      "extension_group": "扩展程序分组",
+      "template": "模板"
+    },
+    "restoredSyncOffEntity": "无法重新开启同步，因此它仅保存在此设备上。请重新开启同步，以便在其他设备上使用。",
+    "moved": "已将“{{name}}”移到回收站",
+    "deleted": "已删除“{{name}}”",
+    "deleteFailed": "无法删除“{{name}}”：{{error}}",
+    "restoredMany_one": "已恢复 {{count}} 项",
+    "restoredMany_other": "已恢复 {{count}} 项",
+    "deletedForeverMany_one": "已永久删除 {{count}} 项",
+    "deletedForeverMany_other": "已永久删除 {{count}} 项",
+    "movedMany_one": "已将 {{count}} 项移到回收站",
+    "movedMany_other": "已将 {{count}} 项移到回收站",
+    "deletedMany_one": "已删除 {{count}} 项",
+    "deletedMany_other": "已删除 {{count}} 项"
   },
   "agent": {
     "description": "查看你的 AI 智能体在 Donut 中做了什么，回答它的问题，并在页面需要人工操作时介入。",
@@ -3560,7 +4056,7 @@
       "waitingTitle": "正在等待你的智能体",
       "waitingBody": "将 Donut 添加到你的智能体，然后把下面的说明粘贴给它，这样它在工作时会与你保持沟通。",
       "starterLabel": "给智能体的说明",
-      "starter": "你可以使用 Donut 工具控制我的 donutos 配置文件。开始时以及每两步之间，调用 get_human_updates 阅读我的备注，并查看我正在使用哪些配置文件。如果不确定该怎么做，请用 ask_human 问我。如果页面需要人工操作，例如登录、验证或付款，请调用 request_human_help，并等待我把配置文件交还给你。在耗时较长的任务中，请调用 report_progress，让我了解你的进度。",
+      "starter": "你可以使用 Donut 工具控制我的 Donut Browser 配置文件。开始时以及每两步之间，调用 get_human_updates 阅读我的备注，并查看我正在使用哪些配置文件。如果不确定该怎么做，请用 ask_human 问我。如果页面需要人工操作，例如登录、验证或付款，请调用 request_human_help，并等待我把配置文件交还给你。在耗时较长的任务中，请调用 report_progress，让我了解你的进度。",
       "starterCopied": "说明已复制"
     },
     "request": {
@@ -3728,6 +4224,18 @@
       "deleteTitle": "删除 {{name}}？",
       "deleteDescription": "配方会从所有设备上删除。",
       "needsAutomation": "配方会打开并操控浏览器，因此需要 Pro 或更高方案。你的智能体仍可管理配置文件、代理和分组。",
+      "runAria": "立即运行 {{name}}",
+      "runTitle": "运行 {{name}}",
+      "runDescription": "Donut 云会在你选择的配置文件上回放这些步骤一次。",
+      "runProfile": "配置文件",
+      "runProfilePlaceholder": "选择配置文件",
+      "runNoProfiles": "请先创建配置文件",
+      "runPlatformUnsupported": "远程机群无法运行此配置文件的操作系统。",
+      "runDesktopOffline": "要在这台电脑上运行，请在“集成”中打开远程控制。",
+      "runStartedOn": "Donut 云正在 {{profile}} 上回放 {{name}}。",
+      "oneOffName": "立即运行：{{name}}",
+      "editAria": "编辑 {{name}}",
+      "deleteAria": "删除 {{name}}",
       "aiGenerate": "用 AI 生成",
       "aiPlaceholder": "描述流程：打开网站、登录、点击按钮…",
       "aiHint": "AI 草稿在保存前会按配方规则校验。",
@@ -3836,13 +4344,11 @@
   },
   "tips": {
     "title": "小贴士",
-    "essentials": "基础",
-    "planSection": "您的套餐已包含",
     "count": "{{current}} / {{total}}",
     "previous": "上一条",
     "next": "下一条",
     "done": "完成",
-    "autoShow": "每隔几天显示一条小贴士",
+    "autoShow": "在配置文件页面显示小贴士",
     "items": {
       "dnsBlocklist": {
         "label": "DNS 拦截",
@@ -3930,7 +4436,7 @@
       },
       "cookieBot": {
         "label": "Cookie Bot",
-        "title": "夜间养号",
+        "title": "按计划养号",
         "body": "Cookie Bot 会从远程主机按计划浏览真实网站，让新配置文件在您使用之前积累自然的历史记录。",
         "action": "打开 Cookie Bot"
       },
@@ -3969,8 +4475,79 @@
         "title": "告诉团队下一步该修什么",
         "body": "有东西坏了或缺少功能？从“更多”菜单发送反馈。只需一个开关即可附上日志，让团队准确看到出了什么问题。",
         "action": "发送反馈"
+      },
+      "searchSyntax": {
+        "label": "搜索字段",
+        "title": "按字段筛选配置文件",
+        "body": "在搜索框中输入字段，例如 tag:work、proxy:none 或 status:running。在前面加减号表示排除：-tag:old。",
+        "action": "试试 proxy:none"
+      },
+      "shortcuts": {
+        "label": "快捷键",
+        "title": "双手不离键盘",
+        "body": "每个页面都有快捷键，导入、反馈和小贴士也有。{{mod}}+/ 列出全部快捷键。",
+        "action": "查看全部快捷键"
+      },
+      "statuses": {
+        "label": "状态",
+        "title": "标记每个账号的情况",
+        "body": "在状态列中为配置文件设置状态，例如活跃或已封禁。每个状态都有颜色，并会同步到您的其他设备。",
+        "action": "打开配置文件"
+      },
+      "templates": {
+        "label": "模板",
+        "title": "设置一次，批量创建",
+        "body": "在配置文件的菜单中用“保存为模板”保留其设置。新配置文件从模板开始，可一次创建多个，每个都有自己的设备。",
+        "action": "新建配置文件"
+      },
+      "vpn": {
+        "label": "VPN",
+        "title": "让配置文件走 VPN",
+        "body": "在网络页面导入 WireGuard 文件或 VLESS、VMess、Trojan、Hysteria2 链接。然后为配置文件选择它：只有该配置文件使用隧道。",
+        "action": "打开 VPN"
+      },
+      "requireRoute": {
+        "label": "阻止直连启动",
+        "title": "绝不从自己的 IP 启动",
+        "body": "在隐私设置中开启“阻止未使用代理或 VPN 的启动”。没有代理、或代理或 VPN 已不存在的配置文件将不会启动。",
+        "action": "打开隐私设置"
+      },
+      "totp": {
+        "label": "2FA 验证码",
+        "title": "让 2FA 验证码跟着配置文件",
+        "body": "在配置文件信息中添加账号的 2FA 密钥，Donut 会显示当前验证码，可直接复制。密钥加密保存在本设备上。",
+        "action": "试用 2FA 密钥"
+      },
+      "synchronizer": {
+        "label": "同步器",
+        "title": "同时操作多个配置文件",
+        "body": "在配置文件菜单中选择“使用同步器启动”，再选择跟随者。领导者中的每次点击和按键都会在每个跟随者中重复。",
+        "action": "打开配置文件"
       }
-    }
+    },
+    "sections": {
+      "everyday": "日常",
+      "network": "网络",
+      "privacy": "隐私与数据",
+      "connect": "连接",
+      "plan": "您的套餐已包含"
+    },
+    "progress": "已读 {{read}} / {{total}}",
+    "unread": "未读",
+    "nextShort": "下一条",
+    "coach": {
+      "eyebrow": "小贴士",
+      "more": "更多小贴士选项",
+      "allTips": "全部小贴士",
+      "turnOff": "不再显示小贴士",
+      "offTitle": "小贴士已关闭",
+      "offBody": "可在小贴士 ({{shortcut}}) 中重新开启。",
+      "gotIt": "知道了",
+      "announce": "小贴士：{{title}}"
+    },
+    "showMe": "带我看看",
+    "essentials": "基础",
+    "planSection": "您的套餐已包含"
   },
   "paidWelcome": {
     "title": "欢迎使用 {{plan}}",
@@ -4011,7 +4588,26 @@
     "stopped": "已停止",
     "noTags": "无标签",
     "noProxy": "无代理",
-    "encrypted": "已加密"
+    "encrypted": "已加密",
+    "views": {
+      "label": "视图",
+      "title": "已保存的视图",
+      "empty": "还没有保存的视图。为当前的搜索、筛选、排序和列命名，之后即可回到这里。",
+      "nameLabel": "视图名称",
+      "namePlaceholder": "为此视图命名",
+      "replace": "替换",
+      "useAtStart": "启动时打开 {{name}}",
+      "defaultBadge": "启动时",
+      "rename": "重命名 {{name}}",
+      "delete": "删除 {{name}}",
+      "deleted": "已删除视图 {{name}}",
+      "full": "最多可保存 {{limit}} 个视图。删除一个后才能保存新的视图。",
+      "nameTaken": "已有同名视图。"
+    },
+    "moveColumnLeft": "将 {{column}} 左移",
+    "moveColumnRight": "将 {{column}} 右移",
+    "selectRowNamed": "选择 {{name}}",
+    "rowAction": "{{action}}：{{name}}"
   },
   "feedback": {
     "title": "发送反馈",
@@ -4039,10 +4635,18 @@
     "counter": "{{count}} / {{max}}",
     "logs": {
       "label": "附上最近的日志",
-      "description": "日志可以帮助我们找到问题。发送前会移除电子邮件地址、IP 地址、网址和密钥。",
+      "description": "日志可以帮助我们找到问题。我们收到的日志不包含任何个人信息。",
       "preview": "查看日志",
       "loading": "正在读取日志…",
       "empty": "暂无日志。"
+    },
+    "triage": {
+      "label": "让 AI 代理查找原因",
+      "description": "复制一段提示词，交给已连接 Donut Browser 的 AI 代理。代理会读取日志、寻找解决办法，并在你同意后发送这份报告。",
+      "copy": "复制提示词",
+      "copied": "提示词已复制。请粘贴到你的代理中。",
+      "prompt": "请使用 Donut Browser 的 MCP 工具，查明 Donut Browser 为什么没有按我预期的方式工作。按照 {{url}} 上的排查手册操作：问我出了什么问题，调用 get_diagnostics，检查是否有新版本和已知问题，并帮我解决问题。用 send_feedback 发送报告之前，先给我看。",
+      "problem": "我看到的情况：{{message}}"
     },
     "email": {
       "label": "用于回复的邮箱",
@@ -4190,6 +4794,122 @@
       "auto": "每日",
       "manual": "手动"
     }
+  },
+  "entities": {
+    "empty": {
+      "proxies": {
+        "title": "还没有代理",
+        "body": "代理让配置文件的流量经由另一台服务器。每个配置文件都可以使用自己的代理。"
+      },
+      "vpns": {
+        "title": "还没有 VPN",
+        "body": "WireGuard VPN 通过加密隧道传送配置文件的流量。"
+      },
+      "groups": {
+        "title": "还没有分组",
+        "body": "分组按客户、项目或任务整理配置文件。分组中的每个配置文件都会获得该分组的书签。"
+      },
+      "extensions": {
+        "title": "还没有扩展",
+        "body": "从文件、文件夹或 Web Store 链接添加扩展。将其放入扩展分组即可在配置文件中使用。"
+      },
+      "extensionGroups": {
+        "title": "还没有扩展分组",
+        "body": "扩展分组是一组扩展。使用该分组的配置文件会在启动时获得这组扩展。"
+      }
+    },
+    "check": {
+      "notChecked": "未检查",
+      "valid": "有效",
+      "invalid": "无效"
+    }
+  },
+  "leavePrompt": {
+    "title": "未保存的更改",
+    "description": "有些更改尚未保存。",
+    "descriptionOne": "{{label}} 中的更改尚未保存。",
+    "save": "保存",
+    "discard": "放弃",
+    "stay": "留下"
+  },
+  "moveProfiles": {
+    "title": "将配置文件移到 {{group}}",
+    "description": "选择要移入此分组的配置文件。正在运行的配置文件无法移动。",
+    "empty": "所有配置文件都已在此分组中。",
+    "confirm": "移动 {{count}} 个"
+  },
+  "logViewer": {
+    "title": "应用日志",
+    "levelFilter": "按级别筛选",
+    "levels": {
+      "all": "全部",
+      "warn": "警告",
+      "error": "错误"
+    },
+    "searchPlaceholder": "搜索日志",
+    "copyAria": "复制 {{count}} 行日志",
+    "copied": "日志已复制",
+    "copiedDescription": "剪贴板中的行数：{{count}}",
+    "copyFailed": "无法复制日志",
+    "empty": "日志中还没有内容。",
+    "emptyProfile": "此配置文件还没有日志。",
+    "noMatches": "没有符合筛选条件的行。",
+    "capped": "显示最新的 {{count}} 行。"
+  },
+  "networkPanel": {
+    "start": "开始捕获",
+    "stop": "停止捕获",
+    "capturing": "请求：{{count}}",
+    "emptyStopped": "开始捕获以查看此配置文件的页面发出的请求。",
+    "emptyNotRunning": "启动配置文件以捕获其网络请求。",
+    "privacyNote": "仅保存在内存中，直到停止捕获或关闭浏览器。Cookie 和授权值会被隐藏。",
+    "waiting": "正在等待请求…",
+    "columns": {
+      "method": "方法",
+      "status": "状态",
+      "host": "主机",
+      "path": "路径",
+      "type": "类型",
+      "size": "大小",
+      "time": "时间"
+    },
+    "states": {
+      "pending": "等待中",
+      "done": "完成",
+      "failed": "失败",
+      "redirected": "已重定向",
+      "incomplete": "不完整"
+    },
+    "openRequest": "打开 {{method}} {{url}}",
+    "backToList": "返回请求列表",
+    "requestHeaders": "请求标头",
+    "responseHeaders": "响应标头",
+    "requestBody": "请求正文",
+    "noHeaders": "无标头",
+    "fromCache": "来自缓存",
+    "redactedNote": "Cookie 和授权值会替换为 [redacted]。",
+    "startFailed": "无法开始捕获",
+    "stopFailed": "无法停止捕获",
+    "withheld": "在你控制此配置文件期间未记录的请求：{{count}}"
+  },
+  "syncHealth": {
+    "idle": "同步已是最新",
+    "syncing": "正在同步",
+    "offline": "同步处于离线状态。连接恢复后将同步更改。",
+    "error": "同步失败",
+    "errorWith": "同步失败：{{error}}",
+    "notifyTitle": "同步失败",
+    "conflictToast": "你对 {{name}} 的修改已被另一台设备上的较新副本替换",
+    "conflictToastUnnamed": "你的修改已被另一台设备上的较新副本替换"
+  },
+  "launchNotice": {
+    "fingerprintEditsNotApplied": "{{name}} 将在不含自定义指纹更改的情况下启动",
+    "fingerprintEditsNeedPro": "你的更改已保留，在 Pro 套餐有效时会再次生效。"
+  },
+  "ephemeralStorage": {
+    "onDisk": "在这台电脑上,临时配置文件会把数据写入磁盘。浏览器关闭时 Donut 会清除这些数据。安装 WinFsp 可将数据保留在内存中。",
+    "winfspError": "WinFsp 未能启动,因此临时配置文件会把数据写入磁盘。浏览器关闭时 Donut 会清除这些数据。",
+    "download": "下载 WinFsp"
   },
   "localActivity": {
     "title": "活动日志",

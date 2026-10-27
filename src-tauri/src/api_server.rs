@@ -486,7 +486,8 @@ pub struct RunRemoteResponse {
   pub profile_id: String,
   /// Remote session id, for polling or closing the session.
   pub session_id: String,
-  /// Operating system the session was scheduled onto — always the profile's own.
+  /// Operating system of the host the session was scheduled onto: `linux` for
+  /// a profile that runs on every OS, else the OS that created the profile.
   pub platform: String,
   pub status: String,
 }
@@ -512,14 +513,15 @@ struct ApiRemoteSessionsResponse {
 /// Enrol a profile in the nightly cookie bot, or replace its enrolment.
 ///
 /// `platform` and `profile_name` are optional because this machine already
-/// knows both: the platform is the profile's own operating system, and a
+/// knows both: the platform is the one this profile runs on remotely, and a
 /// caller-supplied one that disagrees is a mistake, not a choice.
 #[derive(Debug, Deserialize, ToSchema)]
 struct SetCookieBotScheduleRequest {
   /// Defaults to the profile's local name.
   profile_name: Option<String>,
-  /// `windows`, `macos` or `linux`. Defaults to the profile's own operating
-  /// system, and must match it when supplied.
+  /// `windows`, `macos` or `linux`: the OS of the host the bot runs the
+  /// profile on, `linux` for a profile that runs on every OS, else the OS that
+  /// created the profile. Defaults to that OS, and must match it when supplied.
   platform: Option<String>,
   /// Whether the nightly run is armed. A disabled schedule keeps its settings.
   enabled: bool,
@@ -665,9 +667,43 @@ struct BatchRunRequest {
   url: Option<String>,
   /// Launch headless. Defaults to false.
   headless: Option<bool>,
+  /// Pause between the starts of two launches, in milliseconds (0 to 60000).
+  /// Defaults to the app's bulk launch delay.
+  #[schema(minimum = 0, maximum = 60000)]
+  delay_ms: Option<u32>,
+  /// How many profiles may be starting at the same time (1 to 20). Defaults
+  /// to the app's bulk launch concurrency.
+  #[schema(minimum = 1, maximum = 20)]
+  concurrency: Option<u32>,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+/// The pacing of one batch run: the request's values, else the app's bulk
+/// launch settings, clamped to the same bounds the settings use.
+fn batch_run_pacing(
+  request: &BatchRunRequest,
+  settings: Option<&crate::settings_manager::AppSettings>,
+) -> (std::time::Duration, usize) {
+  use crate::settings_manager::{
+    DEFAULT_BULK_LAUNCH_CONCURRENCY, DEFAULT_BULK_LAUNCH_DELAY_MS, MAX_BULK_LAUNCH_CONCURRENCY,
+    MAX_BULK_LAUNCH_DELAY_MS,
+  };
+  let delay_ms = request
+    .delay_ms
+    .or(settings.map(|s| s.bulk_launch_delay_ms))
+    .unwrap_or(DEFAULT_BULK_LAUNCH_DELAY_MS)
+    .min(MAX_BULK_LAUNCH_DELAY_MS);
+  let concurrency = request
+    .concurrency
+    .or(settings.map(|s| s.bulk_launch_concurrency))
+    .unwrap_or(DEFAULT_BULK_LAUNCH_CONCURRENCY)
+    .clamp(1, MAX_BULK_LAUNCH_CONCURRENCY);
+  (
+    std::time::Duration::from_millis(u64::from(delay_ms)),
+    concurrency as usize,
+  )
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
 struct BatchRunResult {
   profile_id: String,
   /// Whether this profile launched successfully.
@@ -897,6 +933,7 @@ struct ImportProxiesResponse {
     StartCookieBotRunRequest,
     crate::remote_session::RemoteSessionState,
     crate::cookie_bot::CookieBotSchedule,
+    crate::cookie_bot_exit::ExitCheckView,
     crate::cookie_bot::CookieBotScheduleList,
     crate::cookie_bot::CookieBotScheduleSaved,
     crate::cookie_bot::CookieBotScheduleDeleted,
@@ -1751,6 +1788,7 @@ fn manager_error_response(err: impl std::fmt::Display) -> (StatusCode, String) {
         // being re-implemented in each handler to get the status right.
         StatusCode::PAYMENT_REQUIRED
       } else if code == "WAYFERN_INSTANCE_LIMIT_REACHED"
+        || code == "TOO_MANY_BROWSERS_RUNNING"
         || code == "WAYFERN_GENERATION_LIMIT_REACHED"
         || code == "PROFILE_GENERATION_LIMIT_REACHED"
       {
@@ -1935,7 +1973,8 @@ async fn get_profile(
     (status = 401, description = "Unauthorized"),
     (status = 402, description = "The profile's fingerprint OS needs a paid plan"),
     (status = 404, description = "Profile not found"),
-    (status = 500, description = "Internal server error")
+    (status = 500, description = "Internal server error"),
+    (status = 503, description = "The device could not be read right now; try again")
   ),
   security(
     ("bearer_auth" = [])
@@ -2034,7 +2073,7 @@ async fn create_profile(
           return Err((
             StatusCode::BAD_REQUEST,
             format!(
-              "No downloaded version of \"{}\" is available. Download the browser in donutOS first — this endpoint does not download browsers.",
+              "No downloaded version of \"{}\" is available. Download the browser in donutos first — this endpoint does not download browsers.",
               request.browser
             ),
           ));
@@ -3880,7 +3919,7 @@ async fn run_profile(
   }))
 }
 
-// API Handler - Launch this profile on a REMOTE VM of its own operating system
+// API Handler - Launch this profile on a REMOTE VM of the OS `remote_platform` picks
 #[utoipa::path(
   post,
   path = "/v1/profiles/{id}/run-remote",
@@ -4094,7 +4133,7 @@ pub fn remote_launch_profile_rules(
         .to_string(),
     );
   }
-  if profile.resolved_os().is_none() {
+  if profile.remote_platform().is_none() {
     return Err(
       "profile has no recorded operating system, so it cannot be scheduled \
        onto a matching host"
@@ -4631,7 +4670,7 @@ async fn set_cookie_bot_schedule(
   // than the request is what stops a caller enrolling a macOS profile onto a
   // Windows host.
   let platform = profile
-    .resolved_os()
+    .remote_platform()
     .ok_or((
       StatusCode::BAD_REQUEST,
       serde_json::json!({ "code": "COOKIE_BOT_UNKNOWN_PLATFORM" }).to_string(),
@@ -5048,7 +5087,9 @@ async fn kill_profile(
 
 // API Handler - Batch run profiles (paid: browser automation). Mirrors the
 // single `/run` gate; never breaks the batch on a single profile's failure —
-// each profile gets its own result entry.
+// each profile gets its own result entry, in request order. Launches start
+// `delay_ms` apart with at most `concurrency` starting at once, like a bulk
+// launch in the app.
 #[utoipa::path(
   post,
   path = "/v1/profiles/batch/run",
@@ -5089,69 +5130,122 @@ async fn batch_run_profiles(
   }
 
   let headless = request.headless.unwrap_or(false);
+  let settings = crate::settings_manager::SettingsManager::instance()
+    .load_settings()
+    .ok();
+  let (delay, concurrency) = batch_run_pacing(&request, settings.as_ref());
   let profile_manager = ProfileManager::instance();
   let profiles = profile_manager
     .list_profiles()
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-  let mut results = Vec::new();
-  for profile_id in &request.profile_ids {
-    let fail = |error: &str| BatchRunResult {
-      profile_id: profile_id.clone(),
-      ok: false,
-      remote_debugging_port: None,
-      error: Some(error.to_string()),
-    };
+  let fail = |profile_id: &str, error: &str| BatchRunResult {
+    profile_id: profile_id.to_string(),
+    ok: false,
+    remote_debugging_port: None,
+    error: Some(error.to_string()),
+  };
 
+  // One slot per input, filled in whatever order the launches finish.
+  let mut results: Vec<Option<BatchRunResult>> = vec![None; request.profile_ids.len()];
+  let slots = Arc::new(tokio::sync::Semaphore::new(concurrency));
+  let mut launches = tokio::task::JoinSet::new();
+  let mut last_start: Option<tokio::time::Instant> = None;
+
+  for (index, profile_id) in request.profile_ids.iter().enumerate() {
     let Some(profile) = profiles.iter().find(|p| p.id.to_string() == *profile_id) else {
-      results.push(fail("profile not found"));
+      results[index] = Some(fail(profile_id, "profile not found"));
       continue;
     };
     if profile.is_cross_os() {
-      results.push(fail("cross-OS profiles cannot be launched"));
-      continue;
-    }
-    if crate::team_lock::acquire_team_lock_if_needed(profile)
-      .await
-      .is_err()
-    {
-      results.push(fail("profile is locked by another team member"));
+      results[index] = Some(fail(profile_id, "cross-OS profiles cannot be launched"));
       continue;
     }
 
-    let port = match tokio::net::TcpListener::bind("127.0.0.1:0").await {
-      Ok(listener) => match listener.local_addr() {
-        Ok(addr) => addr.port(),
-        Err(_) => {
-          results.push(fail("failed to allocate debugging port"));
-          continue;
-        }
-      },
-      Err(_) => {
-        results.push(fail("failed to allocate debugging port"));
-        continue;
-      }
+    let Ok(slot) = slots.clone().acquire_owned().await else {
+      results[index] = Some(fail(profile_id, "launch failed: batch stopped"));
+      continue;
     };
+    if let Some(previous) = last_start {
+      tokio::time::sleep_until(previous + delay).await;
+    }
+    last_start = Some(tokio::time::Instant::now());
 
-    match crate::browser_runner::launch_browser_profile_impl(
-      state.app_handle.clone(),
-      profile.clone(),
-      request.url.clone(),
-      crate::browser_runner::LaunchOptions::automation(Some(port), headless),
-    )
-    .await
-    {
-      Ok(_) => results.push(BatchRunResult {
-        profile_id: profile_id.clone(),
-        ok: true,
-        remote_debugging_port: Some(port),
-        error: None,
-      }),
-      Err(e) => results.push(fail(&format!("launch failed: {e}"))),
+    let app_handle = state.app_handle.clone();
+    let profile = profile.clone();
+    let profile_id = profile_id.clone();
+    let url = request.url.clone();
+    launches.spawn(async move {
+      let _slot = slot;
+      (
+        index,
+        launch_batch_profile(app_handle, profile, profile_id, url, headless).await,
+      )
+    });
+  }
+
+  while let Some(joined) = launches.join_next().await {
+    match joined {
+      Ok((index, result)) => results[index] = Some(result),
+      Err(e) => log::error!("Batch launch task panicked err=\"{e}\""),
     }
   }
 
+  let results = results
+    .into_iter()
+    .zip(&request.profile_ids)
+    .map(|(result, profile_id)| {
+      result.unwrap_or_else(|| fail(profile_id, "launch failed: internal error"))
+    })
+    .collect();
   Ok(Json(BatchRunResponse { results }))
+}
+
+/// One profile of a batch run, from its team lock to its launch.
+async fn launch_batch_profile(
+  app_handle: tauri::AppHandle,
+  profile: crate::profile::types::BrowserProfile,
+  profile_id: String,
+  url: Option<String>,
+  headless: bool,
+) -> BatchRunResult {
+  let fail = |error: &str| BatchRunResult {
+    profile_id: profile_id.clone(),
+    ok: false,
+    remote_debugging_port: None,
+    error: Some(error.to_string()),
+  };
+  if crate::team_lock::acquire_team_lock_if_needed(&profile)
+    .await
+    .is_err()
+  {
+    return fail("profile is locked by another team member");
+  }
+
+  let port = match tokio::net::TcpListener::bind("127.0.0.1:0").await {
+    Ok(listener) => match listener.local_addr() {
+      Ok(addr) => addr.port(),
+      Err(_) => return fail("failed to allocate debugging port"),
+    },
+    Err(_) => return fail("failed to allocate debugging port"),
+  };
+
+  match crate::browser_runner::launch_browser_profile_impl(
+    app_handle,
+    profile,
+    url,
+    crate::browser_runner::LaunchOptions::automation(Some(port), headless),
+  )
+  .await
+  {
+    Ok(_) => BatchRunResult {
+      profile_id: profile_id.clone(),
+      ok: true,
+      remote_debugging_port: Some(port),
+      error: None,
+    },
+    Err(e) => fail(&format!("launch failed: {e}")),
+  }
 }
 
 // API Handler - Distribute proxies one to one across profiles.
@@ -5652,6 +5746,29 @@ fn resolve_error_response(error: crate::cdp_target::ResolveError) -> (StatusCode
 /// The body is the same `{"code": ..., ...}` envelope the MCP transport puts
 /// in its error `data`, plus `message`, so a locator that matched three
 /// buttons hands a REST client the same candidate list an agent gets.
+/// An agent call's answer. A browser that refuses automation as unpaid on an
+/// account whose plan includes it gets the real reason: another desktop is the
+/// primary one, or the browser's own plan token is stale.
+async fn agent_reply<T>(
+  id: &str,
+  result: Result<T, crate::mcp_server::AgentError>,
+) -> Result<Json<T>, (StatusCode, String)> {
+  use crate::mcp_server::AgentError;
+  match result {
+    Ok(value) => Ok(Json(value)),
+    Err(AgentError::PaymentRequired(message)) => {
+      let reason = match crate::cloud_auth::CLOUD_AUTH.wayfern_device_refusal() {
+        Some(device) => Some(device),
+        None => crate::mcp_server::stale_plan_token_refusal(Some(id)).await,
+      };
+      Err(agent_error_response(AgentError::PaymentRequired(
+        reason.unwrap_or(message),
+      )))
+    }
+    Err(error) => Err(agent_error_response(error)),
+  }
+}
+
 fn agent_error_response(error: crate::mcp_server::AgentError) -> (StatusCode, String) {
   use crate::cdp_target::CdpError;
   use crate::mcp_server::AgentError;
@@ -5667,6 +5784,8 @@ fn agent_error_response(error: crate::mcp_server::AgentError) -> (StatusCode, St
     AgentError::AuthorizationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
     AgentError::PickerTimedOut { .. } => StatusCode::REQUEST_TIMEOUT,
     AgentError::PickerCancelled { .. } => StatusCode::CONFLICT,
+    // The page did not take the text: a conflict with its state, not a fault.
+    AgentError::TypeNotApplied { .. } => StatusCode::CONFLICT,
     AgentError::Cdp(CdpError::Unauthorized(_)) => StatusCode::UNAUTHORIZED,
     // Nothing answers on the profile's socket: the browser is gone, or is not
     // drivable yet. Both read as "start it and try again".
@@ -5708,10 +5827,7 @@ async fn agent_perceive_api(
   Json(request): Json<crate::wayfern_cdp::PerceptionRequest>,
 ) -> Result<Json<crate::wayfern_cdp::PerceptionPage>, (StatusCode, String)> {
   let ctx = agent_context_for(&id).await?;
-  crate::mcp_server::agent_perceive(&ctx, &request)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(&id, crate::mcp_server::agent_perceive(&ctx, &request).await).await
 }
 
 /// The body of a recipe created over REST: a name and the ordered steps the
@@ -5727,6 +5843,10 @@ struct CreateRecipeBody {
 #[derive(serde::Deserialize, utoipa::ToSchema)]
 struct RunRecipeBody {
   profile_id: String,
+  /// "desktop" (the default) or "fleet" on plans that lease remote machines.
+  target: Option<String>,
+  platform: Option<String>,
+  name: Option<String>,
 }
 
 #[utoipa::path(
@@ -5809,17 +5929,23 @@ async fn agent_recipes_run_api(
   Path(id): Path<String>,
   Json(body): Json<RunRecipeBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-  crate::recipes::run_agent_recipe_now(id, body.profile_id)
-    .await
-    .map(Json)
-    .map_err(|e| {
-      let status = if e.contains("AGENT_RECIPE_NOT_FOUND") {
-        StatusCode::NOT_FOUND
-      } else {
-        StatusCode::INTERNAL_SERVER_ERROR
-      };
-      (status, e)
-    })
+  crate::recipes::run_agent_recipe_now(
+    id,
+    body.profile_id,
+    body.target.unwrap_or_else(|| "desktop".to_string()),
+    body.platform,
+    body.name.unwrap_or_else(|| "recipe run".to_string()),
+  )
+  .await
+  .map(Json)
+  .map_err(|e| {
+    let status = if e.contains("AGENT_RECIPE_NOT_FOUND") {
+      StatusCode::NOT_FOUND
+    } else {
+      StatusCode::INTERNAL_SERVER_ERROR
+    };
+    (status, e)
+  })
 }
 
 #[utoipa::path(
@@ -5850,10 +5976,11 @@ async fn agent_resolve_locator_api(
   Json(request): Json<crate::mcp_server::AgentResolveRequest>,
 ) -> Result<Json<crate::wayfern_cdp::LocatorResolution>, (StatusCode, String)> {
   let ctx = agent_context_for(&id).await?;
-  crate::mcp_server::agent_resolve_locator(&ctx, &request)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(
+    &id,
+    crate::mcp_server::agent_resolve_locator(&ctx, &request).await,
+  )
+  .await
 }
 
 #[utoipa::path(
@@ -5884,10 +6011,11 @@ async fn agent_click_api(
   Json(request): Json<crate::mcp_server::AgentClickRequest>,
 ) -> Result<Json<crate::mcp_server::AgentClick>, (StatusCode, String)> {
   let ctx = agent_context_for(&id).await?;
-  crate::mcp_server::agent_click_locator(&ctx, &request)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(
+    &id,
+    crate::mcp_server::agent_click_locator(&ctx, &request).await,
+  )
+  .await
 }
 
 #[utoipa::path(
@@ -5898,12 +6026,12 @@ async fn agent_click_api(
   ),
   request_body = crate::mcp_server::AgentTypeRequest,
   responses(
-    (status = 200, description = "The text was typed", body = crate::mcp_server::AgentTyping),
+    (status = 200, description = "The text was typed, and the field read back holds it (`verified`)", body = crate::mcp_server::AgentTyping),
     (status = 400, description = "Malformed request, no element matched, several did, or the text would take longer than the typing budget (`code` TYPING_TOO_LONG)"),
     (status = 401, description = "Unauthorized"),
     (status = 402, description = "Active paid plan with browser automation required"),
     (status = 404, description = "Profile not found"),
-    (status = 409, description = "The profile is not running"),
+    (status = 409, description = "The profile is not running, or the field did not take the focus or the text (`code` TYPE_NOT_APPLIED, `reason` not_focused or value)"),
     (status = 429, description = "Automation request rate limit exceeded"),
     (status = 502, description = "The browser did not answer as documented"),
     (status = 500, description = "Internal server error")
@@ -5918,10 +6046,12 @@ async fn agent_type_api(
   Json(request): Json<crate::mcp_server::AgentTypeRequest>,
 ) -> Result<Json<crate::mcp_server::AgentTyping>, (StatusCode, String)> {
   let ctx = agent_context_for(&id).await?;
-  crate::mcp_server::agent_type_locator(&ctx, &request, crate::mcp_server::MAX_TYPING_SECONDS)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(
+    &id,
+    crate::mcp_server::agent_type_locator(&ctx, &request, crate::mcp_server::MAX_TYPING_SECONDS)
+      .await,
+  )
+  .await
 }
 
 #[utoipa::path(
@@ -5952,10 +6082,7 @@ async fn agent_extract_api(
   Json(request): Json<crate::wayfern_cdp::ExtractionRequest>,
 ) -> Result<Json<crate::wayfern_cdp::Extraction>, (StatusCode, String)> {
   let ctx = agent_context_for(&id).await?;
-  crate::mcp_server::agent_extract(&ctx, &request)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(&id, crate::mcp_server::agent_extract(&ctx, &request).await).await
 }
 
 #[utoipa::path(
@@ -5991,10 +6118,11 @@ async fn agent_pick_api(
     .timeout_ms
     .unwrap_or(crate::mcp_server::DEFAULT_PICK_TIMEOUT_MS)
     .clamp(1_000, crate::mcp_server::MAX_PICK_TIMEOUT_MS);
-  crate::mcp_server::agent_pick_element(&ctx, timeout_ms)
-    .await
-    .map(Json)
-    .map_err(agent_error_response)
+  agent_reply(
+    &id,
+    crate::mcp_server::agent_pick_element(&ctx, timeout_ms).await,
+  )
+  .await
 }
 
 #[cfg(test)]
@@ -6120,8 +6248,8 @@ mod tests {
 
   #[test]
   fn remote_launch_requires_a_known_operating_system() {
-    // Without one there is no way to pick a matching host, and guessing would
-    // be the cross-OS mismatch this whole design exists to prevent.
+    // Without one a Linux host has no OS to present the profile as, and a
+    // guess would change the OS the profile reports to sites.
     assert!(remote_launch_profile_rules(&profile_with(SyncMode::Regular, None)).is_err());
   }
 
@@ -6763,6 +6891,54 @@ mod tests {
   }
 
   #[test]
+  fn openapi_documents_batch_run_pacing() {
+    let spec = serde_json::to_value(ApiDoc::openapi()).expect("spec serializes");
+    let required = schema_required(&spec, "BatchRunRequest");
+    for field in ["delay_ms", "concurrency"] {
+      assert!(
+        !required.iter().any(|f| f == field),
+        "BatchRunRequest.{field} must be optional, required list: {required:?}"
+      );
+    }
+    let properties = &spec["components"]["schemas"]["BatchRunRequest"]["properties"];
+    assert_eq!(properties["delay_ms"]["maximum"], 60000);
+    assert_eq!(properties["concurrency"]["minimum"], 1);
+    assert_eq!(properties["concurrency"]["maximum"], 20);
+  }
+
+  #[test]
+  fn batch_run_pacing_takes_the_request_then_the_settings() {
+    let request = |delay_ms, concurrency| BatchRunRequest {
+      profile_ids: Vec::new(),
+      url: None,
+      headless: None,
+      delay_ms,
+      concurrency,
+    };
+    let settings = crate::settings_manager::AppSettings {
+      bulk_launch_delay_ms: 1500,
+      bulk_launch_concurrency: 5,
+      ..Default::default()
+    };
+
+    let (delay, concurrency) = batch_run_pacing(&request(None, None), Some(&settings));
+    assert_eq!(delay, std::time::Duration::from_millis(1500));
+    assert_eq!(concurrency, 5);
+
+    let (delay, concurrency) = batch_run_pacing(&request(Some(0), Some(1)), Some(&settings));
+    assert_eq!(delay, std::time::Duration::ZERO);
+    assert_eq!(concurrency, 1);
+
+    let (delay, concurrency) = batch_run_pacing(&request(Some(999_999), Some(0)), None);
+    assert_eq!(delay, std::time::Duration::from_millis(60_000));
+    assert_eq!(concurrency, 1, "zero would never start a launch");
+
+    let (delay, concurrency) = batch_run_pacing(&request(None, Some(500)), None);
+    assert_eq!(delay, std::time::Duration::from_millis(800));
+    assert_eq!(concurrency, 20);
+  }
+
+  #[test]
   fn openapi_documents_start_pages() {
     let spec = serde_json::to_value(ApiDoc::openapi()).expect("spec serializes");
     for schema in ["CreateProfileRequest", "UpdateProfileRequest"] {
@@ -6894,6 +7070,21 @@ mod tests {
     let update =
       spec["components"]["schemas"]["UpdateProfileRequest"]["properties"]["dns_server"].to_string();
     assert!(update.contains("empty string"));
+  }
+
+  #[test]
+  fn openapi_documents_the_exit_check_of_an_enrolment() {
+    let spec = serde_json::to_value(ApiDoc::openapi()).expect("spec serializes");
+    let view = &spec["components"]["schemas"]["ExitCheckView"];
+    for field in ["checked_at", "ok", "alive"] {
+      assert!(view["properties"].get(field).is_some(), "{field}: {view}");
+    }
+    assert!(
+      !schema_required(&spec, "CookieBotSchedule")
+        .iter()
+        .any(|f| f == "exit_check"),
+      "a schedule read elsewhere has no exit check"
+    );
   }
 
   #[test]
@@ -7329,6 +7520,7 @@ mod tests {
         "WAYFERN_INSTANCE_LIMIT_REACHED",
         StatusCode::TOO_MANY_REQUESTS,
       ),
+      ("TOO_MANY_BROWSERS_RUNNING", StatusCode::TOO_MANY_REQUESTS),
       (
         "WAYFERN_GENERATION_LIMIT_REACHED",
         StatusCode::TOO_MANY_REQUESTS,

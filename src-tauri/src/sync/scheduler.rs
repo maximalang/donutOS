@@ -64,6 +64,29 @@ fn first_tombstone_notice(entity_id: &str) -> bool {
     .unwrap_or(true)
 }
 
+/// Profile reconciles one pass runs at the same time.
+const PROFILE_SYNCS_AT_ONCE: usize = 3;
+
+/// How long a scheduler with no sync target sleeps before it looks again.
+/// Signing in or saving a server also restarts the pipeline.
+const UNCONFIGURED_RECHECK: Duration = Duration::from_secs(60);
+
+fn emit_row_status(profile_id: &str, status: &str) {
+  let _ = events::emit(
+    "profile-sync-status",
+    serde_json::json!({ "profile_id": profile_id, "status": status }),
+  );
+}
+
+/// Whether any sync target exists: a signed-in account or a self-hosted
+/// server. The same two paths `SyncEngine::create_from_settings` takes.
+async fn sync_target_exists() -> bool {
+  crate::cloud_auth::CLOUD_AUTH.is_logged_in().await
+    || crate::settings_manager::SettingsManager::instance()
+      .load_settings()
+      .is_ok_and(|settings| settings.sync_server_url.is_some())
+}
+
 pub fn get_global_scheduler() -> Option<Arc<SyncScheduler>> {
   GLOBAL_SCHEDULER.lock().ok().and_then(|g| g.clone())
 }
@@ -114,6 +137,8 @@ pub struct SyncScheduler {
   pending_config_deletes: Arc<Mutex<HashSet<(ConfigKind, String)>>>,
   running_profiles: Arc<Mutex<HashSet<String>>>,
   in_flight_profiles: Arc<Mutex<HashSet<String>>>,
+  /// Wakes an idle loop so that `stop` ends it at once.
+  wake: Arc<tokio::sync::Notify>,
 }
 
 impl Default for SyncScheduler {
@@ -138,6 +163,7 @@ impl SyncScheduler {
       pending_config_deletes: Arc::new(Mutex::new(HashSet::new())),
       running_profiles: Arc::new(Mutex::new(HashSet::new())),
       in_flight_profiles: Arc::new(Mutex::new(HashSet::new())),
+      wake: Arc::new(tokio::sync::Notify::new()),
     }
   }
 
@@ -152,6 +178,7 @@ impl SyncScheduler {
   pub fn stop(&self) {
     self.cancelled.store(true, Ordering::SeqCst);
     self.running.store(false, Ordering::SeqCst);
+    self.wake.notify_one();
   }
 
   /// Whether this specific profile is mid-sync or queued to sync.
@@ -237,8 +264,9 @@ impl SyncScheduler {
   }
 
   pub async fn mark_profile_stopped(&self, profile_id: &str) {
-    let mut running = self.running_profiles.lock().await;
-    running.remove(profile_id);
+    // Released before `pending_profiles` is taken: the sync pass locks the
+    // two in the other order.
+    self.running_profiles.lock().await.remove(profile_id);
     log::debug!("Profile marked stopped profile={profile_id}");
 
     let mut pending = self.pending_profiles.lock().await;
@@ -514,7 +542,13 @@ impl SyncScheduler {
             }
           }
           _ = ticker.tick() => {
-            scheduler.process_pending(&app_handle_clone).await;
+            if sync_target_exists().await {
+              scheduler.process_pending(&app_handle_clone).await;
+            } else {
+              // Nothing could sync: sleep instead of waking every 2 s.
+              let _ = tokio::time::timeout(UNCONFIGURED_RECHECK, scheduler.wake.notified()).await;
+              ticker.reset();
+            }
           }
         }
       }
@@ -640,21 +674,19 @@ impl SyncScheduler {
       to_sync.push(profile_id);
     }
 
-    // Sync all profiles in parallel
+    // A few at a time: each one hashes its whole profile directory, and the
+    // startup pass queues every sync-enabled profile at once.
+    let slots = Arc::new(tokio::sync::Semaphore::new(PROFILE_SYNCS_AT_ONCE));
     let mut sync_set = tokio::task::JoinSet::new();
     for profile_id in to_sync {
       let app = app_handle.clone();
       let in_flight = self.in_flight_profiles.clone();
+      let slots = slots.clone();
       sync_set.spawn(async move {
+        let _slot = slots.acquire_owned().await;
         let started = Instant::now();
         log::debug!("Profile sync started profile={profile_id}");
-        let _ = events::emit(
-          "profile-sync-status",
-          serde_json::json!({
-            "profile_id": profile_id,
-            "status": "syncing"
-          }),
-        );
+        emit_row_status(&profile_id, "syncing");
 
         let profile_to_sync = {
           let profile_manager = ProfileManager::instance();
@@ -666,8 +698,9 @@ impl SyncScheduler {
         };
 
         let Some(profile) = profile_to_sync else {
-          let mut inf = in_flight.lock().await;
-          inf.remove(&profile_id);
+          in_flight.lock().await.remove(&profile_id);
+          // Deleted, or sync turned off, while it waited: end the pulse.
+          emit_row_status(&profile_id, "disabled");
           return;
         };
 
@@ -696,16 +729,13 @@ impl SyncScheduler {
               "Profile sync completed profile={profile_id} elapsed_ms={}",
               started.elapsed().as_millis()
             );
-            let _ = events::emit(
-              "profile-sync-status",
-              serde_json::json!({
-                "profile_id": profile_id,
-                "status": "synced"
-              }),
-            );
+            emit_row_status(&profile_id, "synced");
           }
-          Ok(super::ProfileSyncOutcome::Skipped(reason)) => {
+          Ok(outcome @ super::ProfileSyncOutcome::Skipped(reason)) => {
             log::debug!("Profile sync skipped profile={profile_id} reason=\"{reason}\"");
+            // "syncing" went out when the pass started; without a last status
+            // the row pulses for ever.
+            emit_row_status(&profile_id, outcome.row_status());
           }
           Err(e) => {
             // Both are logged where they happen.
@@ -722,7 +752,7 @@ impl SyncScheduler {
               serde_json::json!({
                 "profile_id": profile_id,
                 "status": "error",
-                "error": e.to_string()
+                "error": e.to_code_json()
               }),
             );
           }
@@ -784,7 +814,7 @@ impl SyncScheduler {
                 serde_json::json!({
                   "id": proxy_id,
                   "status": "error",
-                  "error": e.to_string()
+                  "error": e.to_code_json()
                 }),
               );
             }
@@ -841,7 +871,7 @@ impl SyncScheduler {
                 serde_json::json!({
                   "id": group_id,
                   "status": "error",
-                  "error": e.to_string()
+                  "error": e.to_code_json()
                 }),
               );
             }
@@ -895,7 +925,7 @@ impl SyncScheduler {
                 serde_json::json!({
                   "id": vpn_id,
                   "status": "error",
-                  "error": e.to_string()
+                  "error": e.to_code_json()
                 }),
               );
             }
@@ -933,7 +963,7 @@ impl SyncScheduler {
             log_sync_failure("extension", &ext_id, &e);
             let _ = events::emit(
               "extension-sync-status",
-              serde_json::json!({ "id": ext_id, "status": "error" }),
+              serde_json::json!({ "id": ext_id, "status": "error", "error": e.to_code_json() }),
             );
           } else {
             log_sync_success("extension", &ext_id);
@@ -975,7 +1005,7 @@ impl SyncScheduler {
             log_sync_failure("extension_group", &group_id, &e);
             let _ = events::emit(
               "extension-sync-status",
-              serde_json::json!({ "id": group_id, "status": "error" }),
+              serde_json::json!({ "id": group_id, "status": "error", "error": e.to_code_json() }),
             );
           } else {
             log_sync_success("extension_group", &group_id);
@@ -990,9 +1020,9 @@ impl SyncScheduler {
     }
   }
 
-  /// Forget a queued config sync for an entity whose deletion is being applied
-  /// this tick, so the drain that follows cannot re-upload it.
-  async fn drop_pending_config_sync(&self, entity_type: &str, entity_id: &str) {
+  /// Forget a queued config sync for an entity whose deletion is being
+  /// applied, here or from another device, so no later drain re-uploads it.
+  pub async fn drop_pending_config_sync(&self, entity_type: &str, entity_id: &str) {
     match entity_type {
       "proxy" => {
         self.pending_proxies.lock().await.remove(entity_id);
@@ -1035,6 +1065,8 @@ impl SyncScheduler {
       self.drop_pending_config_sync(entity_type, entity_id).await;
     }
 
+    // Events whose tombstone could not be checked; the next pass asks again.
+    let mut unchecked = Vec::new();
     for (entity_type, entity_id) in tombstones {
       log::debug!("Tombstone received {entity_type}={entity_id}");
       match entity_type.as_str() {
@@ -1090,68 +1122,180 @@ impl SyncScheduler {
         }
         "proxy" => {
           let proxy_manager = &crate::proxy_manager::PROXY_MANAGER;
-          let proxies = proxy_manager.get_stored_proxies();
-          if let Some(proxy) = proxies.iter().find(|p| p.id == entity_id) {
-            if proxy.sync_enabled {
-              log::info!("Proxy deleted remotely, removed locally proxy={entity_id}");
-              let proxy_file = proxy_manager.get_proxy_file_path(&entity_id);
-              if proxy_file.exists() {
-                let _ = std::fs::remove_file(&proxy_file);
-              }
-              proxy_manager.remove_from_memory(&entity_id);
-              let _ = events::emit("stored-proxies-changed", ());
+          let synced = proxy_manager
+            .get_stored_proxies()
+            .iter()
+            .any(|p| p.id == entity_id && p.sync_enabled);
+          if !synced {
+            continue;
+          }
+          match tombstone_still_there(app_handle, "proxies", &entity_id).await {
+            Some(true) => {}
+            Some(false) => continue,
+            None => {
+              unchecked.push((entity_type, entity_id));
+              continue;
             }
           }
+          log::info!("Proxy deleted remotely, removed locally proxy={entity_id}");
+          let proxy_file = proxy_manager.get_proxy_file_path(&entity_id);
+          if proxy_file.exists() {
+            let _ = std::fs::remove_file(&proxy_file);
+          }
+          proxy_manager.remove_from_memory(&entity_id);
+          let _ = events::emit("stored-proxies-changed", ());
         }
         "group" => {
-          let group_manager = crate::group_manager::GROUP_MANAGER.lock().unwrap();
-          let groups = group_manager.get_all_groups().unwrap_or_default();
-          if let Some(group) = groups.iter().find(|g| g.id == entity_id) {
-            if group.sync_enabled {
-              log::info!("Group deleted remotely, removed locally group={entity_id}");
-              let _ = group_manager.delete_group_internal(&entity_id);
-              let _ = events::emit("groups-changed", ());
+          let synced = crate::group_manager::GROUP_MANAGER
+            .lock()
+            .unwrap()
+            .get_all_groups()
+            .unwrap_or_default()
+            .iter()
+            .any(|g| g.id == entity_id && g.sync_enabled);
+          if !synced {
+            continue;
+          }
+          match tombstone_still_there(app_handle, "groups", &entity_id).await {
+            Some(true) => {}
+            Some(false) => continue,
+            None => {
+              unchecked.push((entity_type, entity_id));
+              continue;
             }
           }
+          log::info!("Group deleted remotely, removed locally group={entity_id}");
+          let _ = crate::group_manager::GROUP_MANAGER
+            .lock()
+            .unwrap()
+            .delete_group_internal(&entity_id);
+          let _ = events::emit("groups-changed", ());
         }
         "vpn" => {
-          let storage = crate::vpn::VPN_STORAGE.lock().unwrap();
-          if let Ok(vpn) = storage.load_config(&entity_id) {
-            if vpn.sync_enabled {
-              log::info!("VPN deleted remotely, removed locally vpn={entity_id}");
-              let _ = storage.delete_config(&entity_id);
-              let _ = events::emit("vpn-configs-changed", ());
+          let synced = crate::vpn::VPN_STORAGE
+            .lock()
+            .unwrap()
+            .load_config(&entity_id)
+            .is_ok_and(|vpn| vpn.sync_enabled);
+          if !synced {
+            continue;
+          }
+          match tombstone_still_there(app_handle, "vpns", &entity_id).await {
+            Some(true) => {}
+            Some(false) => continue,
+            None => {
+              unchecked.push((entity_type, entity_id));
+              continue;
             }
           }
+          log::info!("VPN deleted remotely, removed locally vpn={entity_id}");
+          let _ = crate::vpn::VPN_STORAGE
+            .lock()
+            .unwrap()
+            .delete_config(&entity_id);
+          let _ = events::emit("vpn-configs-changed", ());
         }
         "extension" => {
-          let manager = crate::extension_manager::EXTENSION_MANAGER.lock().unwrap();
-          if let Ok(ext) = manager.get_extension(&entity_id) {
-            if ext.sync_enabled {
-              log::info!("Extension deleted remotely, removed locally extension={entity_id}");
-              let _ = manager.delete_extension_internal(&entity_id);
-              let _ = events::emit("extensions-changed", ());
+          let synced = crate::extension_manager::EXTENSION_MANAGER
+            .lock()
+            .unwrap()
+            .get_extension(&entity_id)
+            .is_ok_and(|ext| ext.sync_enabled);
+          if !synced {
+            continue;
+          }
+          match tombstone_still_there(app_handle, "extensions", &entity_id).await {
+            Some(true) => {}
+            Some(false) => continue,
+            None => {
+              unchecked.push((entity_type, entity_id));
+              continue;
             }
           }
+          log::info!("Extension deleted remotely, removed locally extension={entity_id}");
+          let _ = crate::extension_manager::EXTENSION_MANAGER
+            .lock()
+            .unwrap()
+            .delete_extension_internal(&entity_id);
+          let _ = events::emit("extensions-changed", ());
         }
         "extension_group" => {
-          let manager = crate::extension_manager::EXTENSION_MANAGER.lock().unwrap();
-          if let Ok(group) = manager.get_group(&entity_id) {
-            if group.sync_enabled {
-              log::info!(
-                "Extension group deleted remotely, removed locally extension_group={entity_id}"
-              );
-              let _ = manager.delete_group_internal(&entity_id);
-              let _ = events::emit("extensions-changed", ());
+          let synced = crate::extension_manager::EXTENSION_MANAGER
+            .lock()
+            .unwrap()
+            .get_group(&entity_id)
+            .is_ok_and(|group| group.sync_enabled);
+          if !synced {
+            continue;
+          }
+          match tombstone_still_there(app_handle, "extension_groups", &entity_id).await {
+            Some(true) => {}
+            Some(false) => continue,
+            None => {
+              unchecked.push((entity_type, entity_id));
+              continue;
             }
           }
+          log::info!(
+            "Extension group deleted remotely, removed locally extension_group={entity_id}"
+          );
+          let _ = crate::extension_manager::EXTENSION_MANAGER
+            .lock()
+            .unwrap()
+            .delete_group_internal(&entity_id);
+          let _ = events::emit("extensions-changed", ());
         }
         other => {
           if let Some(kind) = ConfigKind::from_tombstone_type(other) {
-            config_entities::apply_remote_delete(kind, &entity_id);
+            match tombstone_still_there(app_handle, kind.folder(), &entity_id).await {
+              Some(true) => config_entities::apply_remote_delete(kind, &entity_id),
+              Some(false) => {}
+              None => unchecked.push((entity_type, entity_id)),
+            }
           }
         }
       }
+    }
+    if !unchecked.is_empty() {
+      let pending = self.pending_tombstones.clone();
+      tokio::spawn(async move {
+        tokio::time::sleep(TOMBSTONE_RECHECK).await;
+        let mut pending = pending.lock().await;
+        for item in unchecked {
+          if !pending.contains(&item) {
+            pending.push(item);
+          }
+        }
+      });
+    }
+  }
+}
+
+/// How long a tombstone event the cloud could not confirm waits before the
+/// next check.
+const TOMBSTONE_RECHECK: Duration = Duration::from_secs(60);
+
+/// Whether the tombstone an event named is still in the cloud. The event can
+/// be stale: a restore from the trash clears the tombstone after it was
+/// written, and the entity it named is live again. `None` when the cloud
+/// could not be asked; without sync set up the event is dropped.
+async fn tombstone_still_there(
+  app_handle: &tauri::AppHandle,
+  folder: &str,
+  id: &str,
+) -> Option<bool> {
+  match SyncEngine::create_from_settings(app_handle).await {
+    Ok(engine) => {
+      SYNC_ENGINE.succeeded();
+      let there = engine.config_tombstone_exists(folder, id).await;
+      if there == Some(false) {
+        log::info!("Tombstone stale, kept local copy folder={folder} id={id}");
+      }
+      there
+    }
+    Err(e) => {
+      engine_setup_failed(e);
+      Some(false)
     }
   }
 }
@@ -1159,6 +1303,22 @@ impl SyncScheduler {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[tokio::test]
+  async fn stopping_wakes_a_loop_that_waits_for_a_sync_target() {
+    let scheduler = Arc::new(SyncScheduler::new());
+    let waiting = {
+      let scheduler = scheduler.clone();
+      tokio::spawn(async move {
+        tokio::time::timeout(UNCONFIGURED_RECHECK, scheduler.wake.notified())
+          .await
+          .is_ok()
+      })
+    };
+    tokio::task::yield_now().await;
+    scheduler.stop();
+    assert!(waiting.await.unwrap(), "the idle wait ends at once");
+  }
 
   #[test]
   fn a_fresh_scheduler_starts_once() {
@@ -1206,6 +1366,27 @@ mod tests {
     // A scheduler is one-shot. Restarting the pipeline builds a new one, so a
     // retired instance coming back to life could only ever be a duplicate.
     assert_eq!(scheduler.claim_start_slot(), StartDecision::Retired);
+  }
+
+  #[tokio::test]
+  async fn a_profile_waiting_for_its_browser_is_not_sync_work() {
+    let scheduler = SyncScheduler::new();
+    assert!(!scheduler.has_ready_work().await);
+    scheduler.mark_profile_running("p-1").await;
+    scheduler.queue_profile_sync("p-1".to_string()).await;
+    assert!(
+      !scheduler.has_ready_work().await,
+      "a queued sync behind a running browser must not show as syncing"
+    );
+    scheduler.mark_profile_stopped("p-1").await;
+    assert!(scheduler.has_ready_work().await);
+  }
+
+  #[tokio::test]
+  async fn queued_config_work_counts_as_sync_work() {
+    let scheduler = SyncScheduler::new();
+    scheduler.queue_vpn_sync("vpn-1".to_string()).await;
+    assert!(scheduler.has_ready_work().await);
   }
 
   #[tokio::test]

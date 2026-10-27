@@ -20,7 +20,7 @@ jobs:
   security-scan:
     if: github.repository == 'donutbrowser/donutbrowser'
     name: Security Vulnerability Scan
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc" # v2.6.0
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36" # v2.7.0
     with:
       scan-args: |-
         -r
@@ -83,11 +83,13 @@ jobs:
             arch: "x86_64"
             target: "x86_64-unknown-linux-gnu"
             pkg_target: "latest-linux-x64"
+            appimage_arch: "amd64"
           - platform: "ubuntu-22.04-arm"
             args: "--target aarch64-unknown-linux-gnu --verbose"
             arch: "aarch64"
             target: "aarch64-unknown-linux-gnu"
             pkg_target: "latest-linux-arm64"
+            appimage_arch: "aarch64"
           - platform: "windows-latest"
             args: "--target x86_64-pc-windows-msvc --verbose"
             arch: "x86_64"
@@ -95,6 +97,11 @@ jobs:
             pkg_target: "latest-win-x64"
 
     runs-on: ${{ matrix.platform }}
+    env:
+      # linuxdeploy's AppImage plugin embeds this, so AppImageUpdate and
+      # similar tools update the AppImage from the latest release, and writes
+      # the .zsync file they read next to it.
+      LDAI_UPDATE_INFORMATION: ${{ matrix.appimage_arch && format('gh-releases-zsync|{0}|{1}|latest|Donut_*_{2}.AppImage.zsync', github.repository_owner, github.event.repository.name, matrix.appimage_arch) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
 
@@ -110,7 +117,7 @@ jobs:
           cache: "pnpm"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f #master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 #master
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
@@ -203,6 +210,14 @@ jobs:
 
           rm -f $CERT_PATH $KEY_PATH $PEM_PATH $P12_PATH
 
+      - name: Set up Python for the DMG layout
+        if: matrix.platform == 'macos-latest'
+        id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 #v7.0.0
+        with:
+          python-version: "3.13"
+          update-environment: false
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f #v1.0.0
         env:
@@ -227,6 +242,54 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload the AppImage's .zsync file
+        if: matrix.appimage_arch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          DIR="src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+          shopt -s nullglob
+          APPIMAGES=("$DIR"/*.AppImage)
+          # appimagetool writes the .zsync file into the folder it runs in.
+          ZSYNCS=(src-tauri/*.AppImage.zsync "$DIR"/*.AppImage.zsync)
+          if [ "${#APPIMAGES[@]}" -ne 1 ] || [ "${#ZSYNCS[@]}" -ne 1 ]; then
+            echo "Expected one AppImage and one .zsync file"
+            ls -la src-tauri "$DIR"
+            exit 1
+          fi
+          chmod +x "${APPIMAGES[0]}"
+          INFO=$("${APPIMAGES[0]}" --appimage-updateinformation)
+          if [ "$INFO" != "$LDAI_UPDATE_INFORMATION" ]; then
+            echo "The AppImage carries update information '$INFO'"
+            exit 1
+          fi
+          gh release upload "$TAG" "${ZSYNCS[0]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+      # Tauri's DMG has no layout in CI: its Finder script needs a desktop
+      # session. Rebuild the DMG from the notarized app with a layout written
+      # directly, sign it, and replace the asset that tauri-action uploaded.
+      - name: Rebuild macOS DMG with the install layout
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHON: ${{ steps.python.outputs.python-path }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          BUNDLE="src-tauri/target/${{ matrix.target }}/release/bundle"
+          shopt -s nullglob
+          DMGS=("$BUNDLE"/dmg/*.dmg)
+          if [ "${#DMGS[@]}" -ne 1 ]; then
+            echo "Expected one DMG in $BUNDLE/dmg, found ${#DMGS[@]}"
+            exit 1
+          fi
+          xcrun stapler validate "$BUNDLE/macos/Donut.app"
+          scripts/build-macos-dmg.sh "$BUNDLE/macos/Donut.app" "${DMGS[0]}"
+          gh release upload "$TAG" "${DMGS[0]}" --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Create portable Windows ZIP
         if: matrix.platform == 'windows-latest'
@@ -280,11 +343,8 @@ jobs:
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
           rm -f $RUNNER_TEMP/build_certificate.p12 || true
 
-  # Runs after every matrix leg (including the portable ZIP upload) so the
-  # sums cover the complete, final asset set. The app self-updater refuses to
-  # install a release it cannot verify against this file.
   # The Flatpak and the Snap, repackaged from this release's .deb and attached
-  # to it before the checksums are taken, so SHA256SUMS.txt covers them.
+  # to it; checksums-with-packages then adds them to SHA256SUMS.txt.
   linux-packages:
     if: github.repository == 'donutbrowser/donutbrowser'
     needs: [release]
@@ -294,26 +354,37 @@ jobs:
     with:
       release-tag: ${{ github.ref_name }}
 
+  # Runs after every matrix leg (including the portable ZIP upload), so the
+  # app updater, which refuses a release it cannot verify against
+  # SHA256SUMS.txt, can install the release without waiting for the Flatpak
+  # and the Snap.
   checksums:
-    # A failed Flatpak or Snap never holds back the checksums.
-    if: ${{ !cancelled() && github.repository == 'donutbrowser/donutbrowser' && needs.release.result == 'success' }}
-    needs: [release, linux-packages]
+    if: github.repository == 'donutbrowser/donutbrowser'
+    needs: [release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
       - name: Generate and upload SHA256SUMS.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          ASSETS_DIR="/tmp/release-assets"
-          mkdir -p "$ASSETS_DIR"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$ASSETS_DIR"
-          cd "$ASSETS_DIR"
-          sha256sum Donut* > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-          gh release upload "$TAG" SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
+        run: bash .github/scripts/release-checksums.sh "${{ github.ref_name }}"
+
+  # The same sums again, now with whatever Linux packages were attached. A
+  # failed Flatpak or Snap never holds them back.
+  checksums-with-packages:
+    if: ${{ !cancelled() && github.repository == 'donutbrowser/donutbrowser' && needs.checksums.result == 'success' }}
+    needs: [checksums, linux-packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+      - name: Generate and upload SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/release-checksums.sh "${{ github.ref_name }}"
 
   changelog:
     if: github.repository == 'donutbrowser/donutbrowser'

@@ -108,7 +108,7 @@ pub(crate) async fn ask_agent(
     catalog.push_str(&format!("- {}: {}\n", tool.name, tool.description));
   }
   let mut system = format!(
-    "You are the automation agent of donutOS, a local antidetect browser. \
+    "You are the automation agent of donutos, a local antidetect browser. \
 You drive profiles through the tools listed below. Answer briefly and \
 concretely in the user's language; when the user describes a workflow, name \
 the exact tool sequence you would run. Tools:\n{catalog}"
@@ -213,7 +213,7 @@ pub async fn generate_recipe_from_text(
   }
   let config = load_config()?;
   let system = "\
-You convert a described browser workflow into a donutOS automation recipe. \
+You convert a described browser workflow into a donutos automation recipe. \
 Answer with ONE JSON array and nothing else - no prose, no code fence. Each \
 element is a step object with a `type` field and its parameters:
 - {\"type\":\"navigate\",\"url\":\"https://...\"}

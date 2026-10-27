@@ -308,6 +308,10 @@
     "license": "Apache-2.0 OR MIT"
   },
   {
+    "name": "@tauri-apps/plugin-autostart",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "@tauri-apps/plugin-clipboard-manager",
     "license": "Apache-2.0 OR MIT"
   },
@@ -325,6 +329,10 @@
   },
   {
     "name": "@tauri-apps/plugin-log",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "@tauri-apps/plugin-notification",
     "license": "Apache-2.0 OR MIT"
   },
   {
@@ -522,6 +530,10 @@
   {
     "name": "atomic-waker",
     "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "auto-launch",
+    "license": "MIT"
   },
   {
     "name": "av-scenechange",
@@ -1740,6 +1752,10 @@
     "license": "Apache-2.0 OR MIT"
   },
   {
+    "name": "mac-notification-sys",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "macos-accessibility-client",
     "license": "Apache-2.0 OR MIT"
   },
@@ -1864,6 +1880,10 @@
     "license": "MIT"
   },
   {
+    "name": "notify-rust",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "ntapi",
     "license": "Apache-2.0 OR MIT"
   },
@@ -1972,12 +1992,16 @@
     "license": "Zlib OR Apache-2.0 OR MIT"
   },
   {
-    "name": "objc2-web-kit",
+    "name": "objc2-security",
     "license": "Zlib OR Apache-2.0 OR MIT"
   },
   {
-    "name": "onborda",
-    "license": "MIT"
+    "name": "objc2-service-management",
+    "license": "Zlib OR Apache-2.0 OR MIT"
+  },
+  {
+    "name": "objc2-web-kit",
+    "license": "Zlib OR Apache-2.0 OR MIT"
   },
   {
     "name": "once_cell",
@@ -2022,6 +2046,10 @@
   {
     "name": "ordered-stream",
     "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "os_info",
+    "license": "MIT"
   },
   {
     "name": "os_pipe",
@@ -2548,14 +2576,6 @@
     "license": "MIT"
   },
   {
-    "name": "sigchld",
-    "license": "MIT"
-  },
-  {
-    "name": "signal-hook",
-    "license": "Apache-2.0 OR MIT"
-  },
-  {
     "name": "signal-hook-registry",
     "license": "Apache-2.0 OR MIT"
   },
@@ -2600,6 +2620,10 @@
     "license": "Apache-2.0 OR MIT"
   },
   {
+    "name": "smappservice-rs",
+    "license": "MIT"
+  },
+  {
     "name": "smoltcp",
     "license": "0BSD"
   },
@@ -2641,6 +2665,10 @@
   },
   {
     "name": "stable_deref_trait",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "static_assertions",
     "license": "Apache-2.0 OR MIT"
   },
   {
@@ -2724,6 +2752,10 @@
     "license": "Apache-2.0 OR MIT"
   },
   {
+    "name": "tauri-plugin-autostart",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "tauri-plugin-clipboard-manager",
     "license": "Apache-2.0 OR MIT"
   },
@@ -2752,6 +2784,10 @@
     "license": "MIT"
   },
   {
+    "name": "tauri-plugin-notification",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "tauri-plugin-opener",
     "license": "Apache-2.0 OR MIT"
   },
@@ -2777,6 +2813,10 @@
   },
   {
     "name": "tauri-utils",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "tauri-winrt-notification",
     "license": "Apache-2.0 OR MIT"
   },
   {
@@ -3120,6 +3160,10 @@
     "license": "Apache-2.0 OR MIT"
   },
   {
+    "name": "widestring",
+    "license": "Apache-2.0 OR MIT"
+  },
+  {
     "name": "winapi",
     "license": "Apache-2.0 OR MIT"
   },
@@ -3194,6 +3238,14 @@
   {
     "name": "windows_x86_64_msvc",
     "license": "Apache-2.0 OR MIT"
+  },
+  {
+    "name": "winfsp",
+    "license": "GPL-3.0"
+  },
+  {
+    "name": "winfsp-sys",
+    "license": "GPL-3.0"
   },
   {
     "name": "winnow",

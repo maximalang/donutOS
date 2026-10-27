@@ -56,6 +56,7 @@ export type BackendErrorCode =
   | "COOKIE_IMPORT_REMOTE_SESSION"
   | "COOKIE_IMPORT_NO_COOKIES"
   | "SELF_HOSTED_REQUIRES_LOGOUT"
+  | "SELF_HOSTED_TEAM_SEAT"
   | "ACCOUNT_SYNC_SIGN_IN_REQUIRED"
   | "ACCOUNT_SYNC_PLAN_REQUIRED"
   | "ACCOUNT_SYNC_UNAVAILABLE"
@@ -103,6 +104,8 @@ export type BackendErrorCode =
   | "VPN_NOT_WORKING"
   | "CAMOUFOX_IMPORT_DEPRECATED"
   | "PROXY_SIDECAR_VERSION_MISMATCH"
+  | "PROXY_SIDECAR_NOT_RESPONDING"
+  | "WAYFERN_NOT_RESPONDING"
   | "UPDATE_CHECKSUMS_UNAVAILABLE"
   | "UPDATE_CHECKSUM_MISMATCH"
   | "BROWSER_CHECKSUM_UNAVAILABLE"
@@ -221,6 +224,9 @@ export type BackendErrorCode =
   | "REMOTE_SESSION_CONFLICT"
   | "REMOTE_SYNC_IN_PROGRESS"
   | "REMOTE_HOURS_EXHAUSTED"
+  | "REMOTE_REQUIRES_CLOUD_SYNC"
+  | "REMOTE_ENCRYPTED_SYNC_UNSUPPORTED"
+  | "REMOTE_UNKNOWN_PLATFORM"
   | "PROFILE_RUNNING_REMOTELY"
   | "PROFILE_REMOTE_SYNC_PENDING"
   | "PROFILE_DATA_NOT_DOWNLOADED"
@@ -247,6 +253,7 @@ export type BackendErrorCode =
   // "attach a proxy" is unactionable advice for someone whose proxy is plainly
   // attached.
   | "COOKIE_BOT_REQUIRES_REMOTE_EXIT_NODE"
+  | "COOKIE_BOT_EXIT_CHECK_FAILED"
   // ...and its twin for an exit whose PROTOCOL no host can speak. Kept apart
   // from the address refusal because a VLESS server is publicly routable: the
   // user is not being asked for a different address, they are being asked for a
@@ -262,6 +269,10 @@ export type BackendErrorCode =
   | "RECIPES_NOT_ENTITLED"
   | "AGENT_RECIPE_INVALID"
   | "AGENT_RECIPE_NOT_FOUND"
+  | "AGENT_TARGET_INVALID"
+  | "AGENT_TARGET_OFFLINE"
+  | "AGENT_PLATFORM_INVALID"
+  | "AGENT_RUN_LIMIT_REACHED"
   | "AGENT_REQUEST_NOT_FOUND"
   | "AGENT_REQUEST_CLOSED"
   | "AGENT_ANSWER_EMPTY"
@@ -296,6 +307,7 @@ export type BackendErrorCode =
   | "WAYFERN_CROSS_OS_REQUIRES_PLAN"
   | "WAYFERN_IDENTITY_REFUSED"
   | "WAYFERN_INSTANCE_LIMIT_REACHED"
+  | "TOO_MANY_BROWSERS_RUNNING"
   | "WAYFERN_PLAN_CHECK_UNAVAILABLE"
   | "WAYFERN_CUSTOM_FINGERPRINT_REQUIRES_PLAN"
   | "WAYFERN_GENERATION_UNAVAILABLE"
@@ -311,6 +323,8 @@ export type BackendErrorCode =
   | "PROFILE_IMPORT_UNSAFE_ARCHIVE"
   | "RECORDING_ALREADY_RUNNING"
   | "PROFILE_NOT_RUNNING"
+  | "NETWORK_CAPTURE_FAILED"
+  | "NETWORK_CAPTURE_NOT_RUNNING"
   | "WAYFERN_152_REQUIRED"
   | "RECORDING_FAILED"
   | "LAUNCH_CONSENT_EXPIRED"
@@ -320,6 +334,8 @@ export type BackendErrorCode =
   | "NO_E2E_PASSWORD_SET"
   | "TRASH_ENTRY_NOT_FOUND"
   | "TRASH_RESTORE_CONFLICT"
+  | "ENTITY_IN_USE"
+  | "VPN_KEY_UNREADABLE"
   // Synchronised windows.
   | "SYNC_SESSION_NOT_FOUND"
   | "SYNC_FOLLOWER_NOT_FOUND"
@@ -327,6 +343,28 @@ export type BackendErrorCode =
   | "SYNC_DISPLAY_UNAVAILABLE"
   | "SYNC_DISPLAY_TOO_SMALL"
   | "SYNC_ARRANGE_FAILED"
+  // Cloud sync failures, from SyncError::user_code in sync/types.rs.
+  | "SYNC_CANCELLED"
+  | "SYNC_SERVER_ERROR"
+  | "SYNC_STORAGE_REJECTED"
+  | "SYNC_TRANSFER_INCOMPLETE"
+  | "SYNC_AUTH_FAILED"
+  | "SYNC_FORBIDDEN"
+  | "SYNC_TOO_LARGE"
+  | "SYNC_RATE_LIMITED"
+  | "SYNC_SERVER_REJECTED"
+  | "SYNC_LOCAL_FILES_FAILED"
+  | "SYNC_DATA_INVALID"
+  | "SYNC_DECRYPT_FAILED"
+  | "SYNC_CROSS_OS_PROFILE"
+  | "SYNC_EPHEMERAL_PROFILE"
+  | "SYNC_TOMBSTONE_NOT_CLEARED"
+  | "SYNC_NOT_ENABLED"
+  // Proxy and VPN route checks and route health.
+  | "PROXY_UPSTREAM_UNREACHABLE"
+  | "PROXY_UPSTREAM_TIMEOUT"
+  | "PROXY_AUTH_FAILED"
+  | "VPN_UNREACHABLE"
   | "INTERNAL_ERROR";
 
 export interface BackendError {
@@ -340,8 +378,12 @@ export interface BackendError {
  * that doesn't yet emit codes — caller should fall back to showing the raw text).
  */
 export function parseBackendError(err: unknown): BackendError | null {
-  const message = err instanceof Error ? err.message : String(err);
-  if (!message.startsWith("{")) return null;
+  const raw = err instanceof Error ? err.message : String(err);
+  // Some commands still put their own context before a coded error
+  // ("Failed to load VPN config: {"code":...}"); the code is what counts.
+  const start = raw.startsWith("{") ? 0 : raw.indexOf('{"code":');
+  if (start < 0) return null;
+  const message = raw.slice(start);
   try {
     const parsed = JSON.parse(message);
     if (
@@ -375,6 +417,10 @@ function remoteOsLabel(platform: string): string {
       return "Windows";
     case "linux":
       return "Linux";
+    case "android":
+      return "Android";
+    case "ios":
+      return "iOS";
     default:
       return platform;
   }
@@ -503,6 +549,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.cookieImportNoCookies");
     case "SELF_HOSTED_REQUIRES_LOGOUT":
       return t("backendErrors.selfHostedRequiresLogout");
+    case "SELF_HOSTED_TEAM_SEAT":
+      return t("backendErrors.selfHostedTeamSeat");
     case "ACCOUNT_SYNC_SIGN_IN_REQUIRED":
       return t("backendErrors.accountSyncSignInRequired");
     case "ACCOUNT_SYNC_PLAN_REQUIRED":
@@ -615,6 +663,14 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.camoufoxImportDeprecated");
     case "PROXY_SIDECAR_VERSION_MISMATCH":
       return t("backendErrors.proxySidecarVersionMismatch");
+    case "PROXY_SIDECAR_NOT_RESPONDING":
+      return t("backendErrors.proxySidecarNotResponding", {
+        seconds: parsed.params?.seconds ?? "",
+      });
+    case "WAYFERN_NOT_RESPONDING":
+      return t("backendErrors.wayfernNotResponding", {
+        seconds: parsed.params?.seconds ?? "",
+      });
     case "UPDATE_CHECKSUMS_UNAVAILABLE":
       return t("backendErrors.updateChecksumsUnavailable", {
         version: parsed.params?.version ?? "",
@@ -894,6 +950,12 @@ export function translateBackendError(t: TFunction, err: unknown): string {
         granted: parsed.params?.granted ?? "0",
         used: parsed.params?.used ?? "0",
       });
+    case "REMOTE_REQUIRES_CLOUD_SYNC":
+      return t("backendErrors.remoteRequiresCloudSync");
+    case "REMOTE_ENCRYPTED_SYNC_UNSUPPORTED":
+      return t("backendErrors.remoteEncryptedSyncUnsupported");
+    case "REMOTE_UNKNOWN_PLATFORM":
+      return t("backendErrors.remoteUnknownPlatform");
     case "PROFILE_RUNNING_REMOTELY":
       return t("backendErrors.profileRunningRemotely");
     case "PROFILE_REMOTE_SYNC_PENDING":
@@ -957,6 +1019,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.cookieBotRequiresExitNode");
     case "COOKIE_BOT_REQUIRES_REMOTE_EXIT_NODE":
       return t("backendErrors.cookieBotRequiresRemoteExitNode");
+    case "COOKIE_BOT_EXIT_CHECK_FAILED":
+      return t("backendErrors.cookieBotExitCheckFailed");
     case "COOKIE_BOT_PROXY_KIND_UNSUPPORTED":
       return t("backendErrors.cookieBotProxyKindUnsupported", {
         kind: parsed.params?.kind ?? "",
@@ -969,6 +1033,14 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.agentRecipeInvalid");
     case "AGENT_RECIPE_NOT_FOUND":
       return t("backendErrors.agentRecipeNotFound");
+    case "AGENT_TARGET_INVALID":
+      return t("backendErrors.agentTargetInvalid");
+    case "AGENT_TARGET_OFFLINE":
+      return t("backendErrors.agentTargetOffline");
+    case "AGENT_PLATFORM_INVALID":
+      return t("backendErrors.agentPlatformInvalid");
+    case "AGENT_RUN_LIMIT_REACHED":
+      return t("backendErrors.agentRunLimitReached");
     case "AGENT_REQUEST_NOT_FOUND":
       return t("backendErrors.agentRequestNotFound");
     case "AGENT_REQUEST_CLOSED":
@@ -1030,7 +1102,7 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.wayfernGenerationLimitReached");
     case "WAYFERN_CROSS_OS_REQUIRES_PLAN":
       return t("backendErrors.wayfernCrossOsRequiresPlan", {
-        detail: parsed.params?.detail ?? "",
+        detail: remoteOsLabel(parsed.params?.detail ?? ""),
       });
     case "WAYFERN_IDENTITY_REFUSED":
       return t("backendErrors.wayfernIdentityRefused", {
@@ -1038,6 +1110,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       });
     case "WAYFERN_INSTANCE_LIMIT_REACHED":
       return t("backendErrors.wayfernInstanceLimitReached");
+    case "TOO_MANY_BROWSERS_RUNNING":
+      return t("backendErrors.tooManyBrowsersRunning");
     case "WAYFERN_PLAN_CHECK_UNAVAILABLE":
       return t("backendErrors.wayfernPlanCheckUnavailable");
     case "WAYFERN_CUSTOM_FINGERPRINT_REQUIRES_PLAN":
@@ -1080,6 +1154,12 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.recordingAlreadyRunning");
     case "PROFILE_NOT_RUNNING":
       return t("backendErrors.profileNotRunning");
+    case "NETWORK_CAPTURE_FAILED":
+      return t("backendErrors.networkCaptureFailed", {
+        detail: parsed.params?.detail ?? "",
+      });
+    case "NETWORK_CAPTURE_NOT_RUNNING":
+      return t("backendErrors.networkCaptureNotRunning");
     case "WAYFERN_152_REQUIRED":
       return t("backendErrors.wayfern152Required");
     case "RECORDING_FAILED":
@@ -1102,6 +1182,12 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.trashEntryNotFound");
     case "TRASH_RESTORE_CONFLICT":
       return t("backendErrors.trashRestoreConflict");
+    case "ENTITY_IN_USE":
+      return t("backendErrors.entityInUse", {
+        count: Number(parsed.params?.count ?? 0),
+      });
+    case "VPN_KEY_UNREADABLE":
+      return t("backendErrors.vpnKeyUnreadable");
     case "SYNC_SESSION_NOT_FOUND":
       return t("backendErrors.syncSessionNotFound");
     case "SYNC_FOLLOWER_NOT_FOUND":
@@ -1116,6 +1202,52 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       });
     case "SYNC_ARRANGE_FAILED":
       return t("backendErrors.syncArrangeFailed");
+    case "SYNC_CANCELLED":
+      return t("backendErrors.syncCancelled");
+    case "SYNC_SERVER_ERROR":
+      return t("backendErrors.syncServerError", {
+        status: parsed.params?.status ?? "",
+      });
+    case "SYNC_STORAGE_REJECTED":
+      return t("backendErrors.syncStorageRejected", {
+        status: parsed.params?.status ?? "",
+      });
+    case "SYNC_TRANSFER_INCOMPLETE":
+      return t("backendErrors.syncTransferIncomplete");
+    case "SYNC_AUTH_FAILED":
+      return t("backendErrors.syncAuthFailed");
+    case "SYNC_FORBIDDEN":
+      return t("backendErrors.syncForbidden");
+    case "SYNC_TOO_LARGE":
+      return t("backendErrors.syncTooLarge");
+    case "SYNC_RATE_LIMITED":
+      return t("backendErrors.syncRateLimited");
+    case "SYNC_SERVER_REJECTED":
+      return t("backendErrors.syncServerRejected", {
+        status: parsed.params?.status ?? "",
+      });
+    case "SYNC_LOCAL_FILES_FAILED":
+      return t("backendErrors.syncLocalFilesFailed");
+    case "SYNC_DATA_INVALID":
+      return t("backendErrors.syncDataInvalid");
+    case "SYNC_DECRYPT_FAILED":
+      return t("backendErrors.syncDecryptFailed");
+    case "SYNC_CROSS_OS_PROFILE":
+      return t("backendErrors.syncCrossOsProfile");
+    case "SYNC_EPHEMERAL_PROFILE":
+      return t("backendErrors.syncEphemeralProfile");
+    case "SYNC_TOMBSTONE_NOT_CLEARED":
+      return t("backendErrors.syncTombstoneNotCleared");
+    case "SYNC_NOT_ENABLED":
+      return t("backendErrors.syncNotEnabled");
+    case "PROXY_UPSTREAM_UNREACHABLE":
+      return t("backendErrors.proxyUpstreamUnreachable");
+    case "PROXY_UPSTREAM_TIMEOUT":
+      return t("backendErrors.proxyUpstreamTimeout");
+    case "PROXY_AUTH_FAILED":
+      return t("backendErrors.proxyAuthFailed");
+    case "VPN_UNREACHABLE":
+      return t("backendErrors.vpnUnreachable");
     case "INTERNAL_ERROR":
       return t("backendErrors.internal", {
         detail: parsed.params?.detail ?? "",

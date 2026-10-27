@@ -713,17 +713,9 @@ pub(crate) async fn start(profile: &BrowserProfile) -> Result<Value, StartError>
       "kept": capture.log.entries.len(),
     }));
   }
-  let connection = match crate::mcp_server::resolve_target(profile).await {
-    Ok(target) => match target.connect().await {
-      Ok(connection) => connection,
-      Err(_) => {
-        return Err(StartError::Refused(
-          "the browser did not accept the connection".into(),
-        ))
-      }
-    },
-    Err(_) => return Err(StartError::NotLocal),
-  };
+  let connection = crate::cdp_target::connect_local_browser(profile)
+    .await
+    .ok_or(StartError::NotLocal)?;
   let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
   let (go, wait_for_go) = tokio::sync::oneshot::channel::<()>();
   let (ready, attached) = tokio::sync::oneshot::channel::<Result<(), String>>();
@@ -806,7 +798,7 @@ async fn pump(
 ) {
   let mut ready = Some(ready);
   let attach = connection
-    .send_command_to(
+    .send_to(
       None,
       ATTACH_ID,
       "Target.setAutoAttach",
@@ -876,7 +868,7 @@ async fn pump(
           fetches.insert(id, entry);
         }
         if let Err(e) = connection
-          .send_command_to(
+          .send_to(
             command.session.as_deref(),
             id,
             command.method,

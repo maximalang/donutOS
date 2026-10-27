@@ -76,7 +76,8 @@ pub struct RemoteSessionOutcome {
 #[derive(Debug, Serialize)]
 struct StartRemoteRequest {
   profile_id: String,
-  /// The profile's own OS. The backend refuses to schedule it anywhere else.
+  /// The host OS from `BrowserProfile::remote_platform`. The backend refuses
+  /// to schedule the session anywhere else.
   platform: String,
   /// Set when the caller wants a page opened once the browser is up.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -164,10 +165,10 @@ fn control_client(total: std::time::Duration) -> reqwest::Client {
 /// without a network or a sync scheduler, and so both the REST and the MCP
 /// entry points get the identical answer from one place.
 ///
-/// - The platform must be one a leased host serves. `resolved_os` can return a
-///   fingerprint OS like `android` for a profile with no recorded host OS, and
-///   no remote host runs that; refusing here gives a clear message instead of
-///   leasing a host and taking a generic failure back.
+/// - The platform must be one a leased host serves. `remote_platform` can
+///   return a fingerprint OS like `android` for a profile bound to the OS that
+///   created it, and no remote host runs that; refusing here gives a clear
+///   message instead of leasing a host and taking a generic failure back.
 /// - Sync must have completed at least once. A remote session opens the synced
 ///   copy and hands it back when it stops, so a profile with sync enabled but
 ///   `last_sync` still None (the first upload failed, or is only queued) would
@@ -252,7 +253,7 @@ pub async fn start_remote_session(
   url: Option<String>,
 ) -> Result<RemoteSessionOutcome, RemoteSessionError> {
   let platform = profile
-    .resolved_os()
+    .remote_platform()
     .ok_or_else(|| {
       RemoteSessionError::Other("profile has no recorded operating system".to_string())
     })?
@@ -587,13 +588,13 @@ pub async fn cdp_endpoint(session_id: &str) -> Result<CdpEndpoint, RemoteSession
 fn unsupported_descriptor(endpoint: &CdpEndpoint) -> Option<String> {
   if !endpoint.auth.is_empty() && endpoint.auth != AUTH_BEARER {
     return Some(format!(
-      "this version cannot attach to a remote browser using {:?} authentication; update donutOS",
+      "this version cannot attach to a remote browser using {:?} authentication; update donutos",
       endpoint.auth
     ));
   }
   if !endpoint.protocol.is_empty() && endpoint.protocol != PROTOCOL_CDP_RELAY_1 {
     return Some(format!(
-      "this version does not speak {:?}; update donutOS",
+      "this version does not speak {:?}; update donutos",
       endpoint.protocol
     ));
   }
@@ -678,7 +679,10 @@ fn index_session(app: Option<&AppHandle>, session: &RemoteSessionState) {
   // the only frames that exist. It is deliberately keyed off `is_terminal`
   // rather than `is_drivable`: a provisioning host already owns the profile.
   if is_terminal(session) {
-    crate::remote_handoff::note_ended(&profile_id, &session.session_id);
+    if !crate::remote_handoff::note_ended(&profile_id, &session.session_id) {
+      // Not a session this machine watched start: its work may still be owed.
+      crate::remote_handoff::gate_unpulled(&finished(std::slice::from_ref(session)));
+    }
     if crate::remote_handoff::pending_session_for(&profile_id).as_deref()
       == Some(session.session_id.as_str())
     {
@@ -703,6 +707,51 @@ fn index_session(app: Option<&AppHandle>, session: &RemoteSessionState) {
       map.remove(&profile_id);
     }
   });
+}
+
+/// The terminal sessions among `sessions`, as `(profile, session, ended)`
+/// with unix seconds. A session with no end time counts from its start.
+fn finished(sessions: &[RemoteSessionState]) -> Vec<(String, String, u64)> {
+  sessions
+    .iter()
+    .filter(|session| is_terminal(session))
+    .filter_map(|session| {
+      let profile_id = session.profile_id.clone()?;
+      let at = session
+        .ended_at
+        .as_deref()
+        .or(session.started_at.as_deref())?;
+      let at = chrono::DateTime::parse_from_rfc3339(at).ok()?.timestamp();
+      Some((
+        profile_id,
+        session.session_id.clone(),
+        u64::try_from(at).ok()?,
+      ))
+    })
+    .collect()
+}
+
+/// How many recent sessions a connect reads to find work finished while the
+/// app was shut. The stream's own snapshot carries fewer than one night of a
+/// busy cookie bot account.
+const CATCH_UP_SESSIONS: u32 = 100;
+
+/// Gate and pull every profile whose remote session ended while nothing here
+/// was watching, then let the launches waiting on that look go ahead.
+async fn catch_up_finished_sessions(app: AppHandle) {
+  let endpoint = format!(
+    "{}/api/remote-sessions?limit={CATCH_UP_SESSIONS}",
+    crate::cloud_auth::CLOUD_API_URL
+  );
+  match get_json::<RemoteSessionListResponse>(endpoint).await {
+    Ok(listing) => {
+      for profile_id in crate::remote_handoff::gate_unpulled(&finished(&listing.sessions)) {
+        crate::remote_handoff::schedule_pull(app.clone(), profile_id);
+      }
+    }
+    Err(e) => log::debug!("Remote sessions not listed for catch-up err=\"{e}\""),
+  }
+  crate::remote_handoff::finish_startup_check();
 }
 
 /// Replace the whole index from a full listing, and reconcile the launch gate.
@@ -804,13 +853,42 @@ const RECOVERY_RECONNECT_MAX: Duration = Duration::from_secs(10);
 /// unentitled is not something a fast retry fixes, and hammering an endpoint
 /// that will keep saying no is how a background task becomes a battery bug.
 const AUTH_BACKOFF_ATTEMPT: u32 = 6;
-/// Granularity of the cancellable sleep, so a shutdown is not held up by a
-/// minute-long backoff.
-const SHUTDOWN_POLL: Duration = Duration::from_millis(250);
-
 static STREAM_RUNNING: AtomicBool = AtomicBool::new(false);
 static STREAM_TASK: Mutex<Option<tauri::async_runtime::JoinHandle<()>>> = Mutex::new(None);
 static STREAM_WAKE: tokio::sync::Notify = tokio::sync::Notify::const_new();
+static STREAM_STOP: StopBell = StopBell::new();
+
+/// Ends a reconnect loop's backoff sleep the moment the loop is stopped, so a
+/// shutdown never waits out a minute-long timer and the sleep never polls.
+/// Shared with the MCP remote-control bridge.
+pub(crate) struct StopBell(std::sync::LazyLock<tokio::sync::watch::Sender<u64>>);
+
+impl StopBell {
+  pub(crate) const fn new() -> Self {
+    Self(std::sync::LazyLock::new(|| {
+      tokio::sync::watch::Sender::new(0)
+    }))
+  }
+
+  /// Wake every sleep under way. Call it after the running flag is off.
+  pub(crate) fn ring(&self) {
+    self.0.send_modify(|rings| *rings = rings.wrapping_add(1));
+  }
+
+  /// Sleep for `total`, or less when `running` is off or the bell rings.
+  pub(crate) async fn sleep(&self, total: Duration, running: &AtomicBool) {
+    // Subscribed before the flag is read: a stop that lands after the read
+    // rings a bell this sleep already hears.
+    let mut rung = self.0.subscribe();
+    if !running.load(Ordering::SeqCst) {
+      return;
+    }
+    tokio::select! {
+      () = tokio::time::sleep(total) => {}
+      _ = rung.changed() => {}
+    }
+  }
+}
 
 /// One frame off the wire.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -998,9 +1076,11 @@ pub fn stop_session_events() {
   // left marked authoritative would keep answering from state nothing is
   // maintaining any more.
   INDEX_AUTHORITATIVE.store(false, Ordering::SeqCst);
+  crate::remote_handoff::finish_startup_check();
   if !STREAM_RUNNING.swap(false, Ordering::SeqCst) {
     return;
   }
+  STREAM_STOP.ring();
   if let Ok(mut slot) = STREAM_TASK.lock() {
     if let Some(handle) = slot.take() {
       handle.abort();
@@ -1029,6 +1109,7 @@ async fn run_session_events(app: AppHandle) {
         attempt = 0;
         STREAM_CONNECT.succeeded();
         emit_stream_status(&app, true, None);
+        tauri::async_runtime::spawn(catch_up_finished_sessions(app.clone()));
         match consume_session_events(&app, response, &mut last_event_id).await {
           Ok(()) => {
             STREAM_DROP.succeeded();
@@ -1049,6 +1130,7 @@ async fn run_session_events(app: AppHandle) {
         }
         STREAM_CONNECT.failed(&reason);
         emit_stream_status(&app, false, Some(&reason));
+        crate::remote_handoff::finish_startup_check();
       }
     }
 
@@ -1062,7 +1144,7 @@ async fn run_session_events(app: AppHandle) {
     ));
     attempt = attempt.saturating_add(1);
     tokio::select! {
-      _ = sleep_unless_stopped(delay) => {},
+      () = STREAM_STOP.sleep(delay, &STREAM_RUNNING) => {},
       _ = STREAM_WAKE.notified() => attempt = 0,
     }
   }
@@ -1089,15 +1171,6 @@ pub(crate) fn jittered(delay: Duration) -> Duration {
   use rand::RngExt;
   let factor = rand::rng().random_range(0.8f64..1.2f64);
   delay.mul_f64(factor)
-}
-
-async fn sleep_unless_stopped(total: Duration) {
-  let mut slept = Duration::ZERO;
-  while slept < total && STREAM_RUNNING.load(Ordering::SeqCst) {
-    let step = SHUTDOWN_POLL.min(total - slept);
-    tokio::time::sleep(step).await;
-    slept += step;
-  }
 }
 
 /// The stream's own HTTP client.
@@ -1254,9 +1327,94 @@ fn emit_stream_status(app: &AppHandle, connected: bool, reason: Option<&str>) {
   }
 }
 
+/// The profile rules of `api_server::remote_launch_profile_rules`, as the
+/// codes the window translates.
+fn remote_rule_code(profile: &BrowserProfile) -> Option<&'static str> {
+  if !profile.is_sync_enabled() {
+    Some("REMOTE_REQUIRES_CLOUD_SYNC")
+  } else if profile.is_encrypted_sync() {
+    Some("REMOTE_ENCRYPTED_SYNC_UNSUPPORTED")
+  } else if profile.remote_platform().is_none() {
+    Some("REMOTE_UNKNOWN_PLATFORM")
+  } else {
+    None
+  }
+}
+
+/// Open a profile on a leased host of its own OS, from the window. Same gates
+/// as `POST /v1/profiles/{id}/run-remote`: a plan with browser automation,
+/// Regular sync, a recorded OS, and no upload of the profile under way.
+#[tauri::command]
+pub async fn start_profile_remote_session(
+  app_handle: AppHandle,
+  profile_id: String,
+) -> Result<RemoteSessionOutcome, String> {
+  if !crate::cloud_auth::CLOUD_AUTH.is_logged_in().await {
+    return Err(crate::backend_error("CLOUD_NOT_SIGNED_IN"));
+  }
+  if !crate::cloud_auth::CLOUD_AUTH
+    .can_use_browser_automation()
+    .await
+  {
+    return Err(crate::backend_error("REMOTE_NOT_ENTITLED"));
+  }
+  let profile = crate::profile::ProfileManager::instance()
+    .list_profiles()
+    .map_err(|e| crate::backend_error_with_detail("INTERNAL_ERROR", e))?
+    .into_iter()
+    .find(|p| p.id.to_string() == profile_id)
+    .ok_or_else(|| crate::backend_error("PROFILE_NOT_FOUND"))?;
+  if let Some(code) = remote_rule_code(&profile) {
+    return Err(crate::backend_error(code));
+  }
+  // The profile rules passed above, so what is left to refuse here is coded.
+  crate::api_server::remote_launch_precondition(&profile).await?;
+
+  let outcome = start_remote_session(app_handle, &profile, None)
+    .await
+    .map_err(|e| {
+      log::warn!("Remote session start failed profile={profile_id} err=\"{e}\"");
+      e.to_error_json()
+    })?;
+  log::info!(
+    "Remote session started profile={profile_id} session={} platform={}",
+    crate::log_redaction::ShortId(&outcome.session_id),
+    outcome.platform
+  );
+  Ok(outcome)
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn a_window_launch_names_the_rule_a_profile_breaks() {
+    let mut profile = BrowserProfile {
+      id: uuid::Uuid::new_v4(),
+      ..Default::default()
+    };
+    assert_eq!(
+      remote_rule_code(&profile),
+      Some("REMOTE_REQUIRES_CLOUD_SYNC")
+    );
+    profile.sync_mode = crate::profile::types::SyncMode::Encrypted;
+    assert_eq!(
+      remote_rule_code(&profile),
+      Some("REMOTE_ENCRYPTED_SYNC_UNSUPPORTED")
+    );
+    profile.sync_mode = crate::profile::types::SyncMode::Regular;
+    let expected = if profile.remote_platform().is_some() {
+      None
+    } else {
+      Some("REMOTE_UNKNOWN_PLATFORM")
+    };
+    assert_eq!(remote_rule_code(&profile), expected);
+    assert_eq!(
+      remote_rule_code(&profile).is_none(),
+      crate::api_server::remote_launch_profile_rules(&profile).is_ok()
+    );
+  }
 
   #[test]
   fn no_capacity_is_distinguished_from_a_real_failure() {
@@ -1723,18 +1881,36 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_stopped_stream_does_not_wait_out_its_backoff() {
-    // A minute-long backoff must not hold up app shutdown.
-    STREAM_RUNNING.store(true, Ordering::SeqCst);
-    let started = std::time::Instant::now();
-    let sleeper = tokio::spawn(sleep_unless_stopped(Duration::from_secs(60)));
+  async fn a_stop_ends_a_backoff_sleep_at_once() {
+    // A minute-long backoff must not hold up app shutdown. Own statics, so
+    // the stream's globals stay out of a test that runs beside others.
+    static RUNNING: AtomicBool = AtomicBool::new(true);
+    static BELL: StopBell = StopBell::new();
+    let sleeper = tokio::spawn(BELL.sleep(Duration::from_secs(60), &RUNNING));
     tokio::time::sleep(Duration::from_millis(50)).await;
-    STREAM_RUNNING.store(false, Ordering::SeqCst);
-    sleeper.await.expect("the sleep task must finish");
-    assert!(
-      started.elapsed() < Duration::from_secs(5),
-      "shutdown waited on the backoff"
-    );
+    RUNNING.store(false, Ordering::SeqCst);
+    BELL.ring();
+    tokio::time::timeout(Duration::from_secs(1), sleeper)
+      .await
+      .expect("shutdown waited on the backoff")
+      .expect("the sleep task must finish");
+
+    // A sleep that starts after the stop does not wait either.
+    tokio::time::timeout(
+      Duration::from_secs(1),
+      BELL.sleep(Duration::from_secs(60), &RUNNING),
+    )
+    .await
+    .expect("a stopped loop must not sleep");
+  }
+
+  #[tokio::test]
+  async fn a_backoff_sleep_without_a_stop_runs_its_full_length() {
+    static RUNNING: AtomicBool = AtomicBool::new(true);
+    static BELL: StopBell = StopBell::new();
+    let started = std::time::Instant::now();
+    BELL.sleep(Duration::from_millis(80), &RUNNING).await;
+    assert!(started.elapsed() >= Duration::from_millis(80));
   }
 
   #[test]
@@ -1977,7 +2153,7 @@ mod tests {
     };
     assert!(unsupported_descriptor(&ticketed)
       .expect("an unknown auth scheme must be refused")
-      .contains("update donutOS"));
+      .contains("update donutos"));
 
     let future_protocol = CdpEndpoint {
       auth: AUTH_BEARER.to_string(),

@@ -34,23 +34,24 @@
       "saving": "保存中…",
       "saved": "保存しました",
       "copied": "コピーしました",
-      "learnMore": "詳細"
+      "learnMore": "詳細",
+      "undo": "元に戻す"
     },
     "status": {
       "active": "アクティブ",
-      "inactive": "非アクティブ",
       "running": "実行中",
       "stopped": "停止",
       "enabled": "有効",
       "disabled": "無効",
       "granted": "許可済み",
-      "notGranted": "未許可",
       "connected": "接続済み",
       "disconnected": "切断",
       "synced": "同期済み",
       "syncing": "同期中",
       "pending": "保留中",
-      "error": "エラー"
+      "error": "エラー",
+      "inactive": "非アクティブ",
+      "notGranted": "未許可"
     },
     "labels": {
       "name": "名前",
@@ -84,7 +85,17 @@
       "hideToken": "トークンを非表示"
     },
     "keys": {
-      "escape": "Esc"
+      "escape": "Esc",
+      "command": "Command",
+      "control": "Control",
+      "shift": "Shift",
+      "option": "Option",
+      "alt": "Alt",
+      "enter": "Enter",
+      "backspace": "Backspace",
+      "arrowUp": "上矢印",
+      "arrowDown": "下矢印",
+      "tab": "Tab"
     },
     "errors": {
       "unknown": "不明なエラーが発生しました"
@@ -116,12 +127,12 @@
       "themeDescription": "お好みのテーマを選択するか、システム設定に従います。カスタムテーマの変更は保存時のみ適用されます。",
       "themePreset": "テーマプリセット",
       "customColors": "カスタムカラー",
-      "selectTheme": "テーマを選択",
-      "selectThemePreset": "テーマプリセットを選択",
       "yourOwn": "カスタム",
       "light": "ライト",
       "dark": "ダーク",
       "system": "システム",
+      "selectTheme": "テーマを選択",
+      "selectThemePreset": "テーマプリセットを選択",
       "sounds": "インターフェースの効果音",
       "soundsDescription": "ボタンを押したとき、スイッチを切り替えたとき、操作が成功または失敗したときに、小さく柔らかい音を鳴らします。"
     },
@@ -129,38 +140,40 @@
       "title": "言語",
       "description": "アプリケーションインターフェースの言語を選択します。",
       "systemDefault": "システムデフォルト",
-      "selectLanguage": "言語を選択",
-      "interface": "インターフェース言語"
+      "interface": "インターフェース言語",
+      "selectLanguage": "言語を選択"
     },
     "defaultBrowser": {
       "title": "デフォルトブラウザ",
       "setAsDefault": "デフォルトブラウザに設定",
-      "alreadyDefault": "既にデフォルトブラウザです",
-      "description": "デフォルトに設定すると、donutos がウェブリンクを処理し、使用するプロファイルを選択できます。",
-      "setSuccess": "donutos が既定のブラウザーになりました",
+      "description": "デフォルトに設定すると、Donut Browser がウェブリンクを処理し、使用するプロファイルを選択できます。",
+      "setSuccess": "Donut Browser が既定のブラウザーになりました",
       "setFailed": "既定のブラウザーを設定できませんでした",
       "finishInSystemSettings": "Windows の設定で完了してください",
-      "finishInSystemSettingsDescription": "donutos を登録しました。Windows の設定が開いています。「Web ブラウザー」で donutos を選ぶと完了します。"
+      "finishInSystemSettingsDescription": "Donut Browser を登録しました。Windows の設定が開いています。「Web ブラウザー」で Donut Browser を選ぶと完了します。",
+      "isDefault": "Donut Browser は既定のブラウザーです",
+      "notDefault": "Donut Browser は既定のブラウザーではありません",
+      "alreadyDefault": "既にデフォルトブラウザです"
     },
     "permissions": {
       "title": "システム権限",
-      "loading": "権限を読み込み中...",
-      "description": "これらの権限により、donutos から起動したブラウザがシステムリソースにアクセスできます。各ウェブサイトは個別に許可を求めます。",
+      "description": "これらの権限により、Donut Browser から起動したブラウザがシステムリソースにアクセスできます。各ウェブサイトは個別に許可を求めます。",
       "microphone": "マイク",
       "microphoneDescription": "ブラウザアプリケーションのマイクアクセス",
       "camera": "カメラ",
       "cameraDescription": "ブラウザアプリケーションのカメラアクセス",
-      "accessRequested": "{{permission}} アクセスを要求しました"
+      "accessRequested": "{{permission}} アクセスを要求しました",
+      "loading": "権限を読み込み中..."
     },
     "integrations": {
       "title": "統合",
       "description": "外部ツールやAIアシスタントと統合するためのローカルAPIとMCP（モデルコンテキストプロトコル）を設定します。",
-      "openSettings": "統合設定を開く"
+      "openSettings": "統合設定を開く",
+      "label": "ローカル API と MCP"
     },
     "encryption": {
       "title": "同期暗号化",
       "description": "E2E暗号化同期を有効にするためのパスワードを設定してください。このパスワードを紛失すると、暗号化されたプロファイルは復元できません。",
-      "passwordSet": "有効",
       "passwordSetDescription": "E2E暗号化パスワードが設定されています",
       "noPassword": "パスワード未設定",
       "passwordPlaceholder": "パスワード（8文字以上）",
@@ -180,7 +193,10 @@
         "submit": "確認",
         "matchToast": "パスワードが一致しました",
         "mismatchToast": "パスワードが一致しません"
-      }
+      },
+      "ruleLength": "{{min}} 文字以上",
+      "ruleMatch": "パスワードが一致",
+      "passwordSet": "有効"
     },
     "commercial": {
       "title": "商用ライセンス",
@@ -189,7 +205,7 @@
       "trialExpired": "トライアル期限切れ",
       "trialExpiredDescription": "個人利用は引き続き無料です。商用利用にはライセンスが必要です。",
       "subscriptionActive": "サブスクリプション中 — {{plan}} プラン",
-      "subscriptionActiveDescription": "donutos のサブスクリプションが有効です。プランの期間中、商用利用がライセンスされます。"
+      "subscriptionActiveDescription": "Donut Browser のサブスクリプションが有効です。プランの期間中、商用利用がライセンスされます。"
     },
     "advanced": {
       "title": "詳細設定",
@@ -199,10 +215,11 @@
       "copyLogs": "ログをコピー",
       "openLogDir": "ログフォルダを開く",
       "copyLogsSuccess": "ログをクリップボードにコピーしました",
-      "copyLogsDescription": "最近のログを編集したバンドル（最大 5 MB）をコピーします。編集ではすべての種類の個人データを識別できないため、共有前に内容を確認してください。"
+      "copyLogsDescription": "最近のログを編集したバンドル（最大 5 MB）をコピーします。編集ではすべての種類の個人データを識別できないため、共有前に内容を確認してください。",
+      "logs": "ログ"
     },
     "disableAutoUpdates": "アプリの自動更新を無効にする",
-    "disableAutoUpdatesDescription": "donutosの自動更新確認・インストールを無効にします。ブラウザの更新には影響しません。",
+    "disableAutoUpdatesDescription": "Donut Browser は更新を自動でダウンロード・インストールしません。新しいバージョンがあるときは引き続き通知します。ブラウザの更新には影響しません。",
     "keepDecryptedProfilesInRam": "復号済みプロファイルをRAMに保持",
     "keepDecryptedProfilesInRamDescription": "起動を高速化するため、パスワード保護されたプロファイルの復号済みコピーをRAMに保持します。ディスク上のコピーは常に暗号化されたままです。",
     "privacy": {
@@ -232,9 +249,9 @@
       "chooseTitle": "データディレクトリにするフォルダーを選んでください",
       "move": "移動",
       "willMoveTo": "すべての移動先",
-      "moved": "データディレクトリを移動しました。donutos を再起動すると使われます。",
+      "moved": "データディレクトリを移動しました。Donut Browser を再起動すると使われます。",
       "reading": "データディレクトリを読み込んでいます…",
-      "restartRequired": "新しい場所を使うには donutos を再起動してください。それまでは以前の場所で動きます。",
+      "restartRequired": "新しい場所を使うには Donut Browser を再起動してください。それまでは以前の場所で動きます。",
       "environmentOverride": "DONUTBROWSER_DATA_DIR が設定されているため、ここで何を選んでもアプリはその場所を使います。",
       "missing": "選んだデータディレクトリが見つかりません。取り外し可能なドライブにある場合は、つなぎ直して再起動してください。",
       "useDefault": "既定の場所に戻す",
@@ -251,6 +268,68 @@
     "trashRetentionOff": "すぐに削除",
     "scrollSectionsLeft": "セクションを左へスクロール",
     "scrollSectionsRight": "セクションを右へスクロール",
+    "changed": "変更あり",
+    "open": "開く",
+    "manage": "管理",
+    "clear": "消去",
+    "dns": {
+      "label": "広告、トラッカー、マルウェアをブロック"
+    },
+    "sounds": {
+      "title": "サウンド",
+      "description": "何が起きたかを伝える、短く小さな効果音です。",
+      "enabled": "インターフェースの効果音",
+      "enabledDescription": "効果音は Donut のウィンドウが前面にあるときだけ鳴ります。",
+      "volume": "音量",
+      "preview": "試聴",
+      "pack": "サウンドパック",
+      "packs": {
+        "soft": {
+          "label": "ソフト",
+          "description": "温かく丸みのある音。"
+        },
+        "crisp": {
+          "label": "クリスプ",
+          "description": "短く明るく、はっきりした音。"
+        },
+        "retro": {
+          "label": "レトロ",
+          "description": "昔のゲーム機のような矩形波の音。"
+        }
+      },
+      "categories": {
+        "interface": {
+          "label": "インターフェース",
+          "description": "ボタン、スイッチ、ページの開閉。"
+        },
+        "feedback": {
+          "label": "結果",
+          "description": "成功、エラー、警告、コピー、削除、復元。"
+        },
+        "events": {
+          "label": "イベント",
+          "description": "プロファイルの起動と停止、同期、ダウンロード、対応が必要なリクエスト。"
+        }
+      },
+      "previewAria": "{{name}}のサウンドを試聴"
+    },
+    "system": {
+      "title": "システム",
+      "launchAtLogin": "ログイン時に Donut を開く",
+      "launchAtLoginDescription": "コンピューターにサインインすると Donut が起動します。",
+      "reopenRunning": "起動時に実行中だったプロファイルを再度開く",
+      "reopenRunningDescription": "Donut を閉じたときに実行中だったプロファイルが、次に開いたときに再び起動します。",
+      "notifications": "システム通知",
+      "notificationsDescription": "Donut がバックグラウンドにある間、起動の失敗やエージェントからの質問などを OS が通知します。"
+    },
+    "launches": {
+      "title": "一括起動",
+      "delay": "起動の間隔",
+      "delayDescription": "複数のプロファイルを起動するとき、次のプロファイルを起動するまで Donut が待つ時間です。",
+      "concurrency": "同時に起動するプロファイル数",
+      "concurrencyDescription": "同時に起動できるプロファイルの数です。数が少ないほどコンピューターの負荷が下がります。",
+      "seconds": "{{value}} 秒"
+    },
     "ai": {
       "title": "AIプロバイダー",
       "description": "OpenAI互換のエンドポイントがエージェント会話に応答し、レシピを起草します。APIキーはこのマシンだけで封印保存されます。",
@@ -283,9 +362,10 @@
       "extensions": "拡張機能"
     },
     "newProfile": "新規",
-    "donutLogo": "donutos ロゴ",
+    "donutLogo": "Donut Browser ロゴ",
     "scrollGroupsLeft": "グループを左へスクロール",
-    "scrollGroupsRight": "グループを右へスクロール"
+    "scrollGroupsRight": "グループを右へスクロール",
+    "allGroups": "すべてのグループ"
   },
   "search": {
     "helpLabel": "検索構文",
@@ -329,6 +409,32 @@
       "a": "あるグループ内の実行中のプロファイル",
       "b": "タグがなくプロキシがあるプロファイル",
       "c": "30 日以上起動しておらず、アーカイブ済みを除いたもの"
+    },
+    "suggest": {
+      "label": "検索候補",
+      "matches": "一致する項目",
+      "recent": "最近の検索",
+      "none": "未設定",
+      "any": "任意の値",
+      "dates": {
+        "last7d": "過去7日間",
+        "last30d": "過去30日間",
+        "over30d": "30日以上前",
+        "over90d": "90日以上前",
+        "thisYear": "今年",
+        "never": "一度もない"
+      },
+      "keys": {
+        "choose": "選択",
+        "complete": "補完"
+      }
+    },
+    "issues": {
+      "unknownField": "{{name}} はフィールドではないため、テキストとして検索します。{{field}} のことですか？",
+      "compare": "{{field}} は比較できないため、テキストとして検索します。比較できるのは日付とバージョンだけです。",
+      "date": "{{field}} には 2026-01-31 のような日付か、過去7日間を表す 7d を指定します。",
+      "enum": "{{field}} に指定できるのは {{values}} です。",
+      "boolean": "{{field}} に指定できるのは yes か no です。"
     }
   },
   "profiles": {
@@ -349,7 +455,7 @@
       "proxy": "プロキシ / VPN",
       "lastLaunch": "最終起動",
       "empty": "プロファイルが見つかりません。",
-      "ext": "拡張",
+      "ext": "拡張機能",
       "dns": "DNS",
       "dnsLevel": "DNS ブロックリスト: {{level}}",
       "extSearch": "グループを検索…",
@@ -447,7 +553,10 @@
       "runSelected": "選択を実行",
       "stopSelected": "選択を停止",
       "proRequired": "一括実行・停止には Pro プランが必要です",
-      "distributeProxies": "プロキシを配分"
+      "distributeProxies": "プロキシを配分",
+      "runCount": "{{count}} 件を実行",
+      "stopCount": "{{count}} 件を停止",
+      "enableSync": "同期を有効にする"
     },
     "passwordProtectedBadge": "パスワード保護",
     "launchHook": {
@@ -457,7 +566,13 @@
       "confirmTitle": "{{count}} 個のプロファイルを実行しますか？",
       "confirmDescription": "{{count}} 個のプロファイルを一度に起動すると、システムリソースを大量に消費する可能性があります。続行しますか？",
       "confirmButton": "{{count}} 個を実行",
-      "noneToRun": "実行する選択中のプロファイルがありません。"
+      "noneToRun": "実行する選択中のプロファイルがありません。",
+      "progress": "起動中 {{done}} / {{total}}",
+      "failedSummary": "{{total}} 件中 {{failed}} 件の起動に失敗しました",
+      "showFailed": "表示",
+      "notStarted": "{{total}} 件中 {{count}} 件は起動しませんでした",
+      "finishedTitle": "一括起動が完了しました",
+      "finishedBody": "{{total}} 件中 {{launched}} 件のプロファイルを起動しました"
     },
     "bulkStop": {
       "confirmTitle": "{{count}} 個のプロファイルを停止しますか？",
@@ -473,8 +588,18 @@
     },
     "remote": {
       "runningTooltip": "リモートマシンで実行中です。停止するとプロファイルがここに戻ります。",
-      "pendingSyncTooltip": "リモートセッションの変更をダウンロード中です。完了すると再び使用できます。"
-    }
+      "pendingSyncTooltip": "リモートセッションの変更をダウンロード中です。完了すると再び使用できます。",
+      "starting": "{{name}} をクラウドで起動しています"
+    },
+    "trash": {
+      "moved": "「{{name}}」をゴミ箱に移動しました",
+      "movedMany": "{{count}} 件のプロファイルをゴミ箱に移動しました"
+    },
+    "stopAll": {
+      "none": "実行中のプロファイルはありません。"
+    },
+    "duplicated": "コピーを作成しました: {{name}}",
+    "lockedToast": "「{{name}}」をロックしました"
   },
   "createProfile": {
     "title": "新しいプロファイルを作成",
@@ -526,10 +651,14 @@
     "downloadingSubtitle": "ダウンロード中…",
     "browsersDownloading": "ブラウザをダウンロード中です。ダウンロードが完了するとプロファイルを作成できます。",
     "advancedOptions": "詳細オプション",
+    "moreOptions": "その他のオプション",
     "hourlyLimit": {
       "reached": "ご利用プランでは1時間に{{limit}}件まで新規プロファイルを作成できます。次は約{{minutes}}分後に作成できます。",
       "warningTitle": "プロファイルの作成ペースが速すぎます",
       "warning": "少し時間をおいてください。1時間に多くのプロファイルを作成しすぎると、24時間以上の一時的なブロックがかかり、その間は新しいアイデンティティを生成できません。1時間あたりの上限を引き上げたい場合は、有料プランで Donut を支援することをご検討ください。"
+    },
+    "group": {
+      "notFound": "グループが見つかりません。"
     },
     "engine": {
       "label": "ブラウザエンジン",
@@ -552,7 +681,6 @@
       "tabVpns": "VPN",
       "create": "作成",
       "loading": "プロキシを読み込み中...",
-      "noneCreated": "プロキシはまだありません。上のボタンから最初のプロキシを作成してください。",
       "usage": "使用状況",
       "syncCol": "同期",
       "syncCannotDisable": "このプロキシが同期されたプロファイルで使用されている間は同期を無効にできません",
@@ -578,7 +706,10 @@
       "firstHopPlaintextTooltip": "第一ホップは平文: このプロキシへの接続は暗号化されていません。",
       "firstHopEncryptedTooltip": "第一ホップは暗号化: このプロキシへの接続は暗号化されています。プロバイダーはアクセス先を把握できます。",
       "firstHopCipherTooltip": "第一ホップは暗号方式次第: このプロキシには暗号方式が記録されていないため、接続が暗号化されるかどうかはまだ決まっていません。編集して aes-256-gcm のような実際の暗号方式を設定してください。",
-      "udpCol": "UDP"
+      "udpCol": "UDP",
+      "checkSelected": "選択項目をチェック",
+      "checkSummary": "チェック完了。成功: {{passed}}。失敗: {{failed}}。",
+      "noneCreated": "プロキシはまだありません。上のボタンから最初のプロキシを作成してください。"
     },
     "add": "プロキシを追加",
     "edit": "プロキシを編集",
@@ -736,13 +867,11 @@
     "title": "グループ",
     "management": "グループ管理",
     "add": "グループを追加",
-    "edit": "グループを編集",
     "delete": "グループを削除",
     "moveToDefault": "プロファイルをグループから外す",
     "noGroupDescription": "グループに属さないプロファイルは「すべて」フィルターに表示されます。",
     "assignSuccess": "{{count}} 件のプロファイルを {{group}} に割り当てました",
     "noGroups": "グループがありません",
-    "noGroupsDescription": "プロファイルを整理するためのグループを作成してください。",
     "form": {
       "name": "名前",
       "namePlaceholder": "グループ名を入力"
@@ -780,7 +909,9 @@
     "all": "すべて",
     "noGroup": "グループなし",
     "pageTitle": "プロファイルグループ",
-    "pageDescription": "プロファイルグループを使うと、クライアント、環境、用途ごとにブラウザを整理できます。デバイス間でグループを同期して共有しましょう。"
+    "pageDescription": "プロファイルグループを使うと、クライアント、環境、用途ごとにブラウザを整理できます。デバイス間でグループを同期して共有しましょう。",
+    "edit": "グループを編集",
+    "noGroupsDescription": "プロファイルを整理するためのグループを作成してください。"
   },
   "sync": {
     "mode": {
@@ -876,7 +1007,9 @@
     "enabledToast": "同期を有効化しました",
     "disabledToast": "同期を無効化しました",
     "enabledDescription": "プロファイルの同期が有効になりました",
-    "disabledDescription": "プロファイルの同期が無効になりました"
+    "disabledDescription": "プロファイルの同期が無効になりました",
+    "bulkEnabledToast": "{{count}} 件のプロファイルで同期をオンにしました",
+    "bulkEnableNone": "選択したプロファイルの同期はすでにオンです。"
   },
   "integrations": {
     "title": "統合",
@@ -885,7 +1018,10 @@
       "add": "追加",
       "addedToClient": "{{name}} に追加しました",
       "removedFromClient": "{{name}} から削除しました",
+      "updatedClient": "{{name}} を更新しました",
       "removeAriaLabel": "{{name}} から削除",
+      "update": "更新",
+      "updateAriaLabel": "{{name}} の資格情報を更新",
       "category": {
         "desktopApp": "デスクトップアプリ",
         "cli": "CLI",
@@ -919,6 +1055,10 @@
           "network": {
             "label": "ネットワーク",
             "description": "プロキシ、VPN、IP の切り替え、DNS ルール"
+          },
+          "traffic": {
+            "label": "通信",
+            "description": "ページのリクエストを記録して読む"
           },
           "fingerprint": {
             "label": "フィンガープリント",
@@ -965,7 +1105,6 @@
     "apiStartFailed": "API サーバーの起動に失敗しました",
     "tokenCopied": "トークンをコピーしました",
     "mcpAcceptTermsFirst": "(設定で先に Wayfern の規約に同意してください)",
-    "openSettings": "統合設定を開く",
     "apiRunningOn": "実行中",
     "apiExampleRequest": "リクエスト例",
     "examples": {
@@ -978,7 +1117,7 @@
       "language": "言語",
       "paid": "有料プランが必要です",
       "tokenIncluded": "コピーしたコードにはトークン全体が含まれます。他人に共有しないでください。",
-      "credentialTemplate": "認証情報は先頭部分のみ表示されています。実行する前に完全な認証情報に置き換えてください。",
+      "credentialIncluded": "コピーしたコードには資格情報全体が含まれます。他人に共有しないでください。",
       "languages": {
         "curl": "cURL",
         "javascript": "JavaScript",
@@ -1022,7 +1161,14 @@
           "title": "クライアント設定",
           "description": "一覧にないクライアントの MCP 設定にこのエントリを追加します。"
         }
-      }
+      },
+      "tryIt": "試す",
+      "tryItDescription": "このリクエストをトークン付きでローカル API に送信し、応答を表示します。",
+      "tryItNeedsApi": "このリクエストを送るにはローカル API をオンにしてください。",
+      "tryItFailed": "リクエストがローカル API に届きませんでした。実行中か確認してください。",
+      "liveResponse": "実際の応答",
+      "tryItStatus": "HTTP {{status}} · {{ms}} ms",
+      "credentialTemplate": "認証情報は先頭部分のみ表示されています。実行する前に完全な認証情報に置き換えてください。"
     },
     "tabRemote": "リモート MCP",
     "remote": {
@@ -1041,17 +1187,29 @@
       "exampleRequest": "リクエスト例",
       "credentialLabel": "資格情報",
       "credentialPrefix": "{{prefix}}…",
+      "credentialCopy": "資格情報をコピー",
+      "credentialCopied": "資格情報をコピーしました",
       "credentialNone": "資格情報はまだありません。クライアントを追加すると作成されます。",
       "credentialHint": "以下のクライアントにインストールされます。ここには先頭の数文字のみ表示されます。ローテーションすると置き換えられ、接続済みのすべてのクライアントが再インストールされます。",
       "credentialRotate": "ローテーション",
       "credentialCreate": "作成",
       "credentialRotated": "資格情報をローテーションしました",
+      "credentialRestartClients": "新しい資格情報を使うには、開いているエージェントクライアントを再起動してください。",
       "credentialCreated": "資格情報を作成しました",
       "credentialRotateFailed": "資格情報をローテーションできませんでした",
-      "credentialClientsFailed": "資格情報は保存されましたが、次のクライアントを更新できませんでした: {{clients}}。再試行するにはもう一度ローテーションしてください。",
+      "credentialClientsFailed": "資格情報は保存されましたが、次のクライアントを更新できませんでした: {{clients}}。",
+      "credentialClientsUpdated": "クライアントを更新しました",
       "fxHint": "fx は DONUT_MCP_TOKEN から資格情報を読み取ります。fx を起動するシェルでエクスポートしてください。",
-      "fxExportCopied": "エクスポート行をコピーしました"
+      "fxReexport": "資格情報が変わりました。fx を起動するシェルでもう一度エクスポートし、fx を再起動してください。",
+      "fxExportCopied": "エクスポート行をコピーしました",
+      "fxExportLabel": "fx のエクスポート行",
+      "credentialForget": "削除",
+      "credentialForgetTitle": "認証情報を削除しますか?",
+      "credentialForgetDescription": "Donut は認証情報を失効させ、このコンピューターから削除します。これを使うクライアントは、新しい認証情報を作成するまで動作しません。",
+      "credentialForgotten": "認証情報を削除しました",
+      "credentialForgetFailed": "認証情報を削除できませんでした"
     },
+    "openSettings": "統合設定を開く",
     "tabAi": "AI",
     "members": {
       "title": "APIメンバー",
@@ -1349,7 +1507,7 @@
     "unknownError": "不明なエラーが発生しました。もう一度お試しください。",
     "noProfilesForUrl": "利用可能なプロファイルがありません。URLを開く前にプロファイルを作成してください。",
     "createProfileFailed": "プロファイルの作成に失敗しました: {{error}}",
-    "launchBrowserFailed": "ブラウザの起動に失敗しました: {{error}}",
+    "launchBrowserFailed": "{{name}} の起動に失敗しました: {{error}}",
     "cannotDeleteRunningProfile": "ブラウザの実行中にプロファイルを削除できません。先にブラウザを停止してください。",
     "deleteProfileFailed": "プロファイルの削除に失敗しました: {{error}}",
     "renameProfileFailed": "プロファイルの名前変更に失敗しました: {{error}}",
@@ -1499,11 +1657,12 @@
     "enterAsJson": "{{title}} を JSON で入力",
     "launchArgs": "起動引数",
     "launchArgsDescription": "1 行に 1 つの引数を --name または --name=value の形式で入力します。使用できるのは対応している引数だけです（例: --disable-gpu、--mute-audio、--disable-features=Name）。プロファイル、プロキシ、ウィンドウ、デバッグの引数は Donut が管理します。",
-    "launchArgsSkipped": "{{profile}} ではカスタム起動引数が使われませんでした。{{reason}}"
+    "launchArgsSkipped": "{{profile}} ではカスタム起動引数が使われませんでした。{{reason}}",
+    "readingDevice": "このプロファイルのフィンガープリントを読み込んでいます…"
   },
   "warnings": {
     "windowResizeTitle": "カスタムウィンドウサイズ",
-    "windowResizeDescription": "ブラウザウィンドウのサイズを変更すると、ブラウザ情報が偽装されていることをウェブサイトに検出される可能性が高くなります。",
+    "windowResizeDescription": "ブラウザウィンドウのサイズを変更すると、実際のモニターのサイズがウェブサイトに知られ、ブラウザ情報が偽装されていることを検出される可能性が高くなります。",
     "dontShowAgain": "今後表示しない",
     "continue": "続行",
     "cancel": "キャンセル"
@@ -1525,7 +1684,8 @@
   "crossOs": {
     "viewOnly": "このプロファイルは{{os}}で作成されたもので、このシステムではサポートされていません",
     "cannotLaunch": "このプロファイルは{{os}}で作成されたもので、このシステムではサポートされていません",
-    "cannotModify": "他のOSのプロファイルの同期設定は変更できません"
+    "cannotModify": "他のOSのプロファイルの同期設定は変更できません",
+    "cannotLaunchUnknown": "このプロファイルは別のオペレーティングシステムで作成されたため、ここでは起動できません"
   },
   "profileInfo": {
     "title": "プロフィール詳細",
@@ -1576,7 +1736,8 @@
       "noRules": "バイパスルールは設定されていません。",
       "ruleTypes": "ホスト名、IPアドレス、正規表現パターンをサポートしています。",
       "vpnLabel": "VPN: {{name}}",
-      "proxyLabel": "Proxy: {{name}}"
+      "proxyLabel": "Proxy: {{name}}",
+      "removeRule": "{{rule}} を削除"
     },
     "launchHook": {
       "title": "起動フックURL",
@@ -1612,7 +1773,9 @@
       "launchHook": "起動フック",
       "transfer": "転送",
       "startPages": "スタートページ",
-      "twoFactor": "2FA コード"
+      "twoFactor": "2FA コード",
+      "requests": "リクエスト",
+      "logs": "ログ"
     },
     "sectionDesc": {
       "fingerprint": "フィンガープリント対策スクリプトに対するこのプロファイルの表示を設定します。",
@@ -1622,7 +1785,9 @@
       "sync": "他のデバイス間でのこのプロファイルの同期方法を設定します。",
       "automation": "このプロファイル起動時に実行するコマンドを設定します。",
       "security": "プロファイルデータをパスワードで暗号化します。",
-      "launchHook": "プロファイルが起動するたびに、このURLにGETリクエストを送信します。"
+      "launchHook": "プロファイルが起動するたびに、このURLにGETリクエストを送信します。",
+      "requests": "実行中のブラウザーが送るリクエスト。認証情報は隠されます。",
+      "logs": "このプロファイルに関する Donut のログ行。"
     },
     "badges": {
       "locked": "ロック中",
@@ -1635,12 +1800,15 @@
     "security": {
       "protected": "このプロファイルはパスワードで暗号化されています。",
       "unprotected": "このプロファイルは暗号化されていません。パスワードを設定して保護してください。",
-      "cannotWhileRunning": "パスワードを変更する前にプロファイルを停止してください。"
+      "cannotWhileRunning": "パスワードを変更する前にプロファイルを停止してください。",
+      "unlockedTitle": "このデバイスでロック解除済み",
+      "unlockedDescription": "ロックするまでデータは復号されたままです。"
     },
     "fingerprint": {
       "notSupported": "フィンガープリント編集は Wayfern プロファイルでのみ利用できます。",
       "lockedTitle": "フィンガープリントの表示と編集は Pro 機能です",
-      "lockedDescription": "デバイス情報はすべてのプロファイルで保護されています。プロファイルのフィンガープリントを表示・編集するには、有効な有料プランが必要です。"
+      "lockedDescription": "デバイス情報はすべてのプロファイルで保護されています。プロファイルのフィンガープリントを表示・編集するには、有効な有料プランが必要です。",
+      "customValuesKept": "カスタムのフィンガープリント値は保存されています。アカウントに有効な Pro プランがあるときに適用されます。"
     },
     "syncStatusValue": {
       "waiting": "待機中",
@@ -1663,6 +1831,28 @@
       "includeIndexedDb": "IndexedDB を含める",
       "indexedDbHint": "エクスポートでは、プロファイルを一瞬バックグラウンドで開きます。ページは読み込みません。",
       "importedWithIndexedDb": "インポートしました。Local Storage の項目: {{items}} · サイト: {{origins}} · Cookie: {{cookies}} · IndexedDB のレコード: {{records}}"
+    },
+    "drafts": {
+      "unsaved": "未保存の変更"
+    },
+    "aria": {
+      "runRemote": "{{name}} をクラウドで実行",
+      "moreActions": "{{name}} のその他の操作",
+      "close": "{{name}} の詳細を閉じる",
+      "copyId": "{{name}} の ID をコピー"
+    },
+    "runningBanner": "編集するにはプロファイルを停止してください。",
+    "debug": {
+      "title": "デバッグエンドポイント",
+      "description": "実行中のこのブラウザーに Playwright、Puppeteer、その他の CDP クライアントを接続します。",
+      "notRunning": "デバッグエンドポイントを取得するにはプロファイルを起動してください。",
+      "unavailable": "ブラウザーがデバッグポートで応答しません。",
+      "port": "ポート",
+      "wsUrl": "WebSocket URL",
+      "wsPending": "ブラウザーが応答すると WebSocket URL が表示されます。",
+      "copyPort": "ポートをコピー",
+      "copyWsUrl": "WebSocket URL をコピー",
+      "copyCode": "{{tool}} のコードをコピー"
     }
   },
   "profileTransfer": {
@@ -1694,10 +1884,8 @@
     "managedNotice": "ここで管理される拡張機能は、起動時にプロファイルに手動でインストールされた拡張機能を置き換えます。",
     "proRequired": "拡張機能管理はプロ機能です",
     "empty": "まだ拡張機能がアップロードされていません。",
-    "noGroups": "まだ拡張機能グループが作成されていません。",
     "createGroup": "グループを作成",
     "newGroup": "新しいグループ",
-    "addToGroup": "拡張機能を追加...",
     "removeFromGroup": "グループから削除",
     "deleteGroup": "グループを削除",
     "extensionGroup": "拡張機能グループ",
@@ -1782,7 +1970,11 @@
     "fetchedIdentity": "{{name}} · バージョン {{version}}",
     "fetchedFrom": "{{source}} からダウンロードしました",
     "fetchSuccess": "拡張機能をダウンロードしました。名前を確認して追加してください。",
-    "fetchFailed": "拡張機能をダウンロードできませんでした"
+    "fetchFailed": "拡張機能をダウンロードできませんでした",
+    "searchExtensions": "拡張機能を検索",
+    "membersSelected": "{{total}} 件中 {{selected}} 件を選択",
+    "noGroups": "まだ拡張機能グループが作成されていません。",
+    "addToGroup": "拡張機能を追加..."
   },
   "pro": {
     "badge": "PRO",
@@ -1801,7 +1993,6 @@
     "proPlus": "Pro++",
     "ultimate": "アルティメット",
     "settingsDescription": "DNSブロックリストは、プロキシレベルで広告、トラッカー、マルウェアドメインをブロックします。リストは12時間ごとに自動的に更新されます。",
-    "manageLists": "DNSブロックリストを管理",
     "refreshAll": "すべてのリストを更新",
     "refreshFailed": "DNSブロックリストの更新に失敗しました",
     "domains": "ドメイン",
@@ -1828,7 +2019,8 @@
     "custom.allowlistModeOn": "下記のドメインのみアクセス可能で、それ以外はすべてブロックされます。",
     "custom.allowlistModeOff": "リストのドメインをブロックし、それ以外はすべて許可します。",
     "custom.allowedOnlyLabel": "許可するドメイン（これらのみ）",
-    "custom.allowedOnlyHint": "リスト内ドメインのサブドメインも許可されます。リストが空の場合はフィルタリングが無効になります。"
+    "custom.allowedOnlyHint": "リスト内ドメインのサブドメインも許可されます。リストが空の場合はフィルタリングが無効になります。",
+    "manageLists": "DNSブロックリストを管理"
   },
   "dnsServer": {
     "label": "DNS サーバー",
@@ -1915,15 +2107,16 @@
     "namesHint": "プロファイル名は {{name}} 1、{{name}} 2 のように、使用済みの番号の続きになります。",
     "allowanceLeft_one": "この1時間であと {{count}} 件作成できます。",
     "allowanceLeft_other": "この1時間であと {{count}} 件作成できます。",
-    "createMany_one": "{{count}} 件のプロファイルを作成",
-    "createMany_other": "{{count}} 件のプロファイルを作成",
     "progress": "{{total}} 件中 {{done}} 件を作成中",
     "stop": "停止",
     "created_one": "{{count}} 件のプロファイルを作成しました",
     "created_other": "{{count}} 件のプロファイルを作成しました",
     "stoppedEarly": "{{total}} 件中 {{created}} 件のプロファイルを作成しました。{{error}}",
     "passwordOneOnly": "パスワードはプロファイルを1件だけ作成するときにのみ設定できます。",
-    "saveFromProfileDescription": "このテンプレートから作成した新しいプロファイルは、その設定とそれぞれ新しいデバイスを受け取ります。名前、メモ、デバイスはこのプロファイルに残ります。"
+    "saveFromProfileDescription": "このテンプレートから作成した新しいプロファイルは、その設定とそれぞれ新しいデバイスを受け取ります。名前、メモ、デバイスはこのプロファイルに残ります。",
+    "notifyTitle": "一括作成が完了しました",
+    "createMany_one": "{{count}} 件のプロファイルを作成",
+    "createMany_other": "{{count}} 件のプロファイルを作成"
   },
   "vpns": {
     "form": {
@@ -1987,7 +2180,6 @@
     },
     "management": {
       "loading": "VPN を読み込み中...",
-      "noneCreated": "VPN 構成はまだありません。上のボタンからインポートまたは作成してください。",
       "editVpn": "VPN を編集",
       "deleteVpn": "VPN を削除",
       "cannotDelete_one": "削除できません: {{count}} プロファイルで使用中",
@@ -1996,7 +2188,8 @@
       "deleteSuccess": "VPN を削除しました",
       "deleteFailed": "VPN の削除に失敗しました",
       "deleteTitle": "VPN を削除",
-      "deleteDescription": "この操作は取り消せません。VPN「{{name}}」は完全に削除されます。"
+      "deleteDescription": "この操作は取り消せません。VPN「{{name}}」は完全に削除されます。",
+      "noneCreated": "VPN 構成はまだありません。上のボタンからインポートまたは作成してください。"
     }
   },
   "importProfile": {
@@ -2008,10 +2201,10 @@
     "scanning": "ブラウザプロファイルをスキャン中...",
     "noneFound": "システムにブラウザプロファイルが見つかりませんでした。",
     "noneFoundHint": "カスタムの場所にプロファイルがある場合は手動インポートをお試しください。",
-    "newProfileName": "新しいプロファイル名:",
+    "newProfileName": "新しいプロファイル名",
     "newProfileNamePlaceholder": "インポートするプロファイルの名前を入力",
     "manualTitle": "手動プロファイルインポート",
-    "profileFolderPath": "プロファイルフォルダパス:",
+    "profileFolderPath": "プロファイルフォルダパス",
     "profileFolderPlaceholder": "プロファイルフォルダのフルパスを入力",
     "browseFolderTitle": "フォルダを参照",
     "examplePaths": "パスの例:",
@@ -2070,7 +2263,14 @@
       "securePreferencesReset": "ホームページや検索エンジンなど、保護された設定は既定値に戻りました。",
       "extensionsPartial": "一部の拡張機能は元のブラウザー付属のもので、引き継がれませんでした。",
       "storeUnreadable": "読み取れないデータベースがあったため、破損したままコピーせずスキップしました。"
-    }
+    },
+    "cancelImport": "インポートをキャンセル",
+    "cancelling": "キャンセル中…",
+    "cancelHint": "キャンセルすると、現在のプロファイルの後で停止します。インポート済みのプロファイルは保持されます。",
+    "cancelledSummary": "インポートをキャンセルしました。{{total}} 件中 {{imported}} 件をインポートしました。",
+    "statusCancelled": "未インポート",
+    "importRemaining": "残りをインポート",
+    "notifyTitle": "プロファイルのインポートが完了しました"
   },
   "syncTooltips": {
     "syncing": "同期中...",
@@ -2103,7 +2303,9 @@
       "description": "{{count}} 個のグループを削除してもよろしいですか？{{names}}。プロファイルはデフォルトに移動されます。",
       "description_one": "{{count}} 個のグループを削除してもよろしいですか？{{names}}。プロファイルはデフォルトに移動されます。",
       "confirmButton": "グループを削除"
-    }
+    },
+    "newGroup": "新しいグループ",
+    "bookmarksCol": "ブックマーク"
   },
   "proxyAssignment": {
     "title": "プロキシ / VPN を割り当てる",
@@ -2147,21 +2349,28 @@
     "noResults": "検索条件に一致するプロファイルがありません",
     "selectButton": "選択",
     "launching": "起動中...",
-    "chooseProfileTitle": "プロファイルを選択",
-    "openingUrl": "URL を開く:",
+    "openLink": "リンクを開く",
     "urlCopied": "URL をクリップボードにコピーしました!",
-    "selectProfileLabel": "プロファイルを選択:",
     "noneAvailableShort": "利用可能なプロファイルがありません。まずプロファイルを作成してください。",
     "noneAvailableLong": "このダイアログを閉じてメインウィンドウからプロファイルを作成してください。",
+    "badgeRunning": "実行中",
+    "openButton": "開く",
+    "busy": {
+      "launching": "このプロファイルは起動中です。しばらくお待ちください。",
+      "stopping": "このプロファイルは停止中です。しばらくお待ちください。",
+      "singleInstance": "{{browser}} はすでに実行中です（{{names}}）。一度に 1 つしか実行できません。",
+      "unavailable": "このプロファイルは現在リンクを開けません。"
+    },
+    "chooseProfileTitle": "プロファイルを選択",
+    "openingUrl": "URL を開く:",
+    "selectProfileLabel": "プロファイルを選択:",
     "chooseAProfile": "プロファイルを選択",
     "badgeProxy": "プロキシ",
-    "badgeRunning": "実行中",
-    "badgeUnavailable": "利用不可",
-    "openButton": "開く"
+    "badgeUnavailable": "利用不可"
   },
   "wayfernTerms": {
     "title": "Wayfern 利用規約",
-    "description": "donutos を使用する前に、Wayfern の利用規約を読み、同意する必要があります。",
+    "description": "Donut Browser を使用する前に、Wayfern の利用規約を読み、同意する必要があります。",
     "reviewLabel": "次の URL で利用規約をご確認ください:",
     "agreeNotice": "「同意します」をクリックすると、これらの条項に拘束されることに同意します。",
     "acceptButton": "同意します",
@@ -2172,7 +2381,7 @@
   "commercialTrial": {
     "title": "商用試用期間が終了しました",
     "description": "2 週間の商用試用期間が終了しました。",
-    "body": "商用目的で donutos を使用する場合は、続行するために商用ライセンスを購入する必要があります。個人利用は引き続き無料でお使いいただけます。",
+    "body": "商用目的で Donut Browser を使用する場合は、続行するために商用ライセンスを購入する必要があります。個人利用は引き続き無料でお使いいただけます。",
     "understandButton": "了解しました",
     "failed": "確認の保存に失敗しました",
     "tryAgain": "もう一度お試しください"
@@ -2180,10 +2389,10 @@
   "permissionDialog": {
     "titleMicrophone": "マイクへのアクセスが必要です",
     "titleCamera": "カメラへのアクセスが必要です",
-    "descMicrophone": "donutos はブラウザのマイク機能を有効にするためにマイクへのアクセスを必要とします。マイクを使用するウェブサイトはそれぞれ個別に許可を求めます。",
-    "descCamera": "donutos はブラウザのカメラ機能を有効にするためにカメラへのアクセスを必要とします。カメラを使用するウェブサイトはそれぞれ個別に許可を求めます。",
-    "grantedMicrophone": "許可が付与されました!donutos から起動したブラウザはマイクにアクセスできます。",
-    "grantedCamera": "許可が付与されました!donutos から起動したブラウザはカメラにアクセスできます。",
+    "descMicrophone": "Donut Browser はブラウザのマイク機能を有効にするためにマイクへのアクセスを必要とします。マイクを使用するウェブサイトはそれぞれ個別に許可を求めます。",
+    "descCamera": "Donut Browser はブラウザのカメラ機能を有効にするためにカメラへのアクセスを必要とします。カメラを使用するウェブサイトはそれぞれ個別に許可を求めます。",
+    "grantedMicrophone": "許可が付与されました!Donut Browser から起動したブラウザはマイクにアクセスできます。",
+    "grantedCamera": "許可が付与されました!Donut Browser から起動したブラウザはカメラにアクセスできます。",
     "notGrantedMicrophone": "許可されていません。下のボタンを押してマイクへのアクセスを要求してください。",
     "notGrantedCamera": "許可されていません。下のボタンを押してカメラへのアクセスを要求してください。",
     "doneButton": "完了",
@@ -2295,15 +2504,56 @@
     "tagsHeader": "タグ",
     "noteHeader": "メモ",
     "vpnsHeading": "VPN",
-    "createByCountryHeading": "国別に作成"
+    "createByCountryHeading": "国別に作成",
+    "aria": {
+      "details": "{{name}} の詳細",
+      "launch": "{{name}} を起動",
+      "stop": "{{name}} を停止",
+      "proxy": "{{name}} のプロキシ: {{value}}",
+      "tags": "{{name}} のタグ",
+      "note": "{{name}} のメモ",
+      "extensionGroup": "{{name}} の拡張機能グループ",
+      "dns": "{{name}} の DNS ブロックリスト",
+      "status": "{{name}} のステータス",
+      "rename": "{{name}} の名前を変更",
+      "sync": "{{name}} の同期: {{status}}",
+      "launchError": "前回の起動に失敗しました: {{error}}",
+      "health": "{{name}} の接続: {{status}}",
+      "traffic": "{{name}} のトラフィック詳細"
+    },
+    "menu": {
+      "openDetails": "詳細を開く",
+      "rename": "名前を変更",
+      "moveToGroup": "グループに移動",
+      "copyId": "ID をコピー",
+      "runRemote": "クラウドで実行",
+      "lockNow": "今すぐロック",
+      "moveToTrash": "ゴミ箱に移動"
+    },
+    "emptyGroupTitle": "このグループは空です",
+    "emptyGroupHint": "このグループにプロファイルを作成するか、既存のプロファイルを移動してください。",
+    "emptyGroupCreate": "ここに新しいプロファイル",
+    "emptyGroupMove": "プロファイルをここに移動",
+    "health": {
+      "degraded": "接続が遅いか不安定です",
+      "down": "接続が切断されています"
+    },
+    "route": "プロキシ / VPN: {{name}}",
+    "routeNone": "プロキシも VPN もありません",
+    "launchTooltip": {
+      "launching": "起動中…",
+      "stopping": "停止中…",
+      "singleInstance": "このブラウザーは一度に 1 つしか実行できません。先に実行中のものを停止してください。"
+    }
   },
   "dataTableActionBar": {
     "selected": "{{count}} 件選択",
-    "clearSelection": "選択を解除"
+    "clearSelection": "選択を解除",
+    "selectedHidden": "{{selected}} 件選択 · {{hidden}} 件はフィルターで非表示"
   },
   "appUpdate": {
     "toast": {
-      "updateFailed": "donutos の更新に失敗しました",
+      "updateFailed": "Donut Browser の更新に失敗しました",
       "restartFailed": "再起動に失敗しました",
       "updateReady": "アップデートの準備完了。再起動して適用",
       "manualDownloadRequired": "手動ダウンロードが必要です",
@@ -2397,7 +2647,7 @@
     },
     "warnings": {
       "forgetWarningTitle": "重要: このパスワードは復元できません",
-      "forgetWarningBody": "donutosはこのパスワードをリセット、復元、回避することはできません。忘れた場合、このプロファイルのデータへのアクセスは永続的に失われます。"
+      "forgetWarningBody": "Donut Browserはこのパスワードをリセット、復元、回避することはできません。忘れた場合、このプロファイルのデータへのアクセスは永続的に失われます。"
     },
     "modes": {
       "set": "設定",
@@ -2480,20 +2730,22 @@
     "dnsRulesSaveFailed": "DNS ルールを保存できませんでした。",
     "dnsRulesExportFailed": "DNS ルールをエクスポートできませんでした。",
     "fingerprintMatchFailed": "フィンガープリントをプロキシに合わせられませんでした。",
-    "proxySidecarVersionMismatch": "donutos のファイルに異なるバージョンが混在しています。最新のアップデートを再インストールしてください。プロファイルはそのまま保持されます。",
+    "proxySidecarVersionMismatch": "Donut Browser のファイルに異なるバージョンが混在しています。最新のアップデートを再インストールしてください。プロファイルはそのまま保持されます。",
+    "proxySidecarNotResponding": "Donut のプロキシ補助プログラム (donut-proxy) が {{seconds}} 秒以内に完了しませんでした。セキュリティソフトが止めている可能性があります。ウイルス対策ソフトで donut-proxy を許可してから、もう一度お試しください。",
+    "wayfernNotResponding": "Wayfern は起動しましたが、{{seconds}} 秒以内に応答しませんでした。セキュリティソフトが止めているか、ウィンドウを開けなかった可能性があります。ウイルス対策ソフトで Wayfern を許可してから、もう一度お試しください。",
     "updateProfilesRunning": "アップデートをインストールする前に、実行中のプロファイルをすべて停止してください。",
     "updatePreparationFailed": "バックグラウンドのネットワークプロセスを安全に停止できませんでした。コンピューターを再起動してから、もう一度アップデートしてください。",
     "wayfernTermsRequired": "Wayfernを使用するには、Wayfernの利用規約に同意してください。",
     "apiPortUnavailable": "APIサーバーで利用可能なポートが見つかりませんでした。",
     "mcpAgentUnknown": "このMCPクライアントはサポートされていません。",
-    "mcpAgentInstallFailed": "MCPクライアントにdonutosを追加できませんでした：{{detail}}",
-    "mcpAgentRemoveFailed": "MCPクライアントからdonutosを削除できませんでした：{{detail}}",
+    "mcpAgentInstallFailed": "MCPクライアントにDonut Browserを追加できませんでした：{{detail}}",
+    "mcpAgentRemoveFailed": "MCPクライアントからDonut Browserを削除できませんでした：{{detail}}",
     "vlessConfigInvalid": "共有リンクが無効です。",
     "xrayUnavailable": "このシステムでは Xray-core を利用できません。",
     "xrayUnsupportedOs": "VLESS、VMess、Trojan、Hysteria2のプロキシにはmacOS 12以降が必要です。",
     "xrayStartFailed": "Xray-core を起動できませんでした。",
-    "cloudNotSignedIn": "この機能を使うには donutos アカウントにサインインしてください。",
-    "cloudUnreachable": "donutos のサーバーに接続できませんでした。接続を確認してもう一度お試しください。",
+    "cloudNotSignedIn": "この機能を使うには Donut Browser アカウントにサインインしてください。",
+    "cloudUnreachable": "Donut Browser のサーバーに接続できませんでした。接続を確認してもう一度お試しください。",
     "cloudRequestFailed": "リクエストに失敗しました。しばらくしてからもう一度お試しください。",
     "remoteRateLimited": "リクエストが多すぎます。少し待ってからもう一度お試しください。",
     "remoteNoCapacity": "現在空いているリモートマシンがありません。数分後にもう一度お試しください。",
@@ -2522,6 +2774,7 @@
     "cookieBotUnsupportedPlatform": "Cookie Bot は {{platform}} のプロファイルを実行できません。対応しているのは Windows、macOS、Linux のプロファイルのみです。",
     "cookieBotRequiresExitNode": "先にプロキシまたは VPN を設定してください。設定しないと通信がデータセンターのアドレスから出て、プロファイルの信頼性を損ないます。",
     "cookieBotRequiresRemoteExitNode": "このプロファイルのプロキシはこのコンピューター上でのみ有効です（127.0.0.1 やローカルネットワークのアドレスなど）。Cookie Bot は当社のホスト上で実行されるため、公開アドレスを持つプロキシが必要です。",
+    "cookieBotExitCheckFailed": "前回のチェックでこのプロファイルのプロキシまたは VPN に接続できませんでした。確認してからもう一度お試しください。",
     "cookieBotProxyKindUnsupported": "このプロファイルは {{kind}} プロキシを使用していますが、これには当社のホストが実行していない Xray サイドカーが必要です。Cookie Bot は当社のホスト上で実行されるため、HTTP、HTTPS、SOCKS または WireGuard の出口に変更してください。",
     "unknownCode": "エラーが発生しました: {{code}}",
     "cookieBotTouchFingerprintUnsupported": "このプロファイルはタッチ端末を名乗っており、ボットは操作できません。デスクトップのフィンガープリントをお使いください。",
@@ -2557,9 +2810,10 @@
     "wayfernFingerprintApplyFailed": "このプロファイルのフィンガープリントを適用できなかったため、ブラウザーは起動しませんでした。{{detail}}",
     "wayfernFingerprintGenerationFailed": "このプロファイルのフィンガープリントを作成できませんでした。{{detail}}",
     "wayfernGenerationLimitReached": "一時的なフィンガープリント生成上限に達しました。しばらくしてから再度お試しください。",
-    "wayfernCrossOsRequiresPlan": "このプロファイルは {{detail}} を指定しています。これには有料プランとサインインが必要です。サインインするか、プロファイルをお使いのオペレーティングシステムに変更してください。",
+    "wayfernCrossOsRequiresPlan": "このプロファイルは {{detail}} として動作し、このコンピューターでは別のオペレーティングシステムが動作しています。ここで開くには Pro または Team プランが必要です。",
     "wayfernIdentityRefused": "ブラウザーがこのプロファイルのアイデンティティで起動しなかったため、終了しました。{{detail}}",
     "wayfernInstanceLimitReached": "ご利用のプランでは、開いているブラウザーが多すぎます。ブラウザーを1つ閉じてからもう一度お試しください。",
+    "tooManyBrowsersRunning": "続行するには、ブラウザーのウィンドウを1つ閉じてください。",
     "wayfernPlanCheckUnavailable": "現在、ご利用のプランを確認できません。しばらくしてからもう一度お試しください。",
     "wayfernCustomFingerprintRequiresPlan": "ご利用のプランにはカスタムフィンガープリントが含まれていません。",
     "wayfernGenerationUnavailable": "現在、フィンガープリントを作成できません。しばらくしてから再度お試しください。",
@@ -2569,7 +2823,7 @@
     "profileExportFailed": "このプロファイルを書き出せませんでした。{{detail}}",
     "profileExportTooLarge": "このプロファイルは大きすぎて書き出せません。閲覧データを一部消してからもう一度お試しください。",
     "profileImportFailed": "このアーカイブを読み取れませんでした。{{detail}}",
-    "profileImportTooNew": "このアーカイブは新しいバージョンの donutos で作成されています。アプリを更新してからもう一度お試しください。",
+    "profileImportTooNew": "このアーカイブは新しいバージョンの Donut Browser で作成されています。アプリを更新してからもう一度お試しください。",
     "profileImportUnsafeArchive": "このアーカイブはプロファイルフォルダーの外に書き込もうとしたため、拒否しました。",
     "recordingAlreadyRunning": "すでに記録中です。別の記録を始める前に停止してください。",
     "profileNotRunning": "このプロファイルのブラウザーは起動していません。先に起動してください。",
@@ -2596,8 +2850,8 @@
     "remoteSessionNotDrivable": "このリモートセッションはまだ操作できる状態ではありません。ライブになるまでお待ちください。",
     "remotePlatformUnsupported": "リモートセッションは macOS、Windows、Linux のホストでのみ実行できます。このプロファイルのプラットフォームは {{platform}} です。",
     "remoteProfileNotSynced": "このプロファイルはクラウド同期へのアップロードがまだ完了していません。最初の同期が完了してから、もう一度お試しください。",
-    "trashEntryNotFound": "このプロファイルはもうゴミ箱にありません。",
-    "trashRestoreConflict": "同じIDのプロファイルがすでに存在するため、復元できません。",
+    "trashEntryNotFound": "この項目はもうゴミ箱にありません。",
+    "trashRestoreConflict": "同じIDのものがすでに存在するため、復元できません。",
     "recipesNotEntitled": "レシピには Pro プラン以上が必要です。",
     "agentRecipeInvalid": "レシピには名前と 1 つ以上のステップが必要です。",
     "agentRecipeNotFound": "そのレシピは存在しません。",
@@ -2716,6 +2970,40 @@
     "syncServerAddressMismatch": "サーバーのアドレスは {{address}} です。そのアドレスを入力してください。",
     "remoteNeedsDonutSync": "リモートセッションと Cookie Bot は Donut クラウド同期からプロファイルを取得します。このコンピューターは独自のサーバーと同期しています。",
     "accountSyncUnavailable": "Donut はまだ独自のサーバーにサインインできません。後でもう一度お試しください。",
+    "selfHostedTeamSeat": "チームアカウントは、同期トークンを使うサーバーとは同期できません。",
+    "agentTargetInvalid": "レシピを実行する場所を選んでください: このコンピューターかリモートフリートです。",
+    "agentTargetOffline": "このコンピューターは Donut クラウドに接続されていません。統合でリモート操作をオンにしてから、もう一度お試しください。",
+    "agentPlatformInvalid": "リモートフリートはこのプロファイルの OS を実行できません。",
+    "agentRunLimitReached": "実行中の処理が多すぎます。1 つが終わるのを待ってから、もう一度お試しください。",
+    "remoteRequiresCloudSync": "まずこのプロファイルのクラウド同期を有効にしてください。リモートホストは他の方法でプロファイルを取得できません。",
+    "remoteEncryptedSyncUnsupported": "このプロファイルはエンドツーエンド暗号化同期を使用しており、リモートホストでは復号できません。リモートで実行するには通常の同期に切り替えてください。",
+    "remoteUnknownPlatform": "このプロファイルには OS が記録されていないため、一致するリモートホストがありません。",
+    "networkCaptureFailed": "ブラウザがネットワークキャプチャを受け付けませんでした: {{detail}}",
+    "networkCaptureNotRunning": "このプロファイルではネットワークキャプチャが実行されていません。",
+    "vpnKeyUnreadable": "保存したVPNを開くキーを読み取れないため、何も変更していません。アプリのデータフォルダ内の vpn フォルダの権限を確認してください。",
+    "entityInUse_one": "{{count}} 件のプロファイルで使用中です。先に別のプロキシまたはVPNに切り替えてください。",
+    "entityInUse_other": "{{count}} 件のプロファイルで使用中です。先に別のプロキシまたはVPNに切り替えてください。",
+    "syncCancelled": "同期はキャンセルされました。",
+    "syncServerError": "同期サーバーでエラーが発生しました（ステータス {{status}}）。後で再試行します。",
+    "syncStorageRejected": "同期ストレージが転送を拒否しました（ステータス {{status}}）。",
+    "syncTransferIncomplete": "一部のファイルを転送できませんでした。後で再試行します。",
+    "syncAuthFailed": "同期のサインインが無効になりました。もう一度サインインするか、同期トークンを確認してください。",
+    "syncForbidden": "同期サーバーはこの変更を許可していません。",
+    "syncTooLarge": "この項目は同期サーバーには大きすぎます。",
+    "syncRateLimited": "同期サーバーが混み合っています。後で再試行します。",
+    "syncServerRejected": "同期サーバーがリクエストを拒否しました（ステータス {{status}}）。",
+    "syncLocalFilesFailed": "このコンピューター上のファイルを読み書きできませんでした。",
+    "syncDataInvalid": "同期されたコピーを読み取れません。",
+    "syncDecryptFailed": "同期データを復号できませんでした。暗号化パスワードを確認してください。",
+    "syncCrossOsProfile": "別の OS のプロファイルは設定だけを同期します。",
+    "syncEphemeralProfile": "一時プロファイルは同期できません。",
+    "syncTombstoneNotCleared": "同期サーバーに接続できなかったため、このプロファイルの同期はオフのままです。",
+    "syncNotEnabled": "このプロファイルの同期はオフです。",
+    "proxyUpstreamUnreachable": "プロキシに接続できませんでした。",
+    "proxyUpstreamTimeout": "プロキシが応答しません。",
+    "proxyAuthFailed": "プロキシがユーザー名またはパスワードを拒否しました。",
+    "vpnUnreachable": "VPN サーバーが応答しません。",
+    "entityInUse": "{{count}} 件のプロファイルで使用中です。先に別のプロキシまたはVPNに切り替えてください。",
     "aiNotConfigured": "先にAIプロバイダーを設定してください（統合 → AI）。",
     "aiRequestFailed": "AIプロバイダーに接続できません。",
     "aiBadResponse": "AIプロバイダーの応答が読み取れません。",
@@ -2736,7 +3024,7 @@
       "importProfileHint": "別のツールから取り込む",
       "keyboardShortcuts": "キーボードショートカット",
       "keyboardShortcutsHint": "すべてのショートカットを表示",
-      "about": "donutos について",
+      "about": "Donut Browser について",
       "aboutHint": "バージョンとアプリ情報",
       "trash": "ゴミ箱",
       "trashHint": "削除したプロファイルを復元",
@@ -2828,40 +3116,120 @@
     "automationActiveHere": "ブラウザの自動化はこのデバイスで有効です。",
     "viewTeamUsage": "チームの使用状況を表示",
     "ownServer": {
+      "donutCloud": "Donut クラウド",
+      "accountsOn": "このサーバーは Donut アカウントを受け付けます。",
+      "cloudOnly": "リモートセッションと Cookie Bot には Donut クラウド同期が必要です。",
+      "teamNote": "チームの全メンバーが同じサーバーを使用する必要があります。",
+      "backToCloud": "再び Donut クラウドと同期しています。",
+      "label": "同期サーバー",
+      "change": "変更",
+      "remove": "削除",
+      "removed": "同期サーバーを削除しました。",
+      "switched": "{{server}} と同期しています。",
+      "tokenServer": "{{host}}（同期トークン）",
       "title": "独自の同期サーバー",
       "description": "このアカウントを Donut クラウドではなく、自分で運用する donut-sync サーバーと同期します。プランのプロファイル上限と、チームのロールおよびグループアクセスは変わりません。",
       "current": "{{server}} と同期中",
       "currentCloud": "Donut クラウドと同期中",
-      "donutCloud": "Donut クラウド",
       "useDonutCloud": "Donut クラウドを使用",
-      "accountsOn": "このサーバーは Donut アカウントを受け付けます。",
-      "cloudOnly": "リモートセッションと Cookie Bot には Donut クラウド同期が必要です。",
-      "teamNote": "チームの全メンバーが同じサーバーを使用する必要があります。",
-      "saved": "同期サーバーを保存しました。",
-      "backToCloud": "再び Donut クラウドと同期しています。"
+      "saved": "同期サーバーを保存しました。"
     },
     "localProduct": "ローカルモード · クラウドアカウントなし"
   },
   "shortcutsPage": {
     "title": "キーボードショートカット",
-    "description": "これらのショートカットでワークフローを高速化できます。"
+    "description": "これらのショートカットでワークフローを高速化できます。",
+    "paletteHint": "すべてのページ、プロファイル、アクションを検索します。",
+    "holdHint": "これらのキーを押し続けると、使うショートカットが分かります。",
+    "paletteKeys": {
+      "title": "コマンドパレット内",
+      "move": "結果を移動",
+      "run": "選択したコマンドを実行",
+      "back": "検索が空のときに戻る",
+      "close": "パレットを閉じる"
+    }
   },
   "commandPalette": {
     "placeholder": "コマンドを入力するか検索...",
-    "empty": "結果が見つかりませんでした。",
     "groups": {
       "navigation": "ナビゲーション",
       "profiles": "プロファイル",
       "actions": "アクション",
-      "profileGroups": "プロファイルグループ"
+      "profileGroups": "プロファイルグループ",
+      "recent": "最近使用"
     },
     "actions": {
       "launchProfile": "{{name}} を起動",
       "stopProfile": "{{name}} を停止",
       "profileInfo": "情報 — {{name}}",
       "createProfile": "プロファイルを作成",
-      "about": "donutos について"
-    }
+      "about": "Donut Browser について"
+    },
+    "pages": {
+      "launch": {
+        "entry": "プロファイルを起動…",
+        "title": "起動",
+        "placeholder": "起動するプロファイルを検索...",
+        "empty": "すべてのプロファイルが実行中です。"
+      },
+      "stop": {
+        "entry": "プロファイルを停止…",
+        "title": "停止",
+        "placeholder": "実行中のプロファイルを検索...",
+        "empty": "実行中のプロファイルはありません。"
+      },
+      "info": {
+        "entry": "プロファイル情報を開く…",
+        "title": "プロファイル情報",
+        "placeholder": "プロファイルを検索...",
+        "empty": "プロファイルはまだありません。"
+      },
+      "group": {
+        "entry": "グループへ移動…",
+        "title": "グループ",
+        "placeholder": "グループを検索...",
+        "empty": "グループはまだありません。"
+      }
+    },
+    "emptyFor": "「{{query}}」に一致する結果はありません。",
+    "emptyHint": "ページ、プロファイル、グループ、アクションを検索できます。",
+    "emptyPageHint": "Esc ですべてのコマンドに戻ります。",
+    "footer": {
+      "move": "移動",
+      "run": "実行",
+      "open": "開く",
+      "back": "戻る",
+      "close": "閉じる"
+    },
+    "keywords": {
+      "openPalette": "コマンド 検索 実行",
+      "openShortcuts": "キーボード キー ホットキー ヘルプ",
+      "openTips": "ヒント ヘルプ 使い方 機能",
+      "sendFeedback": "バグ 報告 問題 サポート 問い合わせ 要望",
+      "openTotp": "二要素 2fa otp totp 認証 コード mfa",
+      "importProfile": "インポート 追加 読み込み 移行 chrome firefox",
+      "goProfiles": "ホーム ブラウザ 一覧 すべて",
+      "goProxies": "プロキシ vpn wireguard ネットワーク socks http",
+      "goExtensions": "拡張機能 アドオン プラグイン",
+      "goGroups": "グループ フォルダ 整理",
+      "goCookieBot": "クッキー ウォームアップ ボット 閲覧",
+      "goAgent": "ai mcp アシスタント 自動化",
+      "goIntegrations": "api mcp rest トークン 連携 自動化",
+      "goAccount": "アカウント クラウド ログイン サブスク プラン 請求 チーム 同期",
+      "goSettings": "環境設定 オプション テーマ 言語 サウンド 外観",
+      "goTrash": "ゴミ箱 削除済み 復元",
+      "createProfile": "新規 追加 プロファイル ブラウザ",
+      "about": "バージョン ライセンス 情報",
+      "launch": "起動 開始 開く ブラウザ",
+      "stop": "停止 終了 閉じる",
+      "info": "詳細 情報 編集 プロファイル",
+      "group": "グループ 絞り込み 切り替え フォルダ",
+      "newProfile": "新規 追加 作成 プロファイル ブラウザ",
+      "stopAllRunning": "停止 すべて 実行中 終了 閉じる",
+      "focusSearch": "検索 探す フィルター",
+      "goBack": "戻る エスケープ ホーム"
+    },
+    "empty": "結果が見つかりませんでした。"
   },
   "shortcuts": {
     "openPalette": "コマンドパレットを開く",
@@ -2879,23 +3247,27 @@
     "goAgent": "エージェントへ移動",
     "openTips": "ヒントを開く",
     "sendFeedback": "フィードバックを送信",
-    "openTotp": "キーから 2FA コードを表示"
+    "openTotp": "キーから 2FA コードを表示",
+    "newProfile": "新しいプロファイル",
+    "stopAllRunning": "実行中のプロファイルをすべて停止",
+    "focusSearch": "プロファイルを検索",
+    "goBack": "プロファイルに戻る"
   },
   "closeConfirm": {
-    "title": "donutos を閉じますか？",
+    "title": "Donut Browser を閉じますか？",
     "description": "アプリをシステムトレイに格納しますか、それとも終了しますか？",
     "minimize": "トレイに格納",
     "quit": "終了"
   },
   "tray": {
-    "show": "donutos を表示",
+    "show": "Donut Browser を表示",
     "quit": "終了"
   },
   "onboarding": {
     "steps": {
       "createProfile": {
         "title": "最初のプロファイルを作成",
-        "content": "ここをクリックして最初のプロファイルを作成します。ブラウザには {{browser}} を選んでください。フィンガープリント対策済みの推奨 Chromium です。"
+        "content": "ここをクリックして最初のプロファイルを作成します。ブラウザには Wayfern を選んでください。フィンガープリント対策済みの推奨 Chromium です。"
       },
       "dnsBlocking": {
         "title": "DNS ブロック",
@@ -2904,18 +3276,20 @@
     },
     "buttons": {
       "skip": "スキップ",
+      "finish": "完了",
       "back": "戻る",
-      "next": "次へ",
-      "finish": "完了"
+      "next": "次へ"
     },
     "thankYou": {
-      "title": "donutos を選んでいただきありがとうございます",
+      "title": "Donut Browser を選んでいただきありがとうございます",
       "body": "それぞれのIDを分けて、データを端末の外に出さずに、よりプライベートなブラウジングのお役に立てれば幸いです。どうぞお楽しみください。",
       "cta": "ブラウジングを始める"
-    }
+    },
+    "stepOf": "ステップ {{current}}/{{total}}",
+    "progress": "ツアーの進行状況"
   },
   "welcome": {
-    "title": "donutos へようこそ",
+    "title": "Donut Browser へようこそ",
     "tagline": "複数のIDを同時に管理できるオープンソースのアンチディテクトブラウザ。",
     "skip": "スキップ",
     "next": "次へ",
@@ -2928,7 +3302,7 @@
     },
     "ready": {
       "title": "準備しています",
-      "descDownloading": "最初のブラウザ（{{browser}}）をダウンロードしています。この初回セットアップはバックグラウンドで実行されます。少々お待ちください。",
+      "descDownloading": "最初のブラウザ（Wayfern）をダウンロードしています。この初回セットアップはバックグラウンドで実行されます。少々お待ちください。",
       "descReady": "ブラウザの準備ができました。最初のプロファイルを作成しましょう。",
       "cta": "最初のプロファイルを作成",
       "downloading": "ダウンロード中…",
@@ -2959,14 +3333,15 @@
     },
     "license": {
       "title": "ライセンス",
-      "body": "donutos はオープンソースで、無料で利用できます。",
+      "body": "Donut Browser はオープンソースで、無料で利用できます。",
       "agree": "了解しました",
       "personalTitle": "個人利用",
       "personalDesc": "永久に無料です。",
       "commercialTitle": "商用利用",
       "trialBadge": "2週間無料",
       "commercialDesc": "2週間の評価期間は無料です。その後は有料プランが必要で、これによりプロジェクトの維持と発展が支えられます。"
-    }
+    },
+    "progress": "セットアップの進行状況"
   },
   "wayfernBlocked": {
     "title": "ブラウザの自動化が一時停止しました",
@@ -2987,16 +3362,66 @@
     "noOtherTargets": "他に Wayfern プロファイルが選択されていません"
   },
   "about": {
-    "title": "このアプリについて",
-    "version": "バージョン {{version}}",
-    "portableBadge": "ポータブル",
-    "licenseNotice": "オープンソースのアンチディテクトブラウザです。",
     "website": "ウェブサイト",
-    "github": "GitHub",
     "licenses": "ライセンス",
     "searchLicenses": "ライセンスを検索…",
     "noMatchingLicenses": "一致するライセンスはありません。",
     "openSource": "{{name}} のソースコードを表示",
+    "channel": {
+      "stable": "安定版",
+      "nightly": "Nightly",
+      "development": "開発版"
+    },
+    "portable": "ポータブル",
+    "whatsNew": "このバージョンの新機能",
+    "update": {
+      "checking": "アップデートを確認しています…",
+      "development": "開発版ではアップデートは無効です",
+      "current": "最新です",
+      "checkAgain": "再確認",
+      "failed": "アップデートを確認できませんでした",
+      "available": "バージョン {{version}} が利用可能です",
+      "packageManager": "バージョン {{version}} がパッケージマネージャーで利用可能です",
+      "update": "アップデート",
+      "download": "ダウンロード",
+      "downloading": "バージョン {{version}} をダウンロードしています…",
+      "downloadingPercent": "バージョン {{version}} をダウンロードしています… {{percent}}%",
+      "ready": "バージョン {{version}} をインストールする準備ができました",
+      "restart": "再起動してアップデート"
+    },
+    "diagnostics": {
+      "title": "診断",
+      "version": "バージョン",
+      "channel": "チャンネル",
+      "system": "システム",
+      "yes": "はい",
+      "no": "いいえ",
+      "notInstalled": "未インストール",
+      "copy": "詳細をコピー",
+      "copyFailed": "詳細をコピーできませんでした",
+      "openLogs": "ログフォルダーを開く",
+      "openLogsFailed": "ログフォルダーを開けませんでした"
+    },
+    "help": {
+      "title": "ヘルプ",
+      "reportBug": "不具合を報告"
+    },
+    "sourceCode": "ソースコード",
+    "lab": {
+      "hint": "ドラッグで回転、クリックでひと口。",
+      "status_one": "{{count}} 口 · 残り {{left}}%",
+      "status_other": "{{count}} 口 · 残り {{left}}%",
+      "label": "ドーナツ、残り {{left}}%",
+      "description": "文字で描かれた 3D のドーナツです。ドラッグするか矢印キーで回転します。クリックするかスペースキーでひと口かじります。",
+      "eaten": "残ったのはかけらだけ。",
+      "bakeAnother": "もう一つ焼く",
+      "close": "ドーナツを閉じる"
+    },
+    "title": "このアプリについて",
+    "version": "バージョン {{version}}",
+    "portableBadge": "ポータブル",
+    "licenseNotice": "オープンソースのアンチディテクトブラウザです。",
+    "github": "GitHub",
     "snack": {
       "found": "おやつの引き出しを見つけました。",
       "finished": "残ったのはパンくずだけ。Cookieはなし。",
@@ -3021,7 +3446,7 @@
   },
   "cookieBot": {
     "title": "Cookie Bot",
-    "description": "スケジュールに沿ったプロファイルのローカル予熱。実行時刻にこの端末の電源が必要です。スケジュールと履歴はこの端末に保存されます。",
+    "description": "スケジュールに沿ってリモートマシンでプロファイルをウォームアップします。",
     "tabs": {
       "overview": "概要",
       "schedule": "スケジュール",
@@ -3030,19 +3455,12 @@
     },
     "locked": {
       "title": "Cookie Bot",
-      "hint": "スケジュールはこの端末でローカルに実行され、端末の電源が切れている間は停止します。"
+      "hint": "Cookie Bot は選んだ時刻にリモートマシンでプロファイルをウォームアップするため、お使いのコンピューターを起動していなくても Cookie と履歴が維持されます。"
     },
     "empty": {
       "title": "登録されたプロファイルはありません",
-      "hint": "プロファイルを選ぶと、ボットが夜間にリモートマシンでウォームアップします。お使いのコンピューターは電源を切っていて構いません。",
+      "hint": "プロファイルを選ぶと、ボットが設定した時刻にリモートマシンでウォームアップします。お使いのコンピューターは電源を切っていて構いません。",
       "cta": "プロファイルを登録"
-    },
-    "tonight": {
-      "label": "今夜",
-      "nextRun": "次回の実行 {{time}}",
-      "dueCount_one": "{{count}} 件のプロファイルが予定",
-      "dueCount_other": "{{count}} 件のプロファイルが予定",
-      "nothingScheduled": "予定はありません"
     },
     "lastDay": {
       "label": "過去 24 時間",
@@ -3055,40 +3473,47 @@
       "failed_other": "{{count}} 件が失敗"
     },
     "chart": {
-      "machineTime": "1 晩あたりのマシン時間",
-      "minutes": "{{minutes}} 分"
+      "machineTime": "1 日あたりのマシン時間",
+      "minutes": "{{minutes}} 分",
+      "total": "合計 {{duration}}",
+      "empty": "この期間の実行はありません",
+      "noRuns": "実行なし",
+      "runs_one": "{{count}} 回",
+      "runs_other": "{{count}} 回"
     },
     "hours": {
-      "label": "ローカル実行予算",
-      "remaining": "残り {{remaining}} 時間 / {{total}}",
+      "label": "リモート時間",
       "remainingOf": "/ {{total}} 時間",
       "used": "{{total}} 時間のうち {{used}} 時間を使用",
-      "resets": "年間期間は {{date}} に終了",
+      "resets": "{{date}} にリセット",
       "exhausted": "リモート時間を使い切りました。スケジュールは登録されたままで、次のサイクルで再開します。",
       "exhaustedOn": "リモート時間を使い切りました。スケジュールは登録されたままで、{{date}} に再開します。",
       "estimate": "週あたり約 {{hours}} 時間 · 今サイクルの残り {{remaining}} 時間",
       "estimateOverBudget": "週あたり約 {{hours}} 時間が必要ですが、残りは {{remaining}} 時間のみです",
       "estimateOnly": "週あたり約 {{hours}} 時間",
+      "left": "残り {{hours}} 時間",
+      "remaining": "残り {{remaining}} 時間 / {{total}}",
       "localRemaining": "ローカル予算の {{remaining}} 時間を使用。年間 {{total}} 時間利用可能。"
     },
     "enrolled": {
       "columnProfile": "プロファイル",
-      "columnCadence": "頻度",
-      "columnTime": "時刻",
       "columnNextRun": "次回の実行",
       "columnLastRun": "前回の実行",
       "enrolProfiles": "プロファイルを登録",
       "edit": "スケジュールを編集",
       "neverRun": "なし",
-      "pausedNoHours": "一時停止 — 時間切れ",
-      "profileMissing": "そのプロファイルはこのコンピューターにありません。"
+      "pausedNoHours": "一時停止：時間切れ",
+      "profileMissing": "そのプロファイルはこのコンピューターにありません。",
+      "columnCadence": "頻度",
+      "columnTime": "時刻"
     },
     "schedule": {
       "empty": "まだ何も予定されていません。",
       "unenrol": "Cookie Bot から削除",
       "unenrolTitle": "{{name}} を Cookie Bot から削除しますか?",
-      "unenrolDescription": "今夜からウォームアップを停止します。過去の実行はアクティビティに残ります。",
-      "unenrolled": "Cookie Bot から削除しました"
+      "unenrolDescription": "今後の実行は停止します。過去の実行はアクティビティに残ります。",
+      "unenrolled": "Cookie Bot から削除しました",
+      "localTime": "現在 {{time}}"
     },
     "status": {
       "provisioning": "マシンを準備中",
@@ -3159,7 +3584,7 @@
     },
     "picker": {
       "title": "プロファイルを登録",
-      "description": "ボットが夜間にウォームアップするプロファイルを選びます。",
+      "description": "ボットがウォームアップするプロファイルを選びます。",
       "searchPlaceholder": "プロファイルを検索…",
       "noProfiles": "一致するプロファイルはありません。",
       "alreadyEnrolled": "登録済み",
@@ -3172,25 +3597,25 @@
       "titleCount_other": "{{count}} 件のプロファイルを登録",
       "editTitle": "スケジュールを編集",
       "description": "ボットはリモートマシンでプロファイルを開き、指定したサイトを閲覧します。お使いのコンピューターは電源を切っていて構いません。",
-      "summaryNightly": "毎晩 {{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
+      "summaryNightly": "毎日 {{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
       "summaryWeeknights": "月曜から金曜の {{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
-      "summaryAlternate": "1 晩おきに {{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
-      "summaryCustom_one": "週 {{count}} 晩、{{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
-      "summaryCustom_other": "週 {{count}} 晩、{{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
-      "confirm": "今夜から登録",
-      "confirmSome": "今夜は {{total}} 件中 {{eligible}} 件を登録",
+      "summaryAlternate": "1 日おきに {{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
+      "summaryCustom_one": "週 {{count}} 日、{{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
+      "summaryCustom_other": "週 {{count}} 日、{{time}} に、1 回あたり最大 {{minutes}} 分実行します。",
+      "confirm": "登録",
+      "confirmSome": "{{total}} 件中 {{eligible}} 件を登録",
       "fixFirst": "先にこちらを解決してください",
       "saving": "登録中…",
       "saved": "スケジュールを保存しました",
       "enrolled_one": "{{count}} 件のプロファイルを登録しました",
       "enrolled_other": "{{count}} 件のプロファイルを登録しました",
-      "adjust": "スケジュールを調整",
+      "adjust": "時間と深さ",
       "cadenceLabel": "頻度",
-      "cadenceNightly": "毎晩",
-      "cadenceWeeknights": "平日の夜",
-      "cadenceAlternate": "1 晩おき",
-      "cadenceCustom_one": "週 {{count}} 晩",
-      "cadenceCustom_other": "週 {{count}} 晩",
+      "cadenceNightly": "毎日",
+      "cadenceWeeknights": "平日",
+      "cadenceAlternate": "1 日おき",
+      "cadenceCustom_one": "週 {{count}} 日",
+      "cadenceCustom_other": "週 {{count}} 日",
       "timeLabel": "開始時刻",
       "timeHint": "各プロファイルのフィンガープリントのタイムゾーン基準です。",
       "maxMinutesLabel": "最大分数",
@@ -3203,8 +3628,8 @@
       "presetsUnavailable": "深さのプリセットを読み込めませんでした。しばらくしてからもう一度お試しください。",
       "confirmBulkTitle_one": "{{count}} 件のプロファイルを Cookie Bot に登録しますか?",
       "confirmBulkTitle_other": "{{count}} 件のプロファイルを Cookie Bot に登録しますか?",
-      "confirmBulkDescription_one": "共有のリモート時間から夜間の実行を 1 件予約します。時刻とサイトは次の画面で選びます。",
-      "confirmBulkDescription_other": "共有のリモート時間から夜間の実行を {{count}} 件予約します。時刻とサイトは次の画面で選びます。",
+      "confirmBulkDescription_one": "共有のリモート時間から毎日の実行を 1 件予約します。時刻とサイトは次の画面で選びます。",
+      "confirmBulkDescription_other": "共有のリモート時間から毎日の実行を {{count}} 件予約します。時刻とサイトは次の画面で選びます。",
       "confirmBulkButton_one": "{{count}} 件のプロファイルで続行",
       "confirmBulkButton_other": "{{count}} 件のプロファイルで続行",
       "sitesRequired": "サイトを 1 件以上追加してください。",
@@ -3240,7 +3665,12 @@
       "listSites_other": "{{count}} サイト",
       "summarySlots_one": "週 {{count}} 回、1 回あたり最大 {{minutes}} 分実行します。",
       "summarySlots_other": "週 {{count}} 回、1 回あたり最大 {{minutes}} 分実行します。",
-      "templateNameInvalidNoMax": "その名前は保存済みリストには使用できません。"
+      "templateNameInvalidNoMax": "その名前は保存済みリストには使用できません。",
+      "shuffleTime": "別の時刻にする",
+      "ownTimes": "プロファイルごとに別の時刻",
+      "timeRandom": "プロファイルごとにランダム",
+      "summaryOwnTimes_one": "各プロファイルが週 {{count}} 回、それぞれランダムな時刻に、1 回あたり最大 {{minutes}} 分実行します。",
+      "summaryOwnTimes_other": "各プロファイルが週 {{count}} 回、それぞれランダムな時刻に、1 回あたり最大 {{minutes}} 分実行します。"
     },
     "preset": {
       "light": "軽め",
@@ -3257,7 +3687,7 @@
       "reasonSync": "同期がオフです",
       "reasonEncrypted": "エンドツーエンド暗号化",
       "reasonNoFingerprint": "記録された OS がありません",
-      "reasonCrossOs": "{{os}} 向け — 一致するリモートマシンがありません",
+      "reasonCrossOs": "{{os}} 向け：一致するリモートマシンがありません",
       "reasonNoExitNode": "プロキシも VPN もありません",
       "fixSync": "同期をオンにする",
       "fixEncrypted": "同期設定を開く",
@@ -3322,6 +3752,7 @@
       "encryptedSync": "エンドツーエンド暗号化された同期には対応していません",
       "proxyRequired": "プロキシまたは VPN が設定されていません",
       "proxyLocalOnly": "プロキシはこのコンピューター上でのみ有効です。公開アドレスのものを設定してください",
+      "proxyDead": "前回のチェックでプロキシまたは VPN に接続できませんでした。設定を確認してください。",
       "touchFingerprint": "タッチ端末のフィンガープリントには対応していません",
       "platformUnsupported": "このプロファイルの OS を実行できるマシンがありません",
       "noSites": "訪問するサイトがありません",
@@ -3329,13 +3760,38 @@
       "profileLocked": "プロファイルが別の場所で開かれていました",
       "noCapacity": "空きマシンがありませんでした",
       "managerError": "フリートがブラウザーを起動できませんでした",
-      "budgetExceeded": "その晩の持ち時間を使い切りました",
-      "browsingIncomplete": "ブラウザーは起動しましたが、その晩の巡回が完了しませんでした",
+      "budgetExceeded": "実行の持ち時間を使い切りました",
+      "browsingIncomplete": "ブラウザーは起動しましたが、巡回が完了しませんでした",
       "proxyUnsupported": "この種類のプロキシはどのホストも利用できません。HTTP、SOCKS または WireGuard の出口を使用してください",
       "profileNotSynced": "クラウド上のコピーが不完全です。デスクトップから同期を完了してください",
       "profileOsMismatch": "プロファイルは実行したホストとは別のオペレーティングシステムのものです",
       "cancelledByUser": "手動で停止しました",
       "unknown": "不明な理由 ({{code}})"
+    },
+    "exitCheck": {
+      "failed": "前回のチェック（{{time}}）でプロキシまたは VPN に接続できませんでした。設定を確認してください。",
+      "passed": "プロキシまたは VPN に接続済み: {{time}}"
+    },
+    "next": {
+      "label": "次回の実行",
+      "now": "まもなく開始",
+      "inMinutes_one": "{{count}} 分後",
+      "inMinutes_other": "{{count}} 分後",
+      "inHours_one": "{{count}} 時間後",
+      "inHours_other": "{{count}} 時間後",
+      "today": "今日",
+      "tomorrow": "明日",
+      "dueSoon_one": "今後 24 時間で {{count}} 件のプロファイル",
+      "dueSoon_other": "今後 24 時間で {{count}} 件のプロファイル",
+      "nothingScheduled": "予定はありません",
+      "blocked": "実行できるプロファイルがありません。下の一覧を確認してください。"
+    },
+    "tonight": {
+      "label": "今夜",
+      "nextRun": "次回の実行 {{time}}",
+      "dueCount_one": "{{count}} 件のプロファイルが予定",
+      "dueCount_other": "{{count}} 件のプロファイルが予定",
+      "nothingScheduled": "予定はありません"
     },
     "localDescription": "スケジュールに沿ったプロファイルのローカル予熱。実行時刻にこの端末の電源が必要です。スケジュールと履歴はこの端末に保存されます。"
   },
@@ -3368,7 +3824,10 @@
     "vpnExtensionEntryNoVersion": "（{{capability}}、{{source}}）",
     "scanIncompleteMissing": "このプロファイルはまだ起動されていないため、Donutが管理する拡張機能のみ確認できました。",
     "exitUnverifiedTimezone": "このプロファイルのフィンガープリントにはタイムゾーンが指定されていないため、出口チェックでは検証できません。起動はブロックされませんが、比較も行われていません。",
-    "exitUnverifiedLanguage": "このプロファイルのフィンガープリントの言語は出口の国と比較できないため、このチェックは合格ではなく未検証のままです。"
+    "exitUnverifiedLanguage": "このプロファイルのフィンガープリントの言語は出口の国と比較できないため、このチェックは合格ではなく未検証のままです。",
+    "routeProxyHeading": "プロキシが応答しません",
+    "routeVpnHeading": "VPN が応答しません",
+    "routeExplainer": "ページが読み込まれない可能性があります。プロキシや VPN を確認するか、そのまま起動してください。"
   },
   "profileMotion": {
     "inspectorSections": "プロファイルのセクション",
@@ -3420,9 +3879,9 @@
     "hint": "プロファイルを選択して、Cookieや経路を変更してください。",
     "changed": "{{name}}を変更しました。もう一方のプロファイルのCookieと経路はそのままです。",
     "resetDone": "両方のサンプルをリセットしました。",
-    "replay": "プロファイルの分離を試す",
     "device": "デバイス",
-    "site": "サイト"
+    "site": "サイト",
+    "replay": "プロファイルの分離を試す"
   },
   "appFeedback": {
     "saveFailed": "設定を保存できませんでした",
@@ -3479,7 +3938,11 @@
     "confirmed": "はい",
     "unavailable": "いいえ",
     "apiProbeScope": "保存された認証情報で実行中のローカル API を確認します。プロファイルは起動しません。",
-    "remoteProbeScope": "保存された MCP 認証情報を確認します。リモート操作には接続済みデバイスと対応プランも必要です。クライアントの設定は稼働中のセッションを意味しません。"
+    "remoteProbeScope": "保存された MCP 認証情報を確認します。リモート操作には接続済みデバイスと対応プランも必要です。クライアントの設定は稼働中のセッションを意味しません。",
+    "probeNotConfigured": "認証情報が保存されていません。",
+    "probeUnreachable": "サーバーが応答しませんでした。",
+    "probeRefused": "サーバーが認証情報を拒否しました。",
+    "probeUnverified": "サーバーが HTTP {{status}} で応答したため、認証情報は確認されていません。"
   },
   "easterEgg": {
     "konami": {
@@ -3489,15 +3952,17 @@
   },
   "trash": {
     "title": "ゴミ箱",
-    "description": "削除したプロファイルは期限が切れるまでここに保管されます。復元すると、ID・プロキシ・タグごと元に戻ります。",
+    "description": "削除したプロファイル、プロキシ、VPN、グループ、拡張機能、テンプレートは期限が切れるまでここに保管されます。復元すると元の状態に戻ります。",
     "empty": "ゴミ箱は空です",
-    "emptyHint": "削除したプロファイルはここに表示され、期限が切れるまで復元できます。",
+    "emptyHint": "削除したものはここに表示され、期限が切れるまで復元できます。",
     "columns": {
-      "name": "プロファイル",
+      "name": "名前",
       "browser": "ブラウザ",
       "deleted": "削除日時",
       "expires": "期限",
-      "size": "サイズ"
+      "size": "サイズ",
+      "kind": "種類",
+      "detail": "詳細"
     },
     "expiresIn_one": "あと{{count}}日",
     "expiresIn_other": "あと{{count}}日",
@@ -3509,17 +3974,48 @@
     "confirmDeleteForeverTitle": "完全に削除しますか？",
     "confirmDeleteForeverDescription": "「{{name}}」とそのすべてのデータが破棄されます。この操作は元に戻せません。",
     "confirmEmptyTitle": "ゴミ箱を空にしますか？",
-    "confirmEmptyDescription_one": "{{count}}件のプロファイルとそのすべてのデータが破棄されます。この操作は元に戻せません。",
-    "confirmEmptyDescription_other": "{{count}}件のプロファイルとそのすべてのデータが破棄されます。この操作は元に戻せません。",
+    "confirmEmptyDescription_one": "{{count}} 件の項目とそのデータがすべて完全に削除されます。元に戻すことはできません。",
+    "confirmEmptyDescription_other": "{{count}} 件の項目とそのデータがすべて完全に削除されます。元に戻すことはできません。",
     "restored": "「{{name}}」を復元しました",
     "restoredSyncOff": "同期を再開できなかったため、このプロファイルはこのデバイスにのみあります。ほかのデバイスと共有するには、同期モードをもう一度設定してください。",
-    "restoreFailed": "プロファイルを復元できませんでした: {{error}}",
+    "restoreFailed": "復元できませんでした: {{error}}",
     "deletedForever": "「{{name}}」を完全に削除しました",
-    "deleteForeverFailed": "プロファイルを削除できませんでした: {{error}}",
-    "emptied_one": "{{count}}件のプロファイルをゴミ箱から削除しました",
-    "emptied_other": "{{count}}件のプロファイルをゴミ箱から削除しました",
+    "deleteForeverFailed": "完全に削除できませんでした: {{error}}",
+    "emptied_one": "{{count}} 件をゴミ箱から削除しました",
+    "emptied_other": "{{count}} 件をゴミ箱から削除しました",
     "emptyFailed": "ゴミ箱を空にできませんでした: {{error}}",
-    "loadFailed": "ゴミ箱を読み込めませんでした: {{error}}"
+    "loadFailed": "ゴミ箱を読み込めませんでした: {{error}}",
+    "kinds": {
+      "all": "すべて",
+      "profile": "プロファイル",
+      "proxy": "プロキシ",
+      "vpn": "VPN",
+      "group": "グループ",
+      "extension": "拡張機能",
+      "extension_group": "拡張機能グループ",
+      "template": "テンプレート"
+    },
+    "kind": {
+      "profile": "プロファイル",
+      "proxy": "プロキシ",
+      "vpn": "VPN",
+      "group": "グループ",
+      "extension": "拡張機能",
+      "extension_group": "拡張機能グループ",
+      "template": "テンプレート"
+    },
+    "restoredSyncOffEntity": "同期を再開できなかったため、この項目はこのデバイスにのみあります。ほかのデバイスと共有するには、同期をもう一度オンにしてください。",
+    "moved": "「{{name}}」をゴミ箱に移動しました",
+    "deleted": "「{{name}}」を削除しました",
+    "deleteFailed": "「{{name}}」を削除できませんでした: {{error}}",
+    "restoredMany_one": "{{count}} 件を復元しました",
+    "restoredMany_other": "{{count}} 件を復元しました",
+    "deletedForeverMany_one": "{{count}} 件を完全に削除しました",
+    "deletedForeverMany_other": "{{count}} 件を完全に削除しました",
+    "movedMany_one": "{{count}} 件をゴミ箱に移動しました",
+    "movedMany_other": "{{count}} 件をゴミ箱に移動しました",
+    "deletedMany_one": "{{count}} 件を削除しました",
+    "deletedMany_other": "{{count}} 件を削除しました"
   },
   "agent": {
     "description": "AI エージェントが Donut で何をしているかを確認し、質問に答え、ページに人の操作が必要なときは代わりに対応できます。",
@@ -3560,7 +4056,7 @@
       "waitingTitle": "エージェントを待っています",
       "waitingBody": "エージェントに Donut を追加し、下の指示を貼り付けてください。作業中にエージェントがあなたに確認するようになります。",
       "starterLabel": "エージェントへの指示",
-      "starter": "Donut のツールを使って、私の donutos のプロファイルを操作できます。開始時とステップの合間に get_human_updates を呼び出して、私のメモと、私が使用中のプロファイルを確認してください。どうすればよいか分からないときは ask_human で私に質問してください。サインイン、認証、支払いなど、ページに人の操作が必要なときは request_human_help を呼び出し、私がプロファイルを戻すまで待ってください。長い作業の間は report_progress を呼び出して、進み具合が分かるようにしてください。",
+      "starter": "Donut のツールを使って、私の Donut Browser のプロファイルを操作できます。開始時とステップの合間に get_human_updates を呼び出して、私のメモと、私が使用中のプロファイルを確認してください。どうすればよいか分からないときは ask_human で私に質問してください。サインイン、認証、支払いなど、ページに人の操作が必要なときは request_human_help を呼び出し、私がプロファイルを戻すまで待ってください。長い作業の間は report_progress を呼び出して、進み具合が分かるようにしてください。",
       "starterCopied": "指示をコピーしました"
     },
     "request": {
@@ -3728,6 +4224,18 @@
       "deleteTitle": "{{name}} を削除しますか？",
       "deleteDescription": "レシピはすべての端末から削除されます。",
       "needsAutomation": "レシピはブラウザを開いて操作するため、Pro プラン以上が必要です。エージェントは引き続きプロファイル、プロキシ、グループを管理できます。",
+      "runAria": "{{name}} を今すぐ実行",
+      "runTitle": "{{name}} を実行",
+      "runDescription": "Donut クラウドが、選んだプロファイルでステップを 1 回再生します。",
+      "runProfile": "プロファイル",
+      "runProfilePlaceholder": "プロファイルを選択",
+      "runNoProfiles": "先にプロファイルを作成してください",
+      "runPlatformUnsupported": "リモートフリートはこのプロファイルの OS を実行できません。",
+      "runDesktopOffline": "このコンピューターで実行するには、統合でリモート操作をオンにしてください。",
+      "runStartedOn": "Donut クラウドが {{profile}} で {{name}} を再生しています。",
+      "oneOffName": "今すぐ実行: {{name}}",
+      "editAria": "{{name}} を編集",
+      "deleteAria": "{{name}} を削除",
       "aiGenerate": "AIで生成",
       "aiPlaceholder": "流れを説明：サイトを開く、ログイン、ボタンをクリック…",
       "aiHint": "AIの草案はレシピ規則で検証されてから保存されます。",
@@ -3836,13 +4344,11 @@
   },
   "tips": {
     "title": "ヒント",
-    "essentials": "基本",
-    "planSection": "プランに含まれる機能",
     "count": "{{current}} / {{total}}",
     "previous": "前のヒント",
     "next": "次のヒント",
     "done": "完了",
-    "autoShow": "数日ごとにヒントを表示",
+    "autoShow": "プロファイルページにヒントを表示",
     "items": {
       "dnsBlocklist": {
         "label": "DNS ブロック",
@@ -3930,7 +4436,7 @@
       },
       "cookieBot": {
         "label": "Cookie Bot",
-        "title": "夜間にプロファイルを温める",
+        "title": "スケジュールでプロファイルを温める",
         "body": "Cookie Bot はリモートホストからスケジュールに従って実際のサイトを閲覧し、新しいプロファイルに自然な履歴を作ってから使えるようにします。",
         "action": "Cookie Bot を開く"
       },
@@ -3969,8 +4475,79 @@
         "title": "次に直すべきことをチームに伝える",
         "body": "不具合や足りない機能はありませんか？「その他」メニューからフィードバックを送れます。スイッチ 1 つでログを添付でき、何が起きたかをチームが正確に把握できます。",
         "action": "フィードバックを送信"
+      },
+      "searchSyntax": {
+        "label": "検索フィールド",
+        "title": "フィールドでプロファイルを絞り込む",
+        "body": "検索ボックスに tag:work、proxy:none、status:running のようなフィールドを入力します。前にマイナスを付けると除外します: -tag:old。",
+        "action": "proxy:none を試す"
+      },
+      "shortcuts": {
+        "label": "ショートカット",
+        "title": "手はキーボードのままで",
+        "body": "どのページにも、インポート、フィードバック、ヒントにもショートカットがあります。{{mod}}+/ で一覧を表示します。",
+        "action": "すべてのショートカット"
+      },
+      "statuses": {
+        "label": "ステータス",
+        "title": "各アカウントの状況を記録",
+        "body": "ステータス列でプロファイルにアクティブや BAN などのステータスを付けます。ステータスには色があり、他のデバイスにも同期されます。",
+        "action": "プロファイルを開く"
+      },
+      "templates": {
+        "label": "テンプレート",
+        "title": "一度設定して、何度でも作成",
+        "body": "プロファイルのメニューの「テンプレートとして保存」で設定を残せます。新しいプロファイルはテンプレートから始まり、まとめて作成でき、それぞれに専用のデバイスが付きます。",
+        "action": "新しいプロファイル"
+      },
+      "vpn": {
+        "label": "VPN",
+        "title": "プロファイルを VPN 経由にする",
+        "body": "ネットワークページで WireGuard ファイル、または VLESS、VMess、Trojan、Hysteria2 のリンクをインポートします。プロファイルで選ぶと、そのプロファイルだけがトンネルを使います。",
+        "action": "VPN を開く"
+      },
+      "requireRoute": {
+        "label": "直接起動をブロック",
+        "title": "自分の IP から起動しない",
+        "body": "プライバシー設定で「プロキシまたは VPN なしの起動をブロック」をオンにします。プロキシのないプロファイルや、プロキシや VPN が見つからないプロファイルは起動しません。",
+        "action": "プライバシー設定を開く"
+      },
+      "totp": {
+        "label": "2FA コード",
+        "title": "2FA コードをプロファイルと一緒に",
+        "body": "プロファイル情報でアカウントの 2FA キーを追加すると、Donut が現在のコードを表示し、すぐにコピーできます。キーはこのデバイスに暗号化して保存されます。",
+        "action": "2FA キーを試す"
+      },
+      "synchronizer": {
+        "label": "シンクロナイザー",
+        "title": "複数のプロファイルを同時に操作",
+        "body": "プロファイルのメニューで「シンクロナイザーで起動」を選び、フォロワーを選びます。リーダーでのクリックや入力が各フォロワーで繰り返されます。",
+        "action": "プロファイルを開く"
       }
-    }
+    },
+    "sections": {
+      "everyday": "日常",
+      "network": "ネットワーク",
+      "privacy": "プライバシーとデータ",
+      "connect": "連携",
+      "plan": "プランに含まれる機能"
+    },
+    "progress": "{{total}} 件中 {{read}} 件既読",
+    "unread": "未読",
+    "nextShort": "次へ",
+    "coach": {
+      "eyebrow": "ヒント",
+      "more": "ヒントのその他のオプション",
+      "allTips": "すべてのヒント",
+      "turnOff": "ヒントを表示しない",
+      "offTitle": "ヒントはオフです",
+      "offBody": "ヒント ({{shortcut}}) から再びオンにできます。",
+      "gotIt": "了解",
+      "announce": "ヒント: {{title}}"
+    },
+    "showMe": "場所を見る",
+    "essentials": "基本",
+    "planSection": "プランに含まれる機能"
   },
   "paidWelcome": {
     "title": "{{plan}} へようこそ",
@@ -4011,7 +4588,26 @@
     "stopped": "停止中",
     "noTags": "タグなし",
     "noProxy": "プロキシなし",
-    "encrypted": "暗号化"
+    "encrypted": "暗号化",
+    "views": {
+      "label": "ビュー",
+      "title": "保存したビュー",
+      "empty": "保存したビューはまだありません。現在の検索、フィルター、並べ替え、列に名前を付けると、あとで戻れます。",
+      "nameLabel": "ビュー名",
+      "namePlaceholder": "このビューに名前を付ける",
+      "replace": "置き換え",
+      "useAtStart": "起動時に {{name}} を開く",
+      "defaultBadge": "起動時",
+      "rename": "{{name}} の名前を変更",
+      "delete": "{{name}} を削除",
+      "deleted": "ビュー {{name}} を削除しました",
+      "full": "保存できるビューは {{limit}} 件までです。別のビューを保存するには 1 件削除してください。",
+      "nameTaken": "この名前のビューは既にあります。"
+    },
+    "moveColumnLeft": "{{column}} を左へ移動",
+    "moveColumnRight": "{{column}} を右へ移動",
+    "selectRowNamed": "{{name}} を選択",
+    "rowAction": "{{action}}: {{name}}"
   },
   "feedback": {
     "title": "フィードバックを送信",
@@ -4039,10 +4635,18 @@
     "counter": "{{count}} / {{max}}",
     "logs": {
       "label": "最近のログを添付",
-      "description": "ログは不具合の調査に役立ちます。メールアドレス、IP アドレス、Web アドレス、シークレットは事前に削除されます。",
+      "description": "ログは不具合の調査に役立ちます。私たちが受け取るログに個人情報は一切含まれません。",
       "preview": "ログを確認",
       "loading": "ログを読み込んでいます…",
       "empty": "まだログはありません。"
+    },
+    "triage": {
+      "label": "AI エージェントに原因を調べてもらう",
+      "description": "Donut Browser に接続された AI エージェント用のプロンプトをコピーします。エージェントはログを読み、解決策を探し、あなたの同意を得てからこのレポートを送信します。",
+      "copy": "プロンプトをコピー",
+      "copied": "プロンプトをコピーしました。エージェントに貼り付けてください。",
+      "prompt": "Donut Browser の MCP ツールを使って、Donut Browser が期待どおりに動かない原因を調べてください。{{url}} のトリアージ手順に従ってください。何が起きたかを私に聞き、get_diagnostics を呼び出し、新しいバージョンと既知の問題を確認し、問題の解決を手伝ってください。send_feedback で送信する前に、レポートを私に見せてください。",
+      "problem": "私が見たこと: {{message}}"
     },
     "email": {
       "label": "返信用メールアドレス",
@@ -4190,6 +4794,122 @@
       "auto": "毎日",
       "manual": "手動"
     }
+  },
+  "entities": {
+    "empty": {
+      "proxies": {
+        "title": "プロキシはまだありません",
+        "body": "プロキシはプロファイルの通信を別のサーバー経由で送ります。プロファイルごとに別のプロキシを使えます。"
+      },
+      "vpns": {
+        "title": "VPN はまだありません",
+        "body": "WireGuard VPN はプロファイルの通信を暗号化されたトンネルで運びます。"
+      },
+      "groups": {
+        "title": "グループはまだありません",
+        "body": "グループでプロファイルをクライアント、プロジェクト、作業ごとに分けます。グループ内のすべてのプロファイルにグループのブックマークが入ります。"
+      },
+      "extensions": {
+        "title": "拡張機能はまだありません",
+        "body": "ファイル、フォルダー、Web Store のリンクから拡張機能を追加します。プロファイルで使うには拡張機能グループに入れます。"
+      },
+      "extensionGroups": {
+        "title": "拡張機能グループはまだありません",
+        "body": "拡張機能グループは拡張機能のセットです。グループを使うプロファイルは起動時にそのセットを受け取ります。"
+      }
+    },
+    "check": {
+      "notChecked": "未チェック",
+      "valid": "有効",
+      "invalid": "無効"
+    }
+  },
+  "leavePrompt": {
+    "title": "保存されていない変更",
+    "description": "保存されていない変更があります。",
+    "descriptionOne": "{{label}} の変更は保存されていません。",
+    "save": "保存",
+    "discard": "破棄",
+    "stay": "とどまる"
+  },
+  "moveProfiles": {
+    "title": "プロファイルを {{group}} に移動",
+    "description": "このグループに移すプロファイルを選択してください。実行中のプロファイルは移動できません。",
+    "empty": "すべてのプロファイルはすでにこのグループにあります。",
+    "confirm": "{{count}} 件を移動"
+  },
+  "logViewer": {
+    "title": "アプリのログ",
+    "levelFilter": "レベルで絞り込む",
+    "levels": {
+      "all": "すべて",
+      "warn": "警告",
+      "error": "エラー"
+    },
+    "searchPlaceholder": "ログを検索",
+    "copyAria": "ログ {{count}} 行をコピー",
+    "copied": "ログをコピーしました",
+    "copiedDescription": "クリップボードの行数: {{count}}",
+    "copyFailed": "ログをコピーできませんでした",
+    "empty": "ログにはまだ行がありません。",
+    "emptyProfile": "このプロファイルのログはまだありません。",
+    "noMatches": "条件に一致する行はありません。",
+    "capped": "最新の {{count}} 行を表示しています。"
+  },
+  "networkPanel": {
+    "start": "キャプチャを開始",
+    "stop": "キャプチャを停止",
+    "capturing": "リクエスト: {{count}}",
+    "emptyStopped": "キャプチャを開始すると、このプロファイルのページが送るリクエストが表示されます。",
+    "emptyNotRunning": "ネットワークリクエストをキャプチャするにはプロファイルを起動してください。",
+    "privacyNote": "キャプチャの停止またはブラウザの終了までメモリにのみ保持されます。Cookie と認証の値は非表示です。",
+    "waiting": "リクエストを待っています…",
+    "columns": {
+      "method": "メソッド",
+      "status": "ステータス",
+      "host": "ホスト",
+      "path": "パス",
+      "type": "種類",
+      "size": "サイズ",
+      "time": "時間"
+    },
+    "states": {
+      "pending": "保留中",
+      "done": "完了",
+      "failed": "失敗",
+      "redirected": "リダイレクト",
+      "incomplete": "不完全"
+    },
+    "openRequest": "{{method}} {{url}} を開く",
+    "backToList": "リクエスト一覧に戻る",
+    "requestHeaders": "リクエストヘッダー",
+    "responseHeaders": "レスポンスヘッダー",
+    "requestBody": "リクエスト本文",
+    "noHeaders": "ヘッダーなし",
+    "fromCache": "キャッシュから",
+    "redactedNote": "Cookie と認証の値は [redacted] に置き換えられます。",
+    "startFailed": "キャプチャを開始できませんでした",
+    "stopFailed": "キャプチャを停止できませんでした",
+    "withheld": "プロファイルを操作中のため記録しなかったリクエスト: {{count}}"
+  },
+  "syncHealth": {
+    "idle": "同期は最新です",
+    "syncing": "同期中",
+    "offline": "同期はオフラインです。接続が戻ると変更が同期されます。",
+    "error": "同期に失敗しました",
+    "errorWith": "同期に失敗しました：{{error}}",
+    "notifyTitle": "同期に失敗しました",
+    "conflictToast": "{{name}} への変更は、別のデバイスの新しいコピーに置き換えられました",
+    "conflictToastUnnamed": "変更は、別のデバイスの新しいコピーに置き換えられました"
+  },
+  "launchNotice": {
+    "fingerprintEditsNotApplied": "{{name}} はカスタムのフィンガープリント変更なしで起動します",
+    "fingerprintEditsNeedPro": "変更は保存されており、有効な Pro プランで再び適用されます。"
+  },
+  "ephemeralStorage": {
+    "onDisk": "このコンピューターでは、一時的なプロファイルはデータをディスクに書き込みます。ブラウザを閉じると Donut がそのデータを消去します。データをメモリに保持するには WinFsp をインストールしてください。",
+    "winfspError": "WinFsp が起動しなかったため、一時的なプロファイルはデータをディスクに書き込みます。ブラウザを閉じると Donut がそのデータを消去します。",
+    "download": "WinFsp をダウンロード"
   },
   "localActivity": {
     "title": "アクティビティ履歴",

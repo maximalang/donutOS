@@ -188,9 +188,7 @@ impl Patience {
 /// split covers a stale `process_id` left by a crash — nothing answers on the
 /// recorded port, so the remote session is found instead of a dead one.
 pub async fn resolve(profile: &BrowserProfile) -> Result<CdpTarget, ResolveError> {
-  // The open Chromium engine is plain CDP end to end; only other engines
-  // would need a translation layer this build does not carry.
-  if profile.browser != "wayfern" && profile.browser != "chromium" {
+  if profile.browser != "wayfern" {
     return Err(ResolveError::Unsupported(format!(
       "Profile '{}' runs {}, which cannot be driven over CDP",
       profile.name, profile.browser
@@ -242,13 +240,6 @@ pub async fn resolve(profile: &BrowserProfile) -> Result<CdpTarget, ResolveError
 
 /// The debugging port a locally launched browser registered for this profile.
 async fn local_cdp_port(profile: &BrowserProfile, patience: Patience) -> Option<u16> {
-  let profiles_dir = crate::profile::manager::ProfileManager::instance().get_profiles_dir();
-  // The launcher registers the instance under the effective profile path —
-  // the ephemeral dir for ephemeral or password-protected profiles — so the
-  // lookup must use the same path or the CDP port is never found.
-  let profile_path = crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
-  let profile_path_str = profile_path.to_string_lossy().to_string();
-
   // Port info is written once the process is up, so a tool called straight
   // after a launch has to wait for it.
   for attempt in 0..patience.attempts(10) {
@@ -256,13 +247,36 @@ async fn local_cdp_port(profile: &BrowserProfile, patience: Patience) -> Option<
       tokio::time::sleep(Duration::from_secs(1)).await;
     }
     if let Some(port) = crate::wayfern_manager::WayfernManager::instance()
-      .get_cdp_port(&profile_path_str)
+      .cdp_port_for_profile(profile)
       .await
     {
       return Some(port);
     }
   }
   None
+}
+
+/// A BROWSER-level socket on a locally running browser, for a client that
+/// attaches to every tab itself. `None` when the profile's browser is not
+/// running on this machine.
+pub async fn connect_local_browser(profile: &BrowserProfile) -> Option<CdpConnection> {
+  profile.process_id?;
+  let port = local_cdp_port(profile, Patience::Immediate).await?;
+  let version: Value = reqwest::Client::new()
+    .get(format!("http://127.0.0.1:{port}/json/version"))
+    .timeout(Duration::from_secs(3))
+    .send()
+    .await
+    .ok()?
+    .json()
+    .await
+    .ok()?;
+  let request = version
+    .get("webSocketDebuggerUrl")
+    .and_then(Value::as_str)?
+    .into_client_request()
+    .ok()?;
+  dial(request, None).await.ok().map(CdpConnection::new)
 }
 
 /// A page-level socket on a locally running browser.
@@ -394,25 +408,6 @@ impl CdpConnection {
     }
   }
 
-  /// Send `method` as command `id` to a specific flat session, or to the
-  /// browser itself when `session` is none. Network capture needs this: it
-  /// attaches once and then talks to each page session it was shown.
-  pub async fn send_command_to(
-    &mut self,
-    session: Option<&str>,
-    id: u64,
-    method: &str,
-    params: Value,
-  ) -> Result<(), CdpError> {
-    use futures_util::sink::SinkExt;
-    let frame = cdp_frame(session, id, method, params);
-    self
-      .stream
-      .send(Message::Text(frame.to_string().into()))
-      .await
-      .map_err(|e| CdpError::Transport(format!("failed to send CDP command: {e}")))
-  }
-
   /// Send `method` as command `id`.
   pub async fn send_command(
     &mut self,
@@ -420,8 +415,26 @@ impl CdpConnection {
     method: &str,
     params: Value,
   ) -> Result<(), CdpError> {
-    use futures_util::sink::SinkExt;
     let frame = cdp_frame(self.cdp_session.as_deref(), id, method, params);
+    self.send_frame(frame).await
+  }
+
+  /// Send `method` as command `id` to the flattened session `session`, or to
+  /// the socket's own target when it is `None`.
+  pub async fn send_to(
+    &mut self,
+    session: Option<&str>,
+    id: u64,
+    method: &str,
+    params: Value,
+  ) -> Result<(), CdpError> {
+    self
+      .send_frame(cdp_frame(session, id, method, params))
+      .await
+  }
+
+  async fn send_frame(&mut self, frame: Value) -> Result<(), CdpError> {
+    use futures_util::sink::SinkExt;
     self
       .stream
       .send(Message::Text(frame.to_string().into()))

@@ -34,9 +34,12 @@ const MAX_NAME_CHARS: usize = 80;
 const MAX_PROFILES: usize = 100;
 /// How long after a once-schedule's instant it still fires (machine asleep);
 /// beyond that it is marked missed.
+#[allow(dead_code)]
 const ONCE_WINDOW_MINUTES: i64 = 360;
 /// How long after a weekly slot's local time it still fires.
+#[allow(dead_code)]
 const WEEKLY_WINDOW_MINUTES: i64 = 45;
+#[allow(dead_code)]
 const TICK_SECONDS: u64 = 30;
 
 // --- Wire types ------------------------------------------------------------------

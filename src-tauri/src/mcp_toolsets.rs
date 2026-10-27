@@ -59,10 +59,10 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
       "resolve_locator",
       "click_locator",
       "type_locator",
-      "extract_structured",
-      "pick_element",
       "select_option",
       "file_upload",
+      "extract_structured",
+      "pick_element",
       // The person watching
       "ask_human",
       "request_human_help",
@@ -105,6 +105,15 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
       "update_profile_proxy_bypass_rules",
       "update_profile_dns_blocklist",
       "get_dns_blocklist_status",
+    ],
+  ),
+  (
+    "traffic",
+    &[
+      "start_network_capture",
+      "stop_network_capture",
+      "list_network_requests",
+      "get_network_request",
     ],
   ),
   (
@@ -155,24 +164,6 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
     ],
   ),
   (
-    "traffic",
-    &[
-      "start_network_capture",
-      "stop_network_capture",
-      "list_network_requests",
-      "get_network_request",
-    ],
-  ),
-  (
-    "recipes",
-    &[
-      "list_recipes",
-      "run_recipe",
-      "create_recipe",
-      "delete_recipe",
-    ],
-  ),
-  (
     "remote",
     &[
       "run_profile_remote",
@@ -185,9 +176,8 @@ pub const TOOLSETS: &[(&str, &[&str])] = &[
 ];
 
 /// Toolsets whose tools Donut cloud serves, not this desktop. Known here so
-/// a selection that names them keeps them. Empty since recipes moved onto
-/// the local engine; kept for the wire format.
-pub const CLOUD_TOOLSETS: &[&str] = &[];
+/// a selection that names them keeps them.
+pub const CLOUD_TOOLSETS: &[&str] = &["recipes"];
 
 /// The toolsets a person can add to core, in display order.
 pub fn optional_toolsets() -> Vec<&'static str> {

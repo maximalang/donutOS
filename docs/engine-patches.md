@@ -32,6 +32,15 @@ revalidation). Instead patch ONLY the CDP refusal branch:
 - The gate function itself stays intact → background validation untouched →
   no crash; verified stable with browser alive >60 s after patch.
 
+## Compatibility with app 0.35.4 (re-audit 2026-10-25)
+
+Verified during the upstream v0.35.4 merge: between 0.34.0 and 0.35.4 the
+upstream did not change the entitlement protocol these patches bypass —
+`wayfern_manager.rs` diffs are per-version launch switches and tests only,
+and the free build still pins engines (`auto_updater` free no-ops survived
+the merge), so a patched 151/154 binary is never replaced or revalidated.
+No new patch offsets needed.
+
 ## 155.0.8059.79 — caller-branch patch (deployed 26.10)
 
 Same refusal-site shape as 154, located by signature (call → status fn →

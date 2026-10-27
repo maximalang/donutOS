@@ -10,11 +10,6 @@ export interface ProxySettings {
   vless_uri?: string;
 }
 
-export interface TableSortingSettings {
-  column: string; // "name", "note", "status"
-  direction: string; // "asc" or "desc"
-}
-
 export interface BrowserProfile {
   id: string; // UUID of the profile
   name: string;
@@ -91,6 +86,17 @@ export type SyncStatus = "Disabled" | "Syncing" | "Synced" | "Error";
 export interface SyncSettings {
   sync_server_url?: string;
   sync_token?: string;
+  source?: SyncSourceKind | null;
+}
+
+/** Where a device syncs: Donut cloud, the account's own server, or a server with a shared token. */
+export type SyncSourceKind = "cloud" | "account" | "self_hosted";
+
+/** Result of `get_sync_source`: the stored servers and the source in use. */
+export interface SyncSourceState {
+  active: SyncSourceKind | null;
+  account_server: string | null;
+  self_hosted_server: string | null;
 }
 
 /**
@@ -500,7 +506,8 @@ export interface ProfileImportReport {
 export interface ProfileImportItemResult {
   name: string;
   source_path: string;
-  status: "imported" | "skipped" | "failed";
+  /** `cancelled`: not started because the import was cancelled. */
+  status: "imported" | "skipped" | "failed" | "cancelled";
   profile_id: string | null;
   error: string | null;
   /** What actually came across. Present when status is "imported". */
@@ -511,6 +518,9 @@ export interface ProfileImportBatchResult {
   imported_count: number;
   skipped_count: number;
   failed_count: number;
+  cancelled_count?: number;
+  /** The import was cancelled; what it imported before is kept. */
+  cancelled?: boolean;
   results: ProfileImportItemResult[];
 }
 
@@ -545,6 +555,8 @@ export interface AppUpdateInfo {
   checksums_url?: string | null;
   /** GitHub-computed digest of the chosen asset ("sha256:<hex>"). */
   asset_digest?: string | null;
+  /** The app installs it without asking; false when the person starts it. */
+  auto_install: boolean;
 }
 
 export interface AppUpdateProgress {
@@ -930,6 +942,7 @@ export interface VpnConfig {
   last_used?: number;
   sync_enabled?: boolean;
   last_sync?: number;
+  updated_at?: number;
 }
 
 export interface VpnImportResult {
@@ -1014,6 +1027,15 @@ export interface PreLaunchChecks {
   exit_unverified: string[];
   exit_measurement_unreliable: boolean;
   consent_token: string | null;
+  /** The profile's proxy or VPN did not answer a check. A warning, not a block. */
+  route_unreachable?: RouteUnreachable | null;
+}
+
+export interface RouteUnreachable {
+  kind: "proxy" | "vpn";
+  id: string;
+  /** A backend error code. */
+  code: string;
 }
 
 /**
@@ -1044,4 +1066,36 @@ export interface TrashedProfileSummary {
   password_protected: boolean;
   /** Whether the profile synced when it was deleted. */
   sync_enabled: boolean;
+}
+
+/** What else can go to the trash, as `trash_entity` names it. */
+export type TrashEntityKind =
+  | "proxy"
+  | "vpn"
+  | "group"
+  | "extension"
+  | "extension_group"
+  | "template";
+
+export interface TrashedEntitySummary {
+  kind: TrashEntityKind;
+  id: string;
+  name: string;
+  /** Epoch seconds. */
+  deleted_at: number;
+  /** Epoch seconds; the entry is purged once this has passed. */
+  expires_at: number;
+  size_bytes: number;
+  /** Whether it synced when it was deleted. */
+  sync_enabled: boolean;
+  /** A proxy's protocol, a VPN's type, an extension's version. */
+  detail: string | null;
+}
+
+export interface RestoredEntity {
+  kind: TrashEntityKind;
+  id: string;
+  name: string;
+  /** It synced before, but sync could not be turned back on. */
+  sync_stayed_off: boolean;
 }
