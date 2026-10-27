@@ -100,6 +100,7 @@ mod extension_fetch;
 mod extension_manager;
 mod extraction;
 mod feedback;
+mod file_stamp;
 mod fingerprint_consistency;
 mod fs_secure;
 mod geoip_downloader;

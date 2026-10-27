@@ -2,6 +2,7 @@ use crate::browser::{create_browser, BrowserType};
 use crate::cloud_auth::CLOUD_AUTH;
 use crate::downloaded_browsers_registry::DownloadedBrowsersRegistry;
 use crate::events;
+use crate::file_stamp::FileStamp;
 use crate::profile::types::{get_host_os, is_host_os, BrowserProfile, SyncMode};
 use crate::proxy_manager::PROXY_MANAGER;
 use crate::wayfern_manager::WayfernConfig;
@@ -28,7 +29,10 @@ fn atomic_write_locked(path: &Path, data: &[u8]) -> std::io::Result<()> {
     f.write_all(data)?;
     f.sync_all()?;
   }
-  fs::rename(&tmp, path)
+  let renamed = fs::rename(&tmp, path);
+  // File times can be too coarse to show two quick writes apart.
+  forget_metadata(path);
+  renamed
 }
 
 /// Whether a metadata.json still holds `expected`, compared as this version
@@ -62,6 +66,110 @@ fn warn_skipped_profile(dir: &Path, why: &str, err: &dyn std::fmt::Display) {
     level,
     "Profile skipped: {why} metadata.json profile={profile} err=\"{err}\""
   );
+}
+
+struct CachedMetadata {
+  stamp: FileStamp,
+  /// `None` when the file did not parse.
+  profile: Option<BrowserProfile>,
+}
+
+/// Parsed metadata.json files, keyed by path. A stat per call decides whether
+/// the parsed copy is still current, so writes by any code are picked up.
+static METADATA_CACHE: std::sync::LazyLock<
+  std::sync::Mutex<std::collections::HashMap<PathBuf, CachedMetadata>>,
+> = std::sync::LazyLock::new(Default::default);
+
+fn cached_metadata(path: &Path, stamp: &FileStamp) -> Option<Option<BrowserProfile>> {
+  let cache = METADATA_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+  cache
+    .get(path)
+    .filter(|entry| entry.stamp == *stamp)
+    .map(|entry| entry.profile.clone())
+}
+
+fn cache_metadata(path: &Path, stamp: FileStamp, profile: Option<BrowserProfile>) {
+  METADATA_CACHE
+    .lock()
+    .unwrap_or_else(|e| e.into_inner())
+    .insert(path.to_path_buf(), CachedMetadata { stamp, profile });
+}
+
+fn forget_metadata(path: &Path) {
+  METADATA_CACHE
+    .lock()
+    .unwrap_or_else(|e| e.into_inner())
+    .remove(path);
+}
+
+/// Read one profile's metadata.json, parsing it only when it changed since
+/// the last read. `None` when it is missing, unreadable or invalid.
+fn load_metadata(metadata_file: &Path) -> Option<BrowserProfile> {
+  // Stat before reading: a write between the two leaves an older stamp on the
+  // cached copy, which the next call sees as changed.
+  let Some(stamp) = FileStamp::read(metadata_file) else {
+    forget_metadata(metadata_file);
+    return None;
+  };
+  if let Some(profile) = cached_metadata(metadata_file, &stamp) {
+    return profile;
+  }
+
+  let dir = metadata_file.parent().unwrap_or(metadata_file);
+  let content = match fs::read_to_string(metadata_file) {
+    Ok(c) => c,
+    Err(e) => {
+      warn_skipped_profile(dir, "unreadable", &e);
+      return None;
+    }
+  };
+  let mut profile: BrowserProfile = match serde_json::from_str(&content) {
+    Ok(p) => p,
+    Err(e) => {
+      warn_skipped_profile(dir, "invalid", &e);
+      cache_metadata(metadata_file, stamp, None);
+      return None;
+    }
+  };
+
+  let mut stamp = stamp;
+  if backfill_host_os(&mut profile) {
+    if let Ok(json) = serde_json::to_string_pretty(&profile) {
+      if atomic_write(metadata_file, json.as_bytes()).is_ok() {
+        match FileStamp::read(metadata_file) {
+          Some(written) => stamp = written,
+          None => return Some(profile),
+        }
+      }
+    }
+  }
+  cache_metadata(metadata_file, stamp, Some(profile.clone()));
+  Some(profile)
+}
+
+/// Backfill host_os from browser config for profiles created before the field
+/// existed (or synced without it), and repair any profile already stamped
+/// with a fingerprint-only OS. Returns whether the profile changed.
+///
+/// Only a real host OS may be stored here. The fallback in `resolved_os` reads
+/// `wayfern_config.os`, which is a fingerprint OS and may be "android"/"ios".
+/// Persisting that records a creating machine that cannot exist, with no way
+/// to undo it from the UI. Leaving `host_os` as None means "unknown", which is
+/// what it was before the field.
+fn backfill_host_os(profile: &mut BrowserProfile) -> bool {
+  let needs_repair = profile.host_os.as_deref().is_some_and(|os| !is_host_os(os));
+  if profile.host_os.is_some() && !needs_repair {
+    return false;
+  }
+  let inferred_os = profile
+    .resolved_os()
+    .filter(|os| is_host_os(os))
+    .map(str::to_string);
+  if inferred_os == profile.host_os {
+    return false;
+  }
+  profile.host_os = inferred_os;
+  true
 }
 
 /// Collapse an empty proxy/VPN id to `None`.
@@ -610,46 +718,10 @@ impl ProfileManager {
       if path.is_dir() {
         let metadata_file = path.join("metadata.json");
         if metadata_file.exists() {
-          let content = match fs::read_to_string(&metadata_file) {
-            Ok(c) => c,
-            Err(e) => {
-              warn_skipped_profile(&path, "unreadable", &e);
-              continue;
-            }
-          };
-          let mut profile: BrowserProfile = match serde_json::from_str(&content) {
-            Ok(p) => p,
-            Err(e) => {
-              warn_skipped_profile(&path, "invalid", &e);
-              continue;
-            }
-          };
-
-          // Backfill host_os from browser config for profiles created before
-          // the field existed (or synced without it), and repair any profile
-          // already stamped with a fingerprint-only OS.
-          //
-          // Only a real host OS may be stored here. The fallback in
-          // `resolved_os` reads `wayfern_config.os`, which is a fingerprint OS
-          // and may be "android"/"ios". Persisting that records a creating
-          // machine that cannot exist, with no way to undo it from the UI.
-          // Leaving `host_os` as None means "unknown", which is what it was
-          // before the field.
-          let needs_repair = profile.host_os.as_deref().is_some_and(|os| !is_host_os(os));
-          if profile.host_os.is_none() || needs_repair {
-            let inferred_os = profile
-              .resolved_os()
-              .filter(|os| is_host_os(os))
-              .map(str::to_string);
-            if inferred_os != profile.host_os {
-              profile.host_os = inferred_os;
-              if let Ok(json) = serde_json::to_string_pretty(&profile) {
-                let _ = atomic_write(&metadata_file, json.as_bytes());
-              }
-            }
-          }
-
-          profiles.push(profile);
+          profiles.push(match load_metadata(&metadata_file) {
+            Some(profile) => profile,
+            None => continue,
+          });
         }
       }
     }
