@@ -1169,9 +1169,9 @@ pub async fn download_browser(
 
   // The local build runs PATCHED Wayfern binaries (docs/engine-patches.md):
   // a fresh vendor build is unpatched and silently refuses CDP automation.
-  // So a Wayfern install here is download → signature patch → verify, and a
-  // version whose gate the patcher cannot find is removed again rather than
-  // left installed broken. Chromium needs no patch and downloads as is.
+  // So a Wayfern install here is download → patch → live smoke, and a
+  // version that fails any rung is removed again rather than left installed
+  // broken. Chromium needs no patch and downloads as is.
   #[cfg(feature = "free")]
   if browser_str == "wayfern" {
     downloader
@@ -1188,20 +1188,36 @@ pub async fn download_browser(
     match crate::engine_patch::patch_chrome_dll(&dll) {
       Ok(report) => {
         log::info!(
-          "Wayfern engine patched after download version={version} offset={:#x} already={}",
+          "Wayfern engine patched after download version={version} offset={:#x} already={} method={}",
           report.gate_offset,
-          report.already_patched
+          report.already_patched,
+          report.method
         );
+        // The patch is only half the proof: the engine must actually
+        // automate. A fresh version whose gate moved or doubled fails
+        // here and is removed, so engine updates stay safe to attempt.
+        if let Some(engine_dir) = dll.parent().map(std::path::Path::to_path_buf) {
+          if let Err(why) = crate::engine_patch::verify_gate_open(&engine_dir).await {
+            let _ = std::fs::remove_dir_all(&engine_dir);
+            log::error!("Wayfern smoke failed after patch version={version} err=\"{why}\"");
+            return Err(format!(
+              "{{\"code\":\"ENGINE_SMOKE_FAILED\",\"detail\":\"{why}\"}}"
+            ));
+          }
+        }
         return Ok(format!(
-          "downloaded and patched wayfern {version} (gate at {:#x}, was {:02x?})",
-          report.gate_offset, report.original
+          "downloaded, patched ({}) and smoke-verified wayfern {version} (gate at {:#x}, was {:02x?})",
+          report.method, report.gate_offset, report.original
         ));
       }
       Err(why) => {
         let dir = dll.parent().map(std::path::Path::to_path_buf);
         if let Some(dir) = dir {
           if let Err(e) = std::fs::remove_dir_all(&dir) {
-            log::warn!("Failed to remove unpatchable engine dir {}: {e}", dir.display());
+            log::warn!(
+              "Failed to remove unpatchable engine dir {}: {e}",
+              dir.display()
+            );
           }
         }
         log::error!("Wayfern engine patch refused version={version} err=\"{why}\"");

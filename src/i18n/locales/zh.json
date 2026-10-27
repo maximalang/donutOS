@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "无法连接 AI 提供商。",
     "aiBadResponse": "AI 提供商返回了无法解析的应答。",
     "aiRecipeInvalid": "AI 草稿不是有效的配方。",
-    "aiKeyStoreFailed": "无法保存 API 密钥。"
+    "aiKeyStoreFailed": "无法保存 API 密钥。",
+    "enginePatchFailed": "引擎无法自动打补丁，因此未安装。",
+    "engineSmokeFailed": "已打补丁的引擎未通过自动化检查，已被移除。请继续使用已安装的版本。"
   },
   "rail": {
     "profiles": "配置文件",

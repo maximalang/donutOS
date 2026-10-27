@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "The AI provider could not be reached.",
     "aiBadResponse": "The AI provider returned an unreadable answer.",
     "aiRecipeInvalid": "The AI draft was not a valid recipe.",
-    "aiKeyStoreFailed": "The API key could not be stored."
+    "aiKeyStoreFailed": "The API key could not be stored.",
+    "enginePatchFailed": "The engine could not be patched automatically, so it was not installed.",
+    "engineSmokeFailed": "The patched engine failed its automation check, so it was removed. Keep using the installed version."
   },
   "rail": {
     "profiles": "Profiles",

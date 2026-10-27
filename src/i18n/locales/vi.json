@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "Không kết nối được nhà cung cấp AI.",
     "aiBadResponse": "Nhà cung cấp AI trả về câu trả lời không đọc được.",
     "aiRecipeInvalid": "Bản nháp AI không phải công thức hợp lệ.",
-    "aiKeyStoreFailed": "Không lưu được khóa API."
+    "aiKeyStoreFailed": "Không lưu được khóa API.",
+    "enginePatchFailed": "Không thể tự động vá trình duyệt nên nó chưa được cài đặt.",
+    "engineSmokeFailed": "Trình duyệt đã vá không vượt qua kiểm tra tự động hóa và đã bị gỡ bỏ. Hãy tiếp tục dùng phiên bản đã cài."
   },
   "rail": {
     "profiles": "Profile",

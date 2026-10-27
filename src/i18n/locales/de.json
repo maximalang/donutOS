@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "Der KI-Anbieter ist nicht erreichbar.",
     "aiBadResponse": "Der KI-Anbieter lieferte eine unlesbare Antwort.",
     "aiRecipeInvalid": "Der KI-Entwurf war kein gültiges Rezept.",
-    "aiKeyStoreFailed": "Der API-Schlüssel konnte nicht gespeichert werden."
+    "aiKeyStoreFailed": "Der API-Schlüssel konnte nicht gespeichert werden.",
+    "enginePatchFailed": "Die Engine konnte nicht automatisch gepatcht werden und wurde daher nicht installiert.",
+    "engineSmokeFailed": "Die gepatchte Engine bestand die Automatisierungsprüfung nicht und wurde entfernt. Nutzen Sie weiter die installierte Version."
   },
   "rail": {
     "profiles": "Profile",

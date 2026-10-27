@@ -2725,7 +2725,9 @@
     "aiRequestFailed": "O provedor de IA não pôde ser alcançado.",
     "aiBadResponse": "O provedor de IA devolveu uma resposta ilegível.",
     "aiRecipeInvalid": "O rascunho da IA não era uma receita válida.",
-    "aiKeyStoreFailed": "Não foi possível guardar a chave API."
+    "aiKeyStoreFailed": "Não foi possível guardar a chave API.",
+    "enginePatchFailed": "O motor não pôde ser corrigido automaticamente, então não foi instalado.",
+    "engineSmokeFailed": "O motor corrigido falhou no teste de automação e foi removido. Continue usando a versão instalada."
   },
   "rail": {
     "profiles": "Perfis",

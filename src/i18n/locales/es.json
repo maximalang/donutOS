@@ -2725,7 +2725,9 @@
     "aiRequestFailed": "No se pudo conectar con el proveedor de IA.",
     "aiBadResponse": "El proveedor de IA devolvió una respuesta ilegible.",
     "aiRecipeInvalid": "El borrador de IA no era una receta válida.",
-    "aiKeyStoreFailed": "No se pudo guardar la clave API."
+    "aiKeyStoreFailed": "No se pudo guardar la clave API.",
+    "enginePatchFailed": "No se pudo parchear el motor automáticamente, así que no se instaló.",
+    "engineSmokeFailed": "El motor parcheado no superó la prueba de automatización y se eliminó. Siga usando la versión instalada."
   },
   "rail": {
     "profiles": "Perfiles",

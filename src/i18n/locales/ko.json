@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "AI 공급자에 연결할 수 없습니다.",
     "aiBadResponse": "AI 공급자의 응답을 읽을 수 없습니다.",
     "aiRecipeInvalid": "AI 초안이 유효한 레시피가 아닙니다.",
-    "aiKeyStoreFailed": "API 키를 저장하지 못했습니다."
+    "aiKeyStoreFailed": "API 키를 저장하지 못했습니다.",
+    "enginePatchFailed": "엔진을 자동으로 패치할 수 없어 설치되지 않았습니다.",
+    "engineSmokeFailed": "패치된 엔진이 자동화 확인을 통과하지 못해 제거되었습니다. 설치된 버전을 계속 사용하세요."
   },
   "rail": {
     "profiles": "프로필",

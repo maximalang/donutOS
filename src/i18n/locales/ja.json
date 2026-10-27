@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "AIプロバイダーに接続できません。",
     "aiBadResponse": "AIプロバイダーの応答が読み取れません。",
     "aiRecipeInvalid": "AIの草案は有効なレシピではありません。",
-    "aiKeyStoreFailed": "APIキーを保存できませんでした。"
+    "aiKeyStoreFailed": "APIキーを保存できませんでした。",
+    "enginePatchFailed": "エンジンを自動的にパッチできなかったため、インストールされませんでした。",
+    "engineSmokeFailed": "パッチ済みエンジンが自動化チェックに失敗したため削除されました。インストール済みのバージョンを引き続きご利用ください。"
   },
   "rail": {
     "profiles": "プロファイル",

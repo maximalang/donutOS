@@ -271,6 +271,8 @@ export type BackendErrorCode =
   | "AI_BAD_RESPONSE"
   | "AI_RECIPE_INVALID"
   | "AI_KEY_STORE_FAILED"
+  | "ENGINE_PATCH_FAILED"
+  | "ENGINE_SMOKE_FAILED"
   | "AGENT_TEXT_TOO_LONG"
   | "AGENT_SESSION_NOT_FOUND"
   | "FEEDBACK_MESSAGE_EMPTY"
@@ -985,6 +987,10 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.aiRecipeInvalid");
     case "AI_KEY_STORE_FAILED":
       return t("backendErrors.aiKeyStoreFailed");
+    case "ENGINE_PATCH_FAILED":
+      return t("backendErrors.enginePatchFailed");
+    case "ENGINE_SMOKE_FAILED":
+      return t("backendErrors.engineSmokeFailed");
     case "AGENT_TEXT_TOO_LONG":
       return t("backendErrors.agentTextTooLong", {
         max: parsed.params?.max ?? "2000",

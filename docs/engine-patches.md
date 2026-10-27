@@ -51,34 +51,69 @@ sites with the branch pattern).
   (`version_updater.rs`), so an unpatched engine can no longer arrive
   silently.
 
-- The free build now ships a **signature auto-patcher** (`src-tauri/src/engine_patch.rs`):
-  a Wayfern download is followed by a scan for the whole gate shape —
-  `call rel32; test eax,eax; je rel32` with `cmp eax,2` and `mov ebx,0x36`
-  in the skipped refusal block — and the branch is forced (`je → jmp`,
-  displacement +1, nop pad), with `chrome.dll.orig` kept beside it. The scan
-  patches only when exactly one site matches; zero or several means the
-  version is new and the download is REMOVED, not installed broken
-  (`ENGINE_PATCH_FAILED`). Idempotent; `is_patched` verifies an install.
+- The free build now ships the **anchor auto-patcher** described below
+  (`src-tauri/src/engine_patch.rs`): download → patch → live smoke, and a
+  version that fails any rung is removed, never installed broken.
+
+## Auto-patching v2 — anchor discovery + live smoke (`engine_patch.rs`)
+
+The patcher no longer trusts one build's bytes. A new version is taken
+through a ladder, and only a version that clears every rung stays installed:
+
+1. **Anchor discovery.** The refusal message itself ("Browser automation
+   requires a paid …", matched by its stable opening) is located in the
+   image; every rip-relative `lea` that loads it is found in the code; the
+   one enclosed by the entitlement shape — `call rel32` + `test eax,eax` +
+   a conditional branch whose target skips the whole refusal — is the gate.
+   Register allocation, instruction order, the message tail and its length
+   can all change; the shape holds. Noise loads of the same string (logs)
+   are not gates: no enclosing branch, no site.
+2. **Uniqueness.** Exactly one site or nothing happens. Zero anchored sites
+   falls back to the classic 154/155 byte signature; several sites is an
+   ambiguity and the version is removed (`ENGINE_PATCH_FAILED`).
+3. **Force.** `je rel32` → `jmp rel32` + nop (displacement +1), original six
+   bytes kept as `chrome.dll.orig`. Idempotent: a forced branch is
+   recognized, not re-patched.
+4. **Live smoke (`verify_gate_open`).** The patched engine is launched
+   headless on a throwaway profile and `Runtime.evaluate 6*7` must answer 42
+   over CDP — the exact surface the gate exists to block. Anything else —
+   refused evaluate, stalled socket, a second check — removes the version
+   (`ENGINE_SMOKE_FAILED`).
+
+Proof on the real engines: the anchor lands on `0x3fdeb5b` (154) and
+`0x40a381b` (155) — the same sites the manual hunts found — and the installed
+patched 155 passes the smoke (ignored tests
+`the_real_engine_anchor_matches_the_manual_hunt` /
+`the_real_engine_passes_the_smoke`, run with `WAYFERN_ORIG`/`WAYFERN_EXPECT`
+and `WAYFERN_SMOKE`).
+
+What still needs a human: a version that rewords the refusal opening *and*
+recompiles the shape into something new fails the ladder honestly and is
+removed. The hunt scripts and the `.orig` beside every install are the
+starting point for a new anchor; the patcher never patches blind.
 
 ## Engine policy (free build)
 
 - **Wayfern (antidetect): pinned, update on demand only.** No periodic
-  auto-update: every new version must pass the signature patcher, so an
-  update is a deliberate act (download command → patch → verify), never a
-  background one. The vendor version refresh stays disabled.
+  auto-update: every new version must pass the patch ladder (anchor →
+  uniqueness → force → smoke), so an update is a deliberate act (download
+  command → patch → smoke), never a background one. The vendor version
+  refresh stays disabled.
 - **Chromium (open engine): updates via the normal download flow** when a
   profile needs a version that is missing; no patch required. First-run
   download already works (Chromium-for-Testing, pinned by the downloader).
-- **Unpatchable Wayfern versions never register**: the patcher's refusal
-  removes the directory, so a broken engine cannot be selected by accident.
+- **Unpatchable or smoke-failing Wayfern versions never register**: the
+  patcher's refusal removes the directory, so a broken engine cannot be
+  selected by accident.
 
 ## Rules
 
 - Engines never update in the background: the free build pins everything
   (auto_updater / registry migration & cleanup are no-ops under
-  `--features free`). A Wayfern install runs the signature patcher and is
-  removed when the gate is not found — an unpatched engine never registers.
-  Updates are deliberate, on demand, and verified (see Engine policy).
+  `--features free`). A Wayfern install runs the patch ladder and is
+  removed when the gate is not found or the smoke fails — an unpatched
+  engine never registers. Updates are deliberate, on demand, and verified
+  (see Engine policy).
 - After patching, keep `chrome.dll.orig` next to the patched dll.
 - `scripts/hunt_gate.py` (scratch copy) automates locating the gate in new
   builds: plaintext-string xref first, masked-signature scan second.

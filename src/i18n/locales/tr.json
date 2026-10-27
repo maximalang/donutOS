@@ -2705,7 +2705,9 @@
     "aiRequestFailed": "YZ sağlayıcısına ulaşılamadı.",
     "aiBadResponse": "YZ sağlayıcısı okunamayan bir yanıt döndürdü.",
     "aiRecipeInvalid": "YZ taslağı geçerli bir tarif değildi.",
-    "aiKeyStoreFailed": "API anahtarı kaydedilemedi."
+    "aiKeyStoreFailed": "API anahtarı kaydedilemedi.",
+    "enginePatchFailed": "Motor otomatik olarak yamalanamadı, bu yüzden kurulmadı.",
+    "engineSmokeFailed": "Yamalanmış motor otomasyon testini geçemedi ve kaldırıldı. Yüklü sürümü kullanmaya devam edin."
   },
   "rail": {
     "profiles": "Profiller",

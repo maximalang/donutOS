@@ -2725,7 +2725,9 @@
     "aiRequestFailed": "Le fournisseur d'IA est injoignable.",
     "aiBadResponse": "Le fournisseur d'IA a renvoyé une réponse illisible.",
     "aiRecipeInvalid": "Le brouillon de l'IA n'était pas une recette valide.",
-    "aiKeyStoreFailed": "Impossible d'enregistrer la clé API."
+    "aiKeyStoreFailed": "Impossible d'enregistrer la clé API.",
+    "enginePatchFailed": "Le moteur n'a pas pu être corrigé automatiquement, il n'a donc pas été installé.",
+    "engineSmokeFailed": "Le moteur corrigé a échoué au test d'automatisation et a été supprimé. Continuez avec la version installée."
   },
   "rail": {
     "profiles": "Profils",
