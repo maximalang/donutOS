@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,10 +76,17 @@ function copyBinary(baseName) {
   if (TARGET !== "unknown" && TARGET !== HOST_TARGET) {
     buildArgs.push("--target", TARGET);
   }
-  execFileSync("cargo", buildArgs, {
-    cwd: MANIFEST_DIR,
-    stdio: "inherit",
-  });
+  const cargoGuard = join(MANIFEST_DIR, "..", "scripts", "cargo-guard.mjs");
+  const guardResult = spawnSync(
+    process.execPath,
+    [cargoGuard, "--", ...buildArgs],
+    {
+      cwd: MANIFEST_DIR,
+      stdio: "inherit",
+    },
+  );
+  if (guardResult.error) throw guardResult.error;
+  if (guardResult.status !== 0) process.exit(guardResult.status ?? 1);
 
   if (!existsSync(source)) {
     console.error(`Error: Failed to build ${baseName} binary`);
