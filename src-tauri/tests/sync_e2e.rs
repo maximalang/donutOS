@@ -11,7 +11,52 @@ use tempfile::TempDir;
 const TEST_TOKEN: &str = "test-sync-token-0123456789abcdef";
 
 fn get_sync_server_url() -> String {
-  env::var("SYNC_SERVER_URL").unwrap_or_else(|_| "http://localhost:12342".to_string())
+  if let Ok(url) = env::var("SYNC_SERVER_URL") {
+    return url;
+  }
+  // SYNC_EMBEDDED=1: run this whole suite against the in-process server
+  // (`sync::local_server`) instead of the compose stack — same routes, same
+  // token, no docker. Meant as the wire-compatibility proof that the embedded
+  // server is a drop-in stand-in for the NestJS+MinIO reference.
+  if env::var("SYNC_EMBEDDED").as_deref() == Ok("1") {
+    return embedded_server_url();
+  }
+  "http://localhost:12342".to_string()
+}
+
+/// Boot one shared embedded server for the whole test binary and hand out its
+/// URL. The server runs on its own thread with its own runtime, both leaked
+/// on purpose: the listener must outlive this call until the test process
+/// exits, and starting a runtime inside the test runtime is what panics.
+fn embedded_server_url() -> String {
+  static URL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+  URL
+    .get_or_init(|| {
+      let dir = Box::leak(Box::new(TempDir::new().expect("embedded sync server dir")));
+      let (tx, rx) = std::sync::mpsc::channel::<String>();
+      std::thread::Builder::new()
+        .name("embedded-sync-server".into())
+        .spawn(move || {
+          let runtime = tokio::runtime::Runtime::new().expect("embedded sync runtime");
+          let handle = runtime
+            .block_on(donutbrowser_lib::sync::local_server::start(
+              dir.path(),
+              Some(TEST_TOKEN),
+            ))
+            .expect("embedded sync server starts");
+          let _ = tx.send(handle.base_url().to_string());
+          // Leak both so the listener keeps serving until the process dies;
+          // park this thread so nothing unwinds and drops them.
+          std::mem::forget(runtime);
+          std::mem::forget(handle);
+          loop {
+            std::thread::park();
+          }
+        })
+        .expect("embedded sync server thread");
+      rx.recv().expect("embedded sync server url")
+    })
+    .clone()
 }
 
 /// Check if sync server is available and fail with a clear error message if not.

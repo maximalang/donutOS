@@ -2629,6 +2629,14 @@ pub fn run_with_builder(
         tauri::async_runtime::spawn(crate::agent_schedules_local::run_scheduler());
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_scheduler());
         tauri::async_runtime::spawn(crate::cookie_bot_local::run_executor());
+        // Sync out of the box: the embedded loopback sync server stands in
+        // for the external donut-sync stack until the user configures one.
+        tauri::async_runtime::spawn(async {
+          match crate::sync::local_server::ensure_started().await {
+            Ok((base_url, _)) => log::info!("Local sync server started url=\"{base_url}\""),
+            Err(e) => log::warn!("Local sync server failed err=\"{e}\""),
+          }
+        });
       }
       // The home folder carries the OS user name, and this line is in every
       // log someone attaches to an issue.

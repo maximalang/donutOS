@@ -3,6 +3,7 @@ mod client;
 pub mod config_entities;
 pub mod encryption;
 mod engine;
+pub mod local_server;
 pub mod manifest;
 pub mod pending_deletes;
 pub mod preflight;

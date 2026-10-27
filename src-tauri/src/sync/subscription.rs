@@ -39,6 +39,9 @@ enum TokenSource {
   /// The customer's own server, with a token the Donut API binds to it.
   Account,
   SelfHosted,
+  /// The embedded loopback server free builds run when nothing else is
+  /// configured (`local_server`).
+  Local,
 }
 
 const RECONNECT_BASE_DELAY: Duration = Duration::from_secs(6);
@@ -166,7 +169,21 @@ impl SyncSubscription {
       .load_settings()
       .map_err(|e| format!("Failed to load settings: {e}"))?;
 
-    let Some(server_url) = settings.sync_server_url else {
+    let server_url = settings
+      .sync_server_url
+      .filter(|url| !url.trim().is_empty());
+
+    let Some(server_url) = server_url else {
+      // Free builds subscribe to the embedded loopback server when no
+      // self-hosted one is configured.
+      #[cfg(feature = "free")]
+      {
+        let (url, token) = super::local_server::ensure_started()
+          .await
+          .map_err(|e| format!("Local sync server unavailable: {e}"))?;
+        return Ok(Some(Self::new(url, token, TokenSource::Local, work_tx)));
+      }
+      #[cfg(not(feature = "free"))]
       return Ok(None);
     };
 
@@ -242,7 +259,7 @@ impl SyncSubscription {
                 TokenSource::Account => {
                   crate::cloud_auth::CloudAuthManager::discard_server_sync_token(&current)
                 }
-                TokenSource::SelfHosted => {}
+                TokenSource::SelfHosted | TokenSource::Local => {}
               }
               refused = Some(current);
               token = None;
@@ -320,6 +337,11 @@ impl SyncSubscription {
         .get_sync_token(app_handle)
         .await
         .map_err(|e| e.to_string()),
+      TokenSource::Local => match super::local_server::stored_token() {
+        Ok(Some(token)) => Ok(Some(token)),
+        Ok(None) => Err("Local sync server not initialized".to_string()),
+        Err(e) => Err(e),
+      },
     }
   }
 
