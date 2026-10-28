@@ -57,7 +57,10 @@ test("passes Cargo arguments and bounded build environment through", () => {
   assert.deepEqual(calls[1].args, ["build", "--features", "free"]);
   assert.equal(calls[1].options.env.CARGO_BUILD_JOBS, "2");
   assert.equal(calls[1].options.env.CARGO_INCREMENTAL, "0");
-  assert.equal(calls[1].options.env.CARGO_TARGET_DIR, "D:/ZDownloads/donut-free-target");
+  assert.equal(
+    calls[1].options.env.CARGO_TARGET_DIR,
+    "D:/ZDownloads/donut-free-target",
+  );
   assert.equal(calls[1].options.env.PATH, "test-path");
   assert.match(calls[1].options.cwd, /donut-free[\\/]src-tauri$/);
 });
