@@ -35,7 +35,10 @@ export function runCargoGuard({
     return 64;
   }
 
-  if (!safeWithoutSpace.has(cargoArgs[0]) && platform === "win32") {
+  // The disk gate guards THIS shared Windows host, where C: runs close to
+  // full. CI runners neither need it nor satisfy it (windows-latest ships
+  // with far less than the threshold), so keep the gate host-only.
+  if (!env.CI && !safeWithoutSpace.has(cargoArgs[0]) && platform === "win32") {
     const probe = spawn(
       "powershell.exe",
       [
