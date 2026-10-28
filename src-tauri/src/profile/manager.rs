@@ -2670,33 +2670,36 @@ mod tests {
 
   #[test]
   fn test_get_profiles_dir() {
-    let (manager, _temp_dir) = create_test_profile_manager();
-    let profiles_dir = manager.get_profiles_dir();
-
+    // Thread-local test override, not a HOME mock: several integration-style
+    // tests set DONUTBROWSER_DATA_DIR process-wide, and `data_dir` honours
+    // that env before the platform dirs — a HOME mock races them and flakes
+    // here. The guard short-circuits resolution inside this thread only.
+    let temp = TempDir::new().unwrap();
+    let _guard = crate::app_dirs::set_test_data_dir(temp.path().to_path_buf());
+    let profiles_dir = crate::app_dirs::profiles_dir();
     assert!(
-      profiles_dir.to_string_lossy().contains("DonutBrowser"),
-      "Profiles dir should contain DonutBrowser"
+      profiles_dir.starts_with(temp.path()),
+      "profiles dir should stay under the test data root"
     );
     assert!(
-      profiles_dir.to_string_lossy().contains("profiles"),
-      "Profiles dir should contain profiles"
+      profiles_dir.ends_with("profiles"),
+      "profiles dir should end with 'profiles'"
     );
   }
 
   #[test]
   fn test_get_binaries_dir() {
-    let (manager, _temp_dir) = create_test_profile_manager();
-
-    let binaries_dir = manager.get_binaries_dir();
-    let path_str = binaries_dir.to_string_lossy();
-
+    // Same thread-local override as test_get_profiles_dir.
+    let temp = TempDir::new().unwrap();
+    let _guard = crate::app_dirs::set_test_data_dir(temp.path().to_path_buf());
+    let binaries_dir = crate::app_dirs::binaries_dir();
     assert!(
-      path_str.contains("DonutBrowser"),
-      "Binaries dir should contain DonutBrowser"
+      binaries_dir.starts_with(temp.path()),
+      "binaries dir should stay under the test data root"
     );
     assert!(
-      path_str.contains("binaries"),
-      "Binaries dir should contain binaries"
+      binaries_dir.ends_with("binaries"),
+      "binaries dir should end with 'binaries'"
     );
   }
 
