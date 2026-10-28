@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "donutos",
+  "productName": "DonutOS",
   "version": "0.35.4",
   "identifier": "com.donutbrowser.free",
   "build": {

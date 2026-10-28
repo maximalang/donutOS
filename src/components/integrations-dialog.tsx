@@ -727,8 +727,6 @@ export function IntegrationsDialog({
     ),
   }));
 
-  const remoteConfig = mcpClientConfig(mcpBaseUrl, exampleBearer);
-
   const remoteExamples: CodeExample[] = [
     ...REMOTE_MCP_EXAMPLES.map((example) => ({
       id: example.id,

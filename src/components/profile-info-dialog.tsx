@@ -120,7 +120,6 @@ import { translateBackendError } from "@/lib/backend-errors";
 import { getProfileIcon, getProfileNativeOs } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
 import { formatRelativeTime } from "@/lib/flag-utils";
-import { isFreeBuildSync } from "@/lib/free-build";
 import { MOTION_DURATION, MOTION_EASE_OUT, MOTION_SPRING } from "@/lib/motion";
 import { rotateProxyIps } from "@/lib/proxy-rotation";
 import type { RemoteHandoffState } from "@/lib/remote-sessions";

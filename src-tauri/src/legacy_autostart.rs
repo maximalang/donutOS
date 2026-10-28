@@ -128,7 +128,7 @@ fn remove_entry(path: &Path, unload: impl FnOnce()) -> io::Result<bool> {
 /// directory where VPN configs lived before they moved, so only the daemon's
 /// files are removed, never the directory's other content.
 fn daemon_data_dir() -> Option<PathBuf> {
-  directories::ProjectDirs::from("com", "donutbrowser", "donutos")
+  directories::ProjectDirs::from("com", "donutbrowser", "DonutOS")
     .map(|dirs| dirs.data_dir().to_path_buf())
 }
 
@@ -231,7 +231,7 @@ mod tests {
   fn the_daemon_files_and_the_directories_they_leave_empty_are_removed() {
     let root = tempfile::tempdir().unwrap();
     let base = root.path().join("data");
-    let dir = base.join("donutbrowser").join("donutos").join("data");
+    let dir = base.join("donutbrowser").join("DonutOS").join("data");
     std::fs::create_dir_all(dir.join("logs")).unwrap();
     for name in DAEMON_FILES {
       std::fs::write(dir.join(name), "x").unwrap();

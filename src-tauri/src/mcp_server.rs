@@ -153,7 +153,7 @@ pub struct McpRequest {
 
 const PROTOCOL_VERSION: &str = "2025-11-25";
 
-const INITIALIZE_INSTRUCTIONS: &str = "donutos MCP server. Use tools/list to discover the browser tools. A person watches your work in Donut: call get_human_updates when you start and between steps, report_progress during longer jobs, ask_human when you are unsure, and request_human_help when a page needs a person. When a Donut tool fails in a way you cannot explain, or you need something it cannot do, tell the Donut team with send_feedback. A call refused with AGENT_PAUSED or PROFILE_HELD_BY_HUMAN means the person is in control; do not retry it until get_human_updates shows the pause or hold is gone.";
+const INITIALIZE_INSTRUCTIONS: &str = "DonutOS MCP server. Use tools/list to discover the browser tools. A person watches your work in Donut: call get_human_updates when you start and between steps, report_progress during longer jobs, ask_human when you are unsure, and request_human_help when a page needs a person. When a Donut tool fails in a way you cannot explain, or you need something it cannot do, tell the Donut team with send_feedback. A call refused with AGENT_PAUSED or PROFILE_HELD_BY_HUMAN means the person is in control; do not retry it until get_human_updates shows the pause or hold is gone.";
 
 const PLAN_WITHOUT_AUTOMATION: &str = " This account's plan does not include browser automation: tools that launch, drive or read a browser are refused with PLAN_REQUIRED. Managing profiles, groups, proxies, VPNs and extensions works.";
 
@@ -223,10 +223,10 @@ fn cdp_error(error: CdpError) -> McpError {
 ///
 /// A desktop the server will not give a Wayfern token, because another desktop
 /// on the account is the primary one, launches the engine without a token, and
-/// the engine then refuses every command as "requires a paid donutos
+/// the engine then refuses every command as "requires a paid DonutOS
 /// plan", which is false for a paying account.
 fn explain_engine_refusal(mut error: McpError, device_refusal: Option<String>) -> McpError {
-  if error.message.contains("requires a paid donutos plan") {
+  if error.message.contains("requires a paid DonutOS plan") {
     if let Some(reason) = device_refusal {
       error.message = reason;
     }
@@ -6491,7 +6491,7 @@ impl McpServer {
       },
       McpTool {
         name: "send_feedback".to_string(),
-        description: "Send feedback about donutos to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach what get_diagnostics returns: facts about this install and the recent app and proxy worker logs, which help with bugs and never contain profile names, visited URLs or credentials. The feedback is anonymous: it carries nothing about the person's account. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
+        description: "Send feedback about DonutOS to the Donut team: a tool that failed or behaved unexpectedly, a capability you needed and did not find, a confusing result, or something that worked well. Say what you tried, what happened, and what you expected. Set include_logs to attach what get_diagnostics returns: facts about this install and the recent app and proxy worker logs, which help with bugs and never contain profile names, visited URLs or credentials. The feedback is anonymous: it carries nothing about the person's account. The person at this computer sees what you sent. Returns {sent: true, feedback_id}.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -6508,7 +6508,7 @@ impl McpServer {
       },
       McpTool {
         name: "get_diagnostics".to_string(),
-        description: "Read what a bug report would attach, to find out why donutos misbehaves: facts about this install (version, OS, install kind, sync, installed Wayfern versions, running browsers and proxy workers, one line per profile) and the newest app and proxy worker log lines. Profiles, proxies, VPNs and groups appear as aliases such as profile-3, the same in the facts and the logs; names, emails, account details, IP addresses, web addresses and secrets are removed. Use it when the person reports a problem: follow the triage playbook at https://raw.githubusercontent.com/donutbrowser/donutbrowser/main/docs/TRIAGE.md, then report with send_feedback (include_logs: true). Returns {diagnostics}.".to_string(),
+        description: "Read what a bug report would attach, to find out why DonutOS misbehaves: facts about this install (version, OS, install kind, sync, installed Wayfern versions, running browsers and proxy workers, one line per profile) and the newest app and proxy worker log lines. Profiles, proxies, VPNs and groups appear as aliases such as profile-3, the same in the facts and the logs; names, emails, account details, IP addresses, web addresses and secrets are removed. Use it when the person reports a problem: follow the triage playbook at https://raw.githubusercontent.com/donutbrowser/donutbrowser/main/docs/TRIAGE.md, then report with send_feedback (include_logs: true). Returns {diagnostics}.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -6804,7 +6804,7 @@ impl McpServer {
       .await
       .map_err(|error| explain_engine_refusal(error, CLOUD_AUTH.wayfern_device_refusal()));
     if let Err(error) = &mut result {
-      if error.message.contains("requires a paid donutos plan") {
+      if error.message.contains("requires a paid DonutOS plan") {
         let profile = arguments.get("profile_id").and_then(|v| v.as_str());
         if let Some(reason) = stale_plan_token_refusal(profile).await {
           error.message = reason;
@@ -13061,7 +13061,7 @@ mod tests {
     let engine = || McpError {
       code: -32000,
       message:
-        r#"CDP error: {"code":-32000,"message":"Browser automation requires a paid donutos plan."}"#
+        r#"CDP error: {"code":-32000,"message":"Browser automation requires a paid DonutOS plan."}"#
           .to_string(),
       data: None,
     };

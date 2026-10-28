@@ -400,7 +400,7 @@ export function AccountPage({
                     <div className="min-w-0 flex-1">
                       {localBuild ? (
                         <>
-                          <h2 className="text-sm font-semibold">donutos</h2>
+                          <h2 className="text-sm font-semibold">DonutOS</h2>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("account.localProduct")}
                           </p>

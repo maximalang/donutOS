@@ -47,7 +47,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
     .to_ascii_lowercase();
   let (show, quit, running, recent, stop_all, stop, open_details) = match code.as_str() {
     "de" => (
-      "donutos anzeigen",
+      "DonutOS anzeigen",
       "Beenden",
       "Laufend",
       "Zuletzt verwendet",
@@ -56,7 +56,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Details öffnen",
     ),
     "es" => (
-      "Mostrar donutos",
+      "Mostrar DonutOS",
       "Salir",
       "En ejecución",
       "Recientes",
@@ -65,7 +65,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Abrir detalles",
     ),
     "fr" => (
-      "Afficher donutos",
+      "Afficher DonutOS",
       "Quitter",
       "En cours",
       "Récents",
@@ -74,7 +74,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Ouvrir les détails",
     ),
     "ja" => (
-      "donutos を表示",
+      "DonutOS を表示",
       "終了",
       "実行中",
       "最近使用",
@@ -83,7 +83,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "詳細を開く",
     ),
     "ko" => (
-      "donutos 표시",
+      "DonutOS 표시",
       "종료",
       "실행 중",
       "최근 항목",
@@ -92,7 +92,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "세부 정보 열기",
     ),
     "pt" => (
-      "Mostrar donutos",
+      "Mostrar DonutOS",
       "Sair",
       "Em execução",
       "Recentes",
@@ -101,7 +101,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Abrir detalhes",
     ),
     "ru" => (
-      "Показать donutos",
+      "Показать DonutOS",
       "Выход",
       "Запущенные",
       "Недавние",
@@ -110,7 +110,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Открыть сведения",
     ),
     "tr" => (
-      "donutos'ı Göster",
+      "DonutOS'ı Göster",
       "Çık",
       "Çalışanlar",
       "Son kullanılanlar",
@@ -119,7 +119,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Ayrıntıları aç",
     ),
     "vi" => (
-      "Hiển thị donutos",
+      "Hiển thị DonutOS",
       "Thoát",
       "Đang chạy",
       "Gần đây",
@@ -128,7 +128,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "Mở chi tiết",
     ),
     "zh" => (
-      "显示 donutos",
+      "显示 DonutOS",
       "退出",
       "运行中",
       "最近使用",
@@ -137,7 +137,7 @@ pub(crate) fn labels_for(language: &str) -> Labels {
       "打开详情",
     ),
     _ => (
-      "Show donutos",
+      "Show DonutOS",
       "Quit",
       "Running",
       "Recent",
@@ -444,14 +444,14 @@ pub(crate) fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
   TrayIconBuilder::with_id("main")
     .icon(tray_image)
     .icon_as_template(cfg!(target_os = "macos"))
-    .tooltip("donutos")
+    .tooltip("DonutOS")
     .menu(&menu)
     .show_menu_on_left_click(false)
     .on_menu_event(|app_handle, event| on_menu_event(app_handle, event.id().as_ref()))
     .on_tray_icon_event(|tray, event| {
       // Click events are not delivered on Linux (AppIndicator/SNI only drives
       // the menu), so left-click-to-restore is macOS/Windows only — Linux users
-      // restore via the "Show donutos" menu item.
+      // restore via the "Show DonutOS" menu item.
       if let TrayIconEvent::Click {
         button: MouseButton::Left,
         button_state: MouseButtonState::Up,

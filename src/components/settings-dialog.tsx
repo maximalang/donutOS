@@ -1069,7 +1069,7 @@ export function SettingsDialog({
     </span>
   );
   const systemLine = systemInfo
-    ? `donutos ${systemInfo.app_version} · ${systemInfo.os} ${systemInfo.arch}${systemInfo.portable ? " (portable)" : ""}`
+    ? `DonutOS ${systemInfo.app_version} · ${systemInfo.os} ${systemInfo.arch}${systemInfo.portable ? " (portable)" : ""}`
     : "";
 
   return (

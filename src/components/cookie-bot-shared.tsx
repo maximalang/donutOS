@@ -1128,7 +1128,7 @@ export function RemoteHoursMeter({
 function RemoteHoursReadout({
   remaining,
   granted,
-  resets,
+  resets: _resets,
   isLocal,
 }: {
   remaining: number;

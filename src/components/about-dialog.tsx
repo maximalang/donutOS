@@ -196,7 +196,7 @@ export function AboutDialog({
   const details = useMemo(() => {
     if (!systemInfo || !build) return "";
     return [
-      `donutos ${systemInfo.app_version}`,
+      `DonutOS ${systemInfo.app_version}`,
       `Channel: ${build.channel}`,
       `System: ${systemInfo.os} ${systemInfo.arch}`,
       `Wayfern: ${wayfernVersions?.length ? wayfernVersions.join(", ") : "none"}`,
@@ -372,7 +372,7 @@ export function AboutDialog({
                 </button>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <DialogTitle className="text-lg leading-tight">
-                    donutos
+                    DonutOS
                   </DialogTitle>
                   <p
                     data-slot="about-build"

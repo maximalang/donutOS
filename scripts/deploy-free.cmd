@@ -1,10 +1,10 @@
 @echo off
-rem Deploys the DonutFree portable build from the D: cargo target.
-rem Usage: deploy-free.cmd [destination]   (default C:\Users\max\Desktop\Donut-Free)
+rem Deploys the DonutOS portable build from the D: cargo target.
+rem Usage: deploy-free.cmd [destination]   (default C:\Users\max\Desktop\DonutOS)
 setlocal
 set "SRC=D:\ZDownloads\donut-free-target\release"
 set "DST=%~1"
-if "%DST%"=="" set "DST=C:\Users\max\Desktop\Donut-Free"
+if "%DST%"=="" set "DST=C:\Users\max\Desktop\DonutOS"
 
 if not exist "%SRC%\donutbrowser.exe" (
   echo ERROR: %SRC%\donutbrowser.exe not found - build first.
@@ -12,8 +12,8 @@ if not exist "%SRC%\donutbrowser.exe" (
 )
 
 mkdir "%DST%" 2>nul
-rem Raw tauri output keeps the cargo package name; ship it as DonutFree.exe.
-copy /y "%SRC%\donutbrowser.exe" "%DST%\DonutFree.exe" >nul || goto :fail
+rem Raw tauri output keeps the cargo package name; ship it as DonutOS.exe.
+copy /y "%SRC%\donutbrowser.exe" "%DST%\DonutOS.exe" >nul || goto :fail
 for %%F in (donut-proxy.exe xray.exe donut-xray.exe) do (
   if exist "%SRC%\%%F" copy /y "%SRC%\%%F" "%DST%\" >nul
 )
@@ -44,7 +44,7 @@ rem -AlwaysOn) reach the instance instead of drifting from a hand-copied file.
 copy /y "%~dp0donut-watchdog.ps1" "%DST%\" >nul
 rem Retire stale exe artifacts from older deploys: raw cargo-name binaries and
 rem .bak leftovers no current deploy step owns (observed in the wild:
-rem donutbrowser.stale-20241019.exe.bak). The shipped set is DonutFree.exe
+rem donutbrowser.stale-20241019.exe.bak). The shipped set is DonutOS.exe
 rem (freshly copied above) + donut-proxy.exe + xray.exe + donut-xray.exe.
 for %%F in ("%DST%\donutbrowser*.exe" "%DST%\*.exe.bak") do (
   if exist "%%~F" (
@@ -53,7 +53,7 @@ for %%F in ("%DST%\donutbrowser*.exe" "%DST%\*.exe.bak") do (
   )
 )
 for %%F in ("%DST%\*.exe") do (
-  if /i not "%%~nxF"=="DonutFree.exe" if /i not "%%~nxF"=="donut-proxy.exe" if /i not "%%~nxF"=="xray.exe" if /i not "%%~nxF"=="donut-xray.exe" (
+  if /i not "%%~nxF"=="DonutOS.exe" if /i not "%%~nxF"=="donut-proxy.exe" if /i not "%%~nxF"=="xray.exe" if /i not "%%~nxF"=="donut-xray.exe" (
     del /q "%%~F"
     echo Retired stale artifact: %%~nxF
   )

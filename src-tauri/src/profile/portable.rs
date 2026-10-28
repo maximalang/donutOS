@@ -201,7 +201,7 @@ pub fn export_to(
 
   let manifest = PortableManifest {
     format_version: FORMAT_VERSION,
-    exported_by: format!("donutos {}", env!("CARGO_PKG_VERSION")),
+    exported_by: format!("DonutOS {}", env!("CARGO_PKG_VERSION")),
     exported_at: crate::proxy_manager::now_secs(),
     profile_name: profile.name.clone(),
     browser: profile.browser.clone(),
@@ -791,7 +791,7 @@ mod tests {
         .write_all(
           serde_json::json!({
             "format_version": FORMAT_VERSION + 1,
-            "exported_by": "donutos 99.0.0",
+            "exported_by": "DonutOS 99.0.0",
             "exported_at": 1,
             "profile_name": "Future",
             "browser": "wayfern",

@@ -1,7 +1,7 @@
 /*!
 # App Auto Updater
 
-This module provides comprehensive self-update functionality for the donutos application
+This module provides comprehensive self-update functionality for the DonutOS application
 across multiple operating systems and installation methods.
 
 ## Supported Platforms
@@ -1358,9 +1358,9 @@ impl AppAutoUpdater {
       // Clean up backup after successful installation
       let _ = fs::remove_dir_all(&backup_path);
 
-      // Clean up old "donutos.app" if it exists (from before the project rename)
+      // Clean up old "DonutOS.app" if it exists (from before the project rename)
       if let Some(parent_dir) = current_app_path.parent() {
-        let old_app_path = parent_dir.join("donutos.app");
+        let old_app_path = parent_dir.join("DonutOS.app");
         if old_app_path.exists() && old_app_path != current_app_path {
           match fs::remove_dir_all(&old_app_path) {
             Ok(()) => log::info!(

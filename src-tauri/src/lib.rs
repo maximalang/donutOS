@@ -992,7 +992,7 @@ fn mcp_remote_key_label() -> String {
     .map(|h| h.trim().to_string())
     .filter(|h| !h.is_empty())
     .unwrap_or_else(|| "this computer".to_string());
-  format!("donutos on {host}")
+  format!("DonutOS on {host}")
     .chars()
     .take(MAX_LABEL_CHARS)
     .collect()
@@ -1189,7 +1189,7 @@ const BRIDGE_URL_MARKER: &str = "const MCP_URL = ";
 /// template with two placeholders rather than a `format!` string so the
 /// JavaScript braces stay readable.
 const CLAUDE_DESKTOP_BRIDGE_JS: &str = r##"#!/usr/bin/env node
-// Bridges Claude Desktop's stdio transport to donutos's streamable HTTP endpoint.
+// Bridges Claude Desktop's stdio transport to DonutOS's streamable HTTP endpoint.
 const http = require("http");
 const https = require("https");
 const readline = require("readline");
@@ -1352,10 +1352,10 @@ fn add_mcp_to_claude_desktop_internal(target: &mcp_integrations::McpTarget) -> R
   let manifest = serde_json::json!({
     "manifest_version": "0.3",
     "name": "donut-browser",
-    "display_name": "donutos",
+    "display_name": "DonutOS",
     "version": env!("CARGO_PKG_VERSION"),
-    "description": "Control donutos profiles, proxies, and automation via MCP",
-    "author": { "name": "donutos" },
+    "description": "Control DonutOS profiles, proxies, and automation via MCP",
+    "author": { "name": "DonutOS" },
     "tools_generated": true,
     "server": {
       "type": "node",
@@ -2717,7 +2717,7 @@ pub fn run_with_builder(
       }
       #[allow(unused_variables)]
       let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("donutos")
+        .title("DonutOS")
         .inner_size(880.0, 500.0)
         .min_inner_size(640.0, 400.0)
         .resizable(true)
@@ -3962,7 +3962,7 @@ mod tests {
 
   #[test]
   fn a_command_line_yields_the_links_and_files_it_carries() {
-    let exe = "C:/Program Files/donutos/donutbrowser.exe".to_string();
+    let exe = "C:/Program Files/DonutOS/donutbrowser.exe".to_string();
 
     // The executable's own path leads every command line and is not a target,
     // even on a machine where that path happens to exist.
@@ -4026,9 +4026,9 @@ mod tests {
   #[test]
   fn the_key_label_names_this_machine_and_fits_the_servers_cap() {
     let label = super::mcp_remote_key_label();
-    assert!(label.starts_with("donutos on "), "{label}");
+    assert!(label.starts_with("DonutOS on "), "{label}");
     assert!(label.chars().count() <= 80, "{label}");
-    assert!(label.len() > "donutos on ".len(), "{label}");
+    assert!(label.len() > "DonutOS on ".len(), "{label}");
   }
 
   #[test]

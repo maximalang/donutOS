@@ -2588,7 +2588,7 @@ mod tests {
       "Wayfern token request failed (403 Forbidden): {\"message\":\"Browser automation is restricted to your primary device. Log out other devices to use it here.\",\"statusCode\":403}"
     ));
     assert!(is_device_restriction(
-      "Wayfern token request failed (403 Forbidden): {\"message\":\"Browser automation requires the desktop app. Open donutos and try again.\",\"statusCode\":403}"
+      "Wayfern token request failed (403 Forbidden): {\"message\":\"Browser automation requires the desktop app. Open DonutOS and try again.\",\"statusCode\":403}"
     ));
     // A plan-level refusal is not a restriction, and must not raise the toast
     // that tells the user to sign other devices out.
