@@ -1069,6 +1069,7 @@ impl ApiServer {
     &mut self,
     app_handle: tauri::AppHandle,
     preferred_port: u16,
+    listen_host: Option<String>,
   ) -> Result<u16, String> {
     // Stop existing server if running
     self.stop().await.ok();
@@ -1078,13 +1079,19 @@ impl ApiServer {
       app_handle: app_handle.clone(),
     };
 
+    // Loopback unless the store explicitly widened it to the LAN. The bearer
+    // token and the role gate still apply off-host; this only opens the door.
+    let listen_host = listen_host
+      .map(|host| crate::settings_manager::sanitize_api_listen(&host))
+      .unwrap_or_else(|| "127.0.0.1".to_string());
+
     // Try preferred port first, then random port
-    let listener = match TcpListener::bind(format!("127.0.0.1:{preferred_port}")).await {
+    let listener = match TcpListener::bind(format!("{listen_host}:{preferred_port}")).await {
       Ok(listener) => listener,
       Err(_) => {
         // Port conflict, try random port
         let random_port = rand::random::<u16>().saturating_add(10000);
-        match TcpListener::bind(format!("127.0.0.1:{random_port}")).await {
+        match TcpListener::bind(format!("{listen_host}:{random_port}")).await {
           Ok(listener) => {
             let _ = events::emit(
               "api-port-conflict",
@@ -1703,10 +1710,13 @@ pub static API_SERVER: std::sync::LazyLock<Arc<Mutex<ApiServer>>> =
 #[tauri::command]
 pub async fn start_api_server_internal(
   port: u16,
+  listen_host: Option<String>,
   app_handle: &tauri::AppHandle,
 ) -> Result<u16, String> {
   let mut server_guard = API_SERVER.lock().await;
-  server_guard.start(app_handle.clone(), port).await
+  server_guard
+    .start(app_handle.clone(), port, listen_host)
+    .await
 }
 
 #[tauri::command]
@@ -1721,7 +1731,13 @@ pub async fn start_api_server(
   app_handle: tauri::AppHandle,
 ) -> Result<u16, String> {
   let actual_port = port.unwrap_or(10108);
-  start_api_server_internal(actual_port, &app_handle).await
+  // The stored listen address wins over the caller: the port travels as an
+  // argument, the bind host is a settings-owned property of the install.
+  let listen_host = crate::settings_manager::SettingsManager::instance()
+    .load_settings()
+    .ok()
+    .map(|settings| settings.api_listen);
+  start_api_server_internal(actual_port, listen_host, &app_handle).await
 }
 
 #[tauri::command]

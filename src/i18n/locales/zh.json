@@ -1225,7 +1225,14 @@
         "operator": "操作员",
         "viewer": "观察者"
       }
-    }
+    },
+    "apiListenLabel": "监听地址",
+    "apiListenDescription": "仅回环，或所有网卡接口让局域网内的舰队机器访问 API",
+    "apiListenLoopback": "仅本机",
+    "apiListenLan": "局域网",
+    "apiListenSaved": "API 仅监听本机回环",
+    "apiListenLanSaved": "API 已可在局域网访问——请保管好令牌",
+    "apiListenFailed": "无法更改监听地址"
   },
   "import": {
     "title": "导入配置文件",

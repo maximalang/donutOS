@@ -1,4 +1,4 @@
-# Donut-Free control: status | start | stop | restart | token | doctor | backup | restore
+# DonutOS control: status | start | stop | restart | token | doctor | backup | restore
 param(
   [Parameter(Position = 0)][string]$Action = "status",
   [string]$Base,
@@ -6,7 +6,7 @@ param(
 )
 $ErrorActionPreference = 'SilentlyContinue'
 if (-not $Base) { $Base = Split-Path -Parent $MyInvocation.MyCommand.Path }
-$exe       = Join-Path $Base 'DonutFree.exe'
+$exe       = Join-Path $Base 'DonutOS.exe'
 $tokenFile = Join-Path $Base 'config\automation-token.txt'
 $settingsF = Join-Path $Base 'data\settings\app_settings.json'
 $token   = if (Test-Path $tokenFile) { (Get-Content $tokenFile -Raw).Trim() } else { $null }
@@ -43,6 +43,18 @@ switch ($Action) {
     if (@(Get-Procs).Count) { "already running"; break }
     if (-not (Test-Path $exe)) { "ERROR: $exe not found"; break }
     $env:DONUT_AUTOMATION_TOKEN = $token
+    # Optional config/sync.env (KEY=VALUE lines): self-hosted sync provisioning
+    # for fleet installs. The app adopts DONUT_SYNC_URL + DONUT_SYNC_TOKEN once,
+    # on a store that has neither; never printed anywhere.
+    $syncEnv = Join-Path $Base 'config\sync.env'
+    if (Test-Path $syncEnv) {
+      Get-Content $syncEnv | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith('#') -and $line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+          Set-Item -Path ('Env:' + $Matches[1]) -Value $Matches[2]
+        }
+      }
+    }
     $proc = Start-Process -FilePath $exe -WorkingDirectory $Base -PassThru
     # Started on purpose: the ctl-stop marker is now stale and would keep the
     # watchdog (on-demand mode) from ever treating a later death as a crash.

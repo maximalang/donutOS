@@ -1225,7 +1225,14 @@
         "operator": "Operator",
         "viewer": "Viewer"
       }
-    }
+    },
+    "apiListenLabel": "Listen address",
+    "apiListenDescription": "Loopback only, or all interfaces so fleet machines on the LAN can reach the API",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "The API listens on loopback only",
+    "apiListenLanSaved": "The API is reachable on the LAN — keep the token secret",
+    "apiListenFailed": "Could not change the listen address"
   },
   "import": {
     "title": "Import Profile",

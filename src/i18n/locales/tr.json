@@ -1225,7 +1225,14 @@
         "operator": "Operatör",
         "viewer": "Gözlemci"
       }
-    }
+    },
+    "apiListenLabel": "Dinleme adresi",
+    "apiListenDescription": "Yalnızca loopback veya LAN'daki filo makinelerinin API'ye erişebilmesi için tüm arayüzler",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "API yalnızca loopback üzerinde dinliyor",
+    "apiListenLanSaved": "API LAN üzerinden erişilebilir — token'ı gizli tutun",
+    "apiListenFailed": "Dinleme adresi değiştirilemedi"
   },
   "import": {
     "title": "Profil İçe Aktar",

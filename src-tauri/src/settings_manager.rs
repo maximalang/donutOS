@@ -232,6 +232,11 @@ pub struct AppSettings {
   pub api_enabled: bool,
   #[serde(default = "default_api_port")]
   pub api_port: u16,
+  /// The address the local API listens on. Loopback by default; `0.0.0.0`
+  /// exposes it to the LAN — the bearer token and the role gate still apply
+  /// to every call, but the listener itself becomes reachable off-host.
+  #[serde(default = "default_api_listen")]
+  pub api_listen: String,
   #[serde(default)]
   pub api_token: Option<String>, // Displayed token for user to copy
   #[serde(default)]
@@ -417,6 +422,94 @@ fn default_api_port() -> u16 {
   10108
 }
 
+fn default_api_listen() -> String {
+  "127.0.0.1".to_string()
+}
+
+/// Only loopback or all-interfaces are meaningful for the local API; any
+/// other value would fail at bind time and take the whole API down with it.
+pub fn sanitize_api_listen(value: &str) -> String {
+  match value.trim() {
+    "0.0.0.0" | "::" | "[::]" => "0.0.0.0".to_string(),
+    _ => "127.0.0.1".to_string(),
+  }
+}
+
+/// Whether the environment-provisioned self-hosted sync server applies to
+/// this store. Pure so the policy is testable without env races.
+#[cfg(feature = "free")]
+fn env_provision_should_apply(
+  url: Option<&str>,
+  token: Option<&str>,
+  stored_url: bool,
+  stored_token: bool,
+) -> bool {
+  match (url, token) {
+    (Some(url), Some(token)) => {
+      !url.trim().is_empty() && !token.trim().is_empty() && !stored_url && !stored_token
+    }
+    _ => false,
+  }
+}
+
+#[cfg(all(test, feature = "free"))]
+mod free_provision_tests {
+  use super::{env_provision_should_apply, sanitize_api_listen};
+
+  #[test]
+  fn provisioning_needs_both_values_and_a_clean_store() {
+    assert!(env_provision_should_apply(
+      Some("http://127.0.0.1:3929"),
+      Some("tok"),
+      false,
+      false
+    ));
+    // Either half missing → no.
+    assert!(!env_provision_should_apply(
+      Some("http://x"),
+      None,
+      false,
+      false
+    ));
+    assert!(!env_provision_should_apply(None, Some("tok"), false, false));
+    // Blank values are as good as missing.
+    assert!(!env_provision_should_apply(
+      Some("  "),
+      Some("tok"),
+      false,
+      false
+    ));
+    assert!(!env_provision_should_apply(
+      Some("http://x"),
+      Some(""),
+      false,
+      false
+    ));
+    // An explicit earlier choice is never overwritten.
+    assert!(!env_provision_should_apply(
+      Some("http://x"),
+      Some("tok"),
+      true,
+      false
+    ));
+    assert!(!env_provision_should_apply(
+      Some("http://x"),
+      Some("tok"),
+      false,
+      true
+    ));
+  }
+
+  #[test]
+  fn listen_addresses_clamp_to_loopback_or_lan() {
+    assert_eq!(sanitize_api_listen("127.0.0.1"), "127.0.0.1");
+    assert_eq!(sanitize_api_listen(" 0.0.0.0 "), "0.0.0.0");
+    assert_eq!(sanitize_api_listen("::"), "0.0.0.0");
+    assert_eq!(sanitize_api_listen("8.8.8.8"), "127.0.0.1");
+    assert_eq!(sanitize_api_listen("junk"), "127.0.0.1");
+  }
+}
+
 fn default_tips_auto_show() -> bool {
   true
 }
@@ -515,6 +608,7 @@ impl Default for AppSettings {
       custom_theme: None,
       api_enabled: false,
       api_port: 10108,
+      api_listen: default_api_listen(),
       api_token: None,
       sync_server_url: None,
       account_sync_server_url: None,
@@ -936,6 +1030,45 @@ impl SettingsManager {
     settings.sync_server_url = url;
     self.save_settings(&settings)
   }
+
+  /// Free builds provision the self-hosted sync server from the environment:
+  /// `DONUT_SYNC_URL` + `DONUT_SYNC_TOKEN` are adopted once, on a store that
+  /// has neither a server nor a token, so a fleet install wires sync without
+  /// driving the UI. Never overwrites an explicit choice; the token goes
+  /// straight from the environment into the vault, never into settings JSON
+  /// or logs. Call once from app setup, before anything reads sync settings.
+  #[cfg(feature = "free")]
+  pub fn provision_sync_from_env(&self, app_handle: &tauri::AppHandle) {
+    let url = std::env::var("DONUT_SYNC_URL").ok();
+    let token = std::env::var("DONUT_SYNC_TOKEN").ok();
+    let stored_url = self.load_settings().ok();
+    let stored_token = tauri::async_runtime::block_on(self.get_sync_token(app_handle))
+      .ok()
+      .flatten();
+    let should = env_provision_should_apply(
+      url.as_deref(),
+      token.as_deref(),
+      stored_url
+        .as_ref()
+        .is_some_and(|s| s.sync_server_url.is_some()),
+      stored_token.is_some(),
+    );
+    if !should {
+      return;
+    }
+    let mut settings = stored_url.unwrap_or_default();
+    settings.sync_server_url = Some(url.unwrap_or_default().trim().to_string());
+    if self.save_settings(&settings).is_ok() {
+      let token = token.unwrap_or_default();
+      if let Err(e) =
+        tauri::async_runtime::block_on(self.store_sync_token(app_handle, token.trim()))
+      {
+        log::warn!("free sync provisioning could not store the token: {e}");
+        return;
+      }
+      log::info!("sync: self-hosted server provisioned from the environment");
+    }
+  }
 }
 
 #[tauri::command]
@@ -1016,6 +1149,9 @@ pub async fn save_app_settings(
   // task kept running. The key id is bookkeeping for the rotation path and is
   // never the frontend's to write.
   settings.trash_retention_days = settings.trash_retention_days.min(MAX_TRASH_RETENTION_DAYS);
+  // The listen address is frontend-owned like the port; clamp it so a rogue
+  // value cannot dead-end the bind on the next start.
+  settings.api_listen = sanitize_api_listen(&settings.api_listen);
   let mut previous_retention = None;
   // A tips command between this read and the save below would be lost.
   let tips_serial = TIPS_WRITE
@@ -2179,6 +2315,7 @@ mod tests {
       custom_theme: None,
       api_enabled: false,
       api_port: 10108,
+      api_listen: "127.0.0.1".to_string(),
       api_token: None,
       sync_server_url: None,
       account_sync_server_url: None,

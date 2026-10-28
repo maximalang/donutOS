@@ -1225,7 +1225,14 @@
         "operator": "Vận hành",
         "viewer": "Quan sát"
       }
-    }
+    },
+    "apiListenLabel": "Địa chỉ lắng nghe",
+    "apiListenDescription": "Chỉ loopback, hoặc mọi giao diện để máy của hạm đội trong LAN truy cập được API",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "API chỉ lắng nghe trên loopback",
+    "apiListenLanSaved": "API có thể truy cập từ LAN — hãy giữ token bí mật",
+    "apiListenFailed": "Không thể đổi địa chỉ lắng nghe"
   },
   "import": {
     "title": "Nhập profile",

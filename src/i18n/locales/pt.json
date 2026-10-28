@@ -1234,7 +1234,14 @@
         "operator": "Operador",
         "viewer": "Observador"
       }
-    }
+    },
+    "apiListenLabel": "Endereço de escuta",
+    "apiListenDescription": "Apenas loopback, ou todas as interfaces para que as máquinas da frota na LAN alcancem a API",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "A API escuta apenas no loopback",
+    "apiListenLanSaved": "A API está acessível na LAN — mantenha o token em segredo",
+    "apiListenFailed": "Não foi possível alterar o endereço de escuta"
   },
   "import": {
     "title": "Importar Perfil",

@@ -1234,7 +1234,14 @@
         "operator": "Operador",
         "viewer": "Observador"
       }
-    }
+    },
+    "apiListenLabel": "Dirección de escucha",
+    "apiListenDescription": "Solo loopback, o todas las interfaces para que los equipos de la flota en la LAN alcancen la API",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "La API escucha solo en loopback",
+    "apiListenLanSaved": "La API es accesible en la LAN — mantén el token en secreto",
+    "apiListenFailed": "No se pudo cambiar la dirección de escucha"
   },
   "import": {
     "title": "Importar Perfil",

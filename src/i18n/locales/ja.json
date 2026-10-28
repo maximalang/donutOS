@@ -1225,7 +1225,14 @@
         "operator": "オペレーター",
         "viewer": "閲覧者"
       }
-    }
+    },
+    "apiListenLabel": "リッスンアドレス",
+    "apiListenDescription": "ループバックのみ、または LAN 上のフリートマシンが API に到達できる全インターフェース",
+    "apiListenLoopback": "ループバック",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "API はループバックのみでリッスンします",
+    "apiListenLanSaved": "API は LAN から到達可能です。トークンは秘密にしてください",
+    "apiListenFailed": "リッスンアドレスを変更できませんでした"
   },
   "import": {
     "title": "プロファイルをインポート",

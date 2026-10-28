@@ -1,225 +1,163 @@
-# Server Mode — donutOS self-hosted configuration
+# Server Mode — DonutOS self-hosted configuration
 
-**Version:** 0.35.4 (free)  
-**Date:** 2026-10-25  
-**Scope:** Local MCP remote server, self-hosted sync, no vendor-cloud dependency
+**Version:** 0.35.4+ (free)  
+**Scope:** Local API + MCP for local and LAN clients, self-hosted sync, no vendor-cloud dependency
 
 ---
 
 ## Overview
 
-DonutOS **server-mode** runs Donut Browser as a **local MCP server** for remote clients (Claude, Cursor, Codex, Hermes agents) over a network or LAN. All profiles, cookies, proxies, and data stay on your machine or your self-hosted server.
+DonutOS serves its automation surface from the app itself: one HTTP server
+(the **local API**) carries both REST (`/v1/*`) and the MCP endpoint
+(`/v1/mcp`, streamable-HTTP JSON-RPC). Profiles, cookies, proxies and data
+stay on this machine. Nothing dials out to a vendor cloud; the vendor's
+remote bridge (`mcp_remote`) is cloud-account machinery and stays out of the
+free build's story.
 
-- **No vendor cloud:** all logic local or self-hosted
-- **Safe by default:** explicit allowlist for remote clients, password-protected
-- **Full privacy:** end-to-end encryption optional for sync
-- **Production-ready CI:** automated Windows x64 releases via GitHub Actions
+- No vendor cloud: all logic is local or self-hosted
+- Auth by default: every call — loopback included — needs the Bearer token
+- Named API members with roles (`owner` / `operator` / `viewer`)
 
 ---
 
 ## Quick Start
 
-### Local MCP Server (same machine)
+### Same machine (default)
+
+The API binds `127.0.0.1` on the port from settings (Integrations → Local
+API; portable installs default to `10108`, the fleet prod install uses
+`10109`).
 
 ```bash
-# Build donutOS
-cd src-tauri
-cargo build --release --features free
+# Health (401 without the header means ALIVE, not broken)
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:10109/v1/health
 
-# Run with MCP remote enabled (listen on localhost:3000)
-./target/release/donut_free --mcp-listen 127.0.0.1:3000
-
-# In Claude Desktop or Hermes agent:
-# Connect to stdio or TCP:
-#   "type": "stdio"
-#   "command": "donut_free"
-#   "args": ["--mcp-listen-tcp", "127.0.0.1:3000"]
+# MCP: initialize → notifications/initialized → tools/list → tools/call
+curl -X POST http://127.0.0.1:10109/v1/mcp \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}'
 ```
 
-### LAN/Network Server
+The token lives in `config/automation-token.txt` next to the exe.
 
-```bash
-# Listen on LAN interface (0.0.0.0:3000, protected by API token)
-donut_free --mcp-listen 0.0.0.0:3000 --mcp-auth-token "your-secret-token-here"
+### LAN / remote machines (fleet)
 
-# Client connects with token header:
-#   Authorization: Bearer your-secret-token-here
-```
+1. In the app: **Integrations → Local API → Listen address → LAN**. This
+   stores `api_listen = 0.0.0.0` and rebinds the running server.
+2. Allow the app through Windows Firewall when prompted (private network).
+3. Clients reach `http://<lan-ip>:<port>/v1/mcp` with the same Bearer token.
+
+The bearer token and the role gate apply to every call, on- or off-host.
+For fine-grained access hand out API-member tokens (Integrations → API
+members) instead of the master token: `operator` can drive the fleet,
+`viewer` only reads.
 
 ---
 
 ## Configuration
 
-### Environment Variables
+There is no separate server binary and no `config.json`: the desktop app is
+the server. Everything is settings-owned.
 
-| Var | Default | Description |
+| Setting | Default | Where |
 |-----|---------|---|
-| `DONUT_MCP_LISTEN` | `127.0.0.1:3000` | MCP server bind address:port |
-| `DONUT_MCP_AUTH_TOKEN` | (none) | Optional API token for remote auth |
-| `DONUT_PROFILE_DIR` | `~/.donut-profiles` | Local profile storage |
-| `DONUT_SYNC_SERVER` | (none) | Self-hosted sync URL (optional) |
-| `DONUT_SYNC_E2E_PASSWORD` | (none) | E2E sync password (optional) |
+| `api_enabled` | `false` | Integrations → Local API |
+| `api_port` | `10108` | Integrations → Local API |
+| `api_listen` | `127.0.0.1` (`0.0.0.0` = LAN) | Integrations → Local API |
+| API token | generated | `config/automation-token.txt`, rotatable |
+| API members + roles | — | Integrations → API members |
 
-### Config File (`~/.donut/config.json`)
+Values other than `127.0.0.1`/`0.0.0.0` for `api_listen` are clamped to
+`127.0.0.1` on save — a bad address must never dead-end the bind.
 
-```json
-{
-  "server_mode": {
-    "enabled": true,
-    "listen": "0.0.0.0:3000",
-    "auth_token": "your-secret-here",
-    "tls_cert": "/path/to/cert.pem",
-    "tls_key": "/path/to/key.pem"
-  },
-  "sync": {
-    "server_url": "https://sync.example.com",
-    "e2e_password": "your-sync-password",
-    "auto_sync": true,
-    "sync_interval_sec": 300
-  },
-  "profiles": {
-    "storage_path": "/var/donut-profiles",
-    "max_profiles": 1000,
-    "auto_cleanup_ephemeral": true
-  },
-  "security": {
-    "mcp_ip_allowlist": ["127.0.0.1", "192.168.1.0/24"],
-    "enforce_https": false,
-    "require_auth": true
-  }
-}
-```
-
----
-
-## MCP API Reference
-
-### REST Endpoints (localhost)
+### REST surface (verified routes)
 
 | Method | Path | Description |
 |--------|------|---|
-| `GET` | `/v1/mcp` | MCP server status (200 OK) |
-| `DELETE` | `/v1/mcp?session_id=<id>` | End MCP session |
-| `POST` | `/v1/profiles/list` | List local profiles |
-| `POST` | `/v1/profiles/launch` | Launch profile, get CDP endpoint |
-| `POST` | `/v1/profiles/close` | Close profile |
-| `GET` | `/v1/sync/status` | Sync health & status |
+| `GET` | `/v1/health` | Status, version, build, profile count |
+| `GET` | `/v1/profiles` | List profiles (engine + version per profile) |
+| `POST` | `/v1/profiles/{id}/run` | Launch a profile headless, returns CDP endpoint |
+| `POST` | `/v1/profiles/{id}/kill` | Stop a running profile |
+| `POST` | `/v1/browsers/download` | Install an engine (long client timeout) |
+| `POST` | `/v1/profiles/{id}/cloud-sync` | Trigger a profile sync |
+| `POST` | `/v1/mcp` | MCP streamable-HTTP endpoint (JSON-RPC, ~117 tools) |
+| `DELETE` | `/v1/mcp?session_id=<id>` | End an MCP session |
 
-### MCP Wire Format (no vendor envelope)
+### Environment variables (free builds)
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "tools/list",
-  "id": 1
-}
+| Var | Default | Description |
+|-----|---------|---|
+| `DONUT_SYNC_URL` | (none) | Self-hosted sync server URL; adopted once at startup |
+| `DONUT_SYNC_TOKEN` | (none) | The server's shared token; sealed into the vault, never logged |
+
+Both must be set, and the store must have neither a sync URL nor a stored
+token — provisioning never overwrites an explicit choice.
+`DONUTBROWSER_DATA_ROOT` isolates data+logs+cache for isolated test
+instances.
+
+---
+
+## Self-hosted sync
+
+Server side (Docker, works on the same host):
+
+```bash
+cd scripts/donut-sync && docker compose up -d   # donut-sync + rclone S3
+# health: http://127.0.0.1:3929/health → 200
 ```
 
-**NOT:**
-```json
-{
-  "session_id": "...",
-  "body": { "jsonrpc": "2.0", "method": "..." }
-}
-```
+The image is the official `donutbrowser/donut-sync` release pinned to the
+app's protocol version; the shared token lives in `scripts/donut-sync/.env`.
+
+App side, two equivalent paths:
+
+- **UI:** a profile → Sync settings → sync configuration dialog. In free
+  builds it opens straight on the *self-hosted* tab: server URL + token,
+  connection test (checks the storage endpoint too), Save restarts the sync
+  service.
+- **Environment (fleet installs):** set `DONUT_SYNC_URL` + `DONUT_SYNC_TOKEN`
+  for the app process; the first launch adopts them.
+
+A signed-out free install syncs with the self-hosted server only
+(`sync_server_url` → SelfHosted source); no vendor account is involved.
 
 ---
 
 ## Security
 
-### Authentication
+- **Authentication:** every route requires `Authorization: Bearer <token>`
+  — on loopback too. Dead = connection refused; a 401 means alive.
+- **Roles:** the master token is an implicit `owner`. Member tokens carry
+  their own role; destructive calls are owner-only, reads are for everyone.
+- **Bind scope:** loopback by default; LAN exposure is an explicit,
+  per-install setting.
+- **Audit:** significant mutations are journaled (`api.mutation` records in
+  the local activity journal) with the acting member's name.
 
-- **Local (127.0.0.1):** no auth required by default
-- **LAN/remote:** require `DONUT_MCP_AUTH_TOKEN` header
-- **TLS:** optional, self-signed or CA-signed cert (`tls_cert`, `tls_key`)
+### Data isolation
 
-### IP Allowlist
+- Each profile is an isolated engine process, userdata dir and cookie store
+- Sync payloads are sealed client-side before they leave the machine
+- No telemetry, no phoning home to the vendor
 
-```json
-{
-  "security": {
-    "mcp_ip_allowlist": [
-      "127.0.0.1",
-      "::1",
-      "192.168.1.0/24",
-      "10.0.0.0/8"
-    ]
-  }
-}
-```
-
-### Data Isolation
-
-- Each profile has isolated Chromium process, userdata dir, cookies
-- Sync data encrypted client-side before leaving the machine
-- No telemetry, no phoning home to vendor
-
----
-
-## Self-Hosted Sync
-
-Run `donut-sync` container or binary for profile/proxy/group sync across devices:
-
-```bash
-# Docker (local)
-docker run -d \
-  --name donut-sync \
-  -p 8080:8080 \
-  -v donut-data:/data \
-  maximalang/donut-sync:v0.35.4
-
-# Then point donutOS to it:
-export DONUT_SYNC_SERVER=http://127.0.0.1:8080
-```
-
-See [`scripts/donut-sync`](../scripts/donut-sync) for full setup.
-
----
-
-## Integration: Hermes Agent
-
-```yaml
-# Hermes profile config
-mcp_servers:
-  donut:
-    type: sse
-    command: donut_free
-    args: ["--mcp-listen-tcp", "127.0.0.1:3000"]
-    env:
-      DONUT_MCP_AUTH_TOKEN: "your-token"
-```
-
-Agent can then:
-- Launch profiles on demand
-- Connect Playwright/Puppeteer to CDP
-- Run browser automation scripts
-- Sync profiles across agent runs
+Not present (and not needed for these flows): TLS termination, IP allowlists,
+a standalone server binary. Terminate TLS in front of the app if you need
+HTTPS beyond the LAN.
 
 ---
 
 ## Troubleshooting
 
-### "MCP server not responding"
-
-```bash
-# Check if server is listening
-netstat -tuln | grep 3000
-
-# Check logs
-tail -f ~/.donut/app.log | grep mcp
-```
-
-### "Authentication failed"
-
-```bash
-# Verify token header
-curl -H "Authorization: Bearer your-token" \
-  http://127.0.0.1:3000/v1/mcp
-```
-
-### "Sync connection refused"
-
-Ensure `DONUT_SYNC_SERVER` is reachable and has same protocol (http/https).
+- **"MCP server not responding"** — check the port with
+  `netstat -ano | findstr <port>`; the log is
+  `<install>/logs/DonutBrowser.log`.
+- **Authentication failed** — the token is `config/automation-token.txt`;
+  a 401 on `/v1/health` without a header is the server being alive.
+- **Sync connection refused** — `docker ps` must show `donut-sync` and
+  `donut-sync-s3`; the app-side URL must be reachable from the app host and
+  use the same scheme (http/https).
 
 ---
 

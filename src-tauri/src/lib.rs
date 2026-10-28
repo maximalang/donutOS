@@ -3430,13 +3430,19 @@ pub fn run_with_builder(
       // Nodecar warm-up is now triggered from the frontend to allow UI blocking overlay
 
       // Start API server if enabled in settings
+      #[cfg(feature = "free")]
+      crate::settings_manager::SettingsManager::instance().provision_sync_from_env(app.handle());
       let app_handle_api = app.handle().clone();
       tauri::async_runtime::spawn(async move {
         match crate::settings_manager::get_app_settings(app_handle_api.clone()).await {
           Ok(settings) => {
             if settings.api_enabled {
-              match crate::api_server::start_api_server_internal(settings.api_port, &app_handle_api)
-                .await
+              match crate::api_server::start_api_server_internal(
+                settings.api_port,
+                Some(settings.api_listen.clone()),
+                &app_handle_api,
+              )
+              .await
               {
                 Ok(port) => {
                   log::info!("API server started port={port}");

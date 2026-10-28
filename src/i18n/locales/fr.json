@@ -1234,7 +1234,14 @@
         "operator": "Opérateur",
         "viewer": "Observateur"
       }
-    }
+    },
+    "apiListenLabel": "Adresse d'écoute",
+    "apiListenDescription": "Loopback seul, ou toutes les interfaces pour que les machines de la flotte sur le LAN atteignent l'API",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "L'API n'écoute que sur loopback",
+    "apiListenLanSaved": "L'API est joignable sur le LAN — gardez le jeton secret",
+    "apiListenFailed": "Impossible de changer l'adresse d'écoute"
   },
   "import": {
     "title": "Importer un profil",

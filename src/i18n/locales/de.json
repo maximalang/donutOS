@@ -1225,7 +1225,14 @@
         "operator": "Operator",
         "viewer": "Betrachter"
       }
-    }
+    },
+    "apiListenLabel": "Listen-Adresse",
+    "apiListenDescription": "Nur Loopback oder alle Schnittstellen, damit Flotten-Rechner im LAN die API erreichen",
+    "apiListenLoopback": "Loopback",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "Die API lauscht nur auf Loopback",
+    "apiListenLanSaved": "Die API ist im LAN erreichbar — das Token geheim halten",
+    "apiListenFailed": "Listen-Adresse konnte nicht geändert werden"
   },
   "import": {
     "title": "Profil importieren",

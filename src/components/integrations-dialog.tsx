@@ -27,6 +27,7 @@ import { DeleteConfirmationDialog } from "@/components/delete-confirmation-dialo
 import { IntegrationDiagnostics } from "@/components/integration-diagnostics";
 import { LoadingButton } from "@/components/loading-button";
 import { AgentIcon } from "@/components/mcp-agent-icon";
+import { SegmentedControl } from "@/components/settings/settings-primitives";
 import { AnimatedDisclosureContent } from "@/components/ui/animated-disclosure";
 import { AnimatedSwitch } from "@/components/ui/animated-switch";
 import {
@@ -97,6 +98,7 @@ import { cn } from "@/lib/utils";
 interface AppSettings {
   api_enabled: boolean;
   api_port: number;
+  api_listen?: string;
   api_token?: string;
   mcp_remote_enabled: boolean;
   mcp_remote_key?: string | null;
@@ -151,6 +153,7 @@ export function IntegrationsDialog({
   const [isSavingToolsets, setIsSavingToolsets] = useState(false);
   const [busyAgentIds, setBusyAgentIds] = useState<Set<string>>(new Set());
   const [apiPortDraft, setApiPortDraft] = useState<string>("10108");
+  const [apiListen, setApiListen] = useState<"loopback" | "lan">("loopback");
   const [remote, setRemote] = useState<McpRemoteStatus | null>(null);
   const [isRemoteStarting, setIsRemoteStarting] = useState(false);
   const [credential, setCredential] = useState<McpRemoteCredential | null>(
@@ -208,6 +211,7 @@ export function IntegrationsDialog({
       const loaded = await invoke<AppSettings>("get_app_settings");
       setSettings(loaded);
       setApiPortDraft(String(loaded.api_port ?? ""));
+      setApiListen(loaded.api_listen === "0.0.0.0" ? "lan" : "loopback");
     } catch (e) {
       console.error("Failed to load settings:", e);
     }
@@ -645,6 +649,40 @@ export function IntegrationsDialog({
       }
     } catch (e) {
       showErrorToast(t("integrations.apiStartFailed"), {
+        description: translateBackendError(t, e),
+      });
+    } finally {
+      setIsApiStarting(false);
+    }
+  };
+
+  const handleListenChange = async (next: "loopback" | "lan") => {
+    setApiListen(next);
+    setIsApiStarting(true);
+    try {
+      const saved = await invoke<AppSettings>("save_app_settings", {
+        settings: {
+          ...settings,
+          api_listen: next === "lan" ? "0.0.0.0" : "127.0.0.1",
+        },
+      });
+      setSettings(saved);
+      if (saved.api_enabled) {
+        // The running listener keeps its old address until it is restarted.
+        await invoke("stop_api_server");
+        const port = await invoke<number>("start_api_server", {
+          port: saved.api_port,
+        });
+        setApiServerPort(port);
+      }
+      showSuccessToast(
+        next === "lan"
+          ? t("integrations.apiListenLanSaved")
+          : t("integrations.apiListenSaved"),
+      );
+    } catch (e) {
+      console.error("Failed to change the API listen address:", e);
+      showErrorToast(t("integrations.apiListenFailed"), {
         description: translateBackendError(t, e),
       });
     } finally {
@@ -1127,6 +1165,28 @@ export function IntegrationsDialog({
                         >
                           {t("common.buttons.save")}
                         </LoadingButton>
+                      </SettingsRow>
+                      <SettingsRow
+                        label={t("integrations.apiListenLabel")}
+                        description={t("integrations.apiListenDescription")}
+                      >
+                        <SegmentedControl
+                          value={apiListen}
+                          onValueChange={(next) =>
+                            void handleListenChange(next)
+                          }
+                          label={t("integrations.apiListenLabel")}
+                          options={[
+                            {
+                              value: "loopback",
+                              label: t("integrations.apiListenLoopback"),
+                            },
+                            {
+                              value: "lan",
+                              label: t("integrations.apiListenLan"),
+                            },
+                          ]}
+                        />
                       </SettingsRow>
                       <SettingsRow
                         label={t("integrations.apiTokenLabel")}

@@ -1243,7 +1243,14 @@
         "operator": "Оператор",
         "viewer": "Наблюдатель"
       }
-    }
+    },
+    "apiListenLabel": "Адрес прослушивания",
+    "apiListenDescription": "Только локальный узел или все интерфейсы — чтобы машины флота в LAN могли обращаться к API",
+    "apiListenLoopback": "Локально",
+    "apiListenLan": "Сеть (LAN)",
+    "apiListenSaved": "API слушает только локальный узел",
+    "apiListenLanSaved": "API доступен в локальной сети — берегите токен",
+    "apiListenFailed": "Не удалось изменить адрес прослушивания"
   },
   "import": {
     "title": "Импорт профиля",

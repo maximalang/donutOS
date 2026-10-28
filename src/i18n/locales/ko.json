@@ -1225,7 +1225,14 @@
         "operator": "운영자",
         "viewer": "관찰자"
       }
-    }
+    },
+    "apiListenLabel": "수신 주소",
+    "apiListenDescription": "루프백만, 또는 LAN의 플릿 머신이 API에 접근할 수 있도록 모든 인터페이스",
+    "apiListenLoopback": "루프백",
+    "apiListenLan": "LAN",
+    "apiListenSaved": "API는 루프백에서만 수신합니다",
+    "apiListenLanSaved": "API는 LAN에서 접근 가능합니다. 토큰을 비밀로 유지하세요",
+    "apiListenFailed": "수신 주소를 변경하지 못했습니다"
   },
   "import": {
     "title": "프로필 가져오기",
