@@ -78,8 +78,13 @@ export function runCargoGuard({
     ...env,
     CARGO_BUILD_JOBS: "2",
     CARGO_INCREMENTAL: "0",
-    CARGO_TARGET_DIR: env.CARGO_TARGET_DIR || defaultTargetDir,
   };
+  // CI runners must stay machine-neutral: a host-specific default target dir
+  // leaks into their cargo invocations and breaks non-Windows runners (the
+  // path gets joined onto the manifest dir). On CI, use cargo's own default.
+  if (!env.CI) {
+    childEnv.CARGO_TARGET_DIR = env.CARGO_TARGET_DIR || defaultTargetDir;
+  }
   const result = spawn("cargo", cargoArgs, {
     cwd: cargoCwd,
     env: childEnv,

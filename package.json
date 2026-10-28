@@ -50,7 +50,7 @@
     "e2e:sync": "node e2e/run.mjs --suite=sync",
     "e2e:browser": "node e2e/run.mjs --suite=browser",
     "lint": "pnpm lint:js && pnpm lint:rust && pnpm lint:spell",
-    "lint:js": "biome check src/ e2e/ scripts/generate-licenses.mjs scripts/generate-licenses.test.mjs scripts/cargo-guard.mjs scripts/cargo-guard.test.mjs src-tauri/download-xray.mjs src-tauri/download-xray.test.mjs src-tauri/copy-proxy-binary.mjs && tsc --noEmit && cd donut-sync && biome check src/ && tsc --noEmit scripts/appimage-metainfo.mjs scripts/appimage-metainfo.test.mjs tsrs tsrs",
+    "lint:js": "biome check src/ e2e/ scripts/generate-licenses.mjs scripts/generate-licenses.test.mjs scripts/cargo-guard.mjs scripts/cargo-guard.test.mjs src-tauri/download-xray.mjs src-tauri/download-xray.test.mjs src-tauri/copy-proxy-binary.mjs && tsc --noEmit && cd donut-sync && biome check src/ && tsc --noEmit",
     "lint:rust": "cd src-tauri && node ../scripts/cargo-guard.mjs -- clippy --all-targets --all-features -- -D warnings -D clippy::all && node ../scripts/cargo-guard.mjs -- fmt --all",
     "lint:spell": "typos .",
     "tauri": "node scripts/run-with-env.mjs tauri",

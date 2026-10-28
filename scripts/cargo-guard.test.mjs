@@ -65,6 +65,27 @@ test("passes Cargo arguments and bounded build environment through", () => {
   assert.match(calls[1].options.cwd, /donut-free[\\/]src-tauri$/);
 });
 
+test("CI environments keep the cargo target dir machine-neutral", () => {
+  const calls = [];
+  const status = runCargoGuard({
+    args: ["test", "--lib"],
+    platform: "linux",
+    env: { CI: "true" },
+    spawn(command, args, options) {
+      calls.push({ command, args, options });
+      return freeSpaceResult(80 * gib);
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].options.env.CARGO_TARGET_DIR,
+    undefined,
+    "CI cargo runs must not inherit a host-specific target dir",
+  );
+});
+
 test("an explicit CARGO_TARGET_DIR wins over the data-drive default", () => {
   const calls = [];
   const status = runCargoGuard({
