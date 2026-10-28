@@ -10,6 +10,7 @@ test("blocks a compile below the free-space threshold without starting Cargo", (
   const status = runCargoGuard({
     args: ["--", "build", "--features", "free"],
     platform: "win32",
+    env: {},
     spawn(command, args, options) {
       calls.push({ command, args, options });
       return freeSpaceResult(54 * gib);
@@ -26,6 +27,7 @@ test("fails closed if the free-space probe fails", () => {
   const status = runCargoGuard({
     args: ["test", "--lib"],
     platform: "win32",
+    env: {},
     spawn(command, args, options) {
       calls.push({ command, args, options });
       return { stdout: "", status: 1 };
@@ -109,6 +111,7 @@ test("allows exactly 55 GiB and forwards Cargo exit status", () => {
   const status = runCargoGuard({
     args: ["build"],
     platform: "win32",
+    env: {},
     spawn(command, args, options) {
       calls.push({ command, args, options });
       return command === "powershell.exe"
@@ -127,6 +130,7 @@ test("fails closed if the free-space output is malformed", () => {
   const status = runCargoGuard({
     args: ["build"],
     platform: "win32",
+    env: {},
     spawn(command, args, options) {
       calls.push({ command, args, options });
       return { stdout: "free space unavailable", status: 0 };
@@ -143,6 +147,7 @@ test("returns a controlled error if Cargo cannot be spawned", () => {
   const status = runCargoGuard({
     args: ["build"],
     platform: "win32",
+    env: {},
     spawn(command) {
       calls += 1;
       return command === "powershell.exe"
@@ -161,6 +166,7 @@ test("allows non-compiling clean and fmt commands without a disk probe", () => {
     const status = runCargoGuard({
       args: [subcommand],
       platform: "win32",
+      env: {},
       spawn(command, args, options) {
         calls.push({ command, args, options });
         return { status: 0 };
