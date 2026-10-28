@@ -64,7 +64,11 @@ test("passes Cargo arguments and bounded build environment through", () => {
     "D:/ZDownloads/donut-free-target",
   );
   assert.equal(calls[1].options.env.PATH, "test-path");
-  assert.match(calls[1].options.cwd, /donut-free[\\/]src-tauri$/);
+  assert.match(
+    calls[1].options.cwd,
+    /[\\/]src-tauri$/,
+    "guard must spawn cargo from the repo's src-tauri regardless of the checkout dir name",
+  );
 });
 
 test("CI environments keep the cargo target dir machine-neutral", () => {

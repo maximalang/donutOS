@@ -128,7 +128,11 @@ fn remove_entry(path: &Path, unload: impl FnOnce()) -> io::Result<bool> {
 /// directory where VPN configs lived before they moved, so only the daemon's
 /// files are removed, never the directory's other content.
 fn daemon_data_dir() -> Option<PathBuf> {
-  directories::ProjectDirs::from("com", "donutbrowser", "DonutOS")
+  // 0.14–0.24 shipped as "Donut-Browser" and wrote the daemon files under
+  // that ProjectDirs app name. The DonutOS rename must NOT retarget this:
+  // legacy cleanup only ever finds the old versions' files under the old id,
+  // and no version that wrote under "DonutOS" ever had a daemon.
+  directories::ProjectDirs::from("com", "donutbrowser", "Donut-Browser")
     .map(|dirs| dirs.data_dir().to_path_buf())
 }
 
