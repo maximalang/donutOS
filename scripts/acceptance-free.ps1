@@ -23,7 +23,7 @@ function Check([string]$Name, [bool]$Ok, [string]$Detail) {
 $procs = @()
 if (Test-Path $Base) { $procs = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($Base) }) }
 Check 'process-running' ($procs.Count -gt 0) "count=$($procs.Count)"
-$mainProcs = @($procs | Where-Object { $_.Name -eq 'DonutFree.exe' })
+$mainProcs = @($procs | Where-Object { $_.Name -eq 'DonutOS.exe' })
 Check 'process-name-donutfree' ($mainProcs.Count -gt 0) "names=$(($procs | ForEach-Object { $_.Name } | Select-Object -Unique) -join ',')"
 
 # 2. Health endpoint (curl.exe for raw codes - PS5.1 IWR hides them in exceptions)
@@ -79,9 +79,9 @@ foreach ($p in $procs) {
 }
 
 # 7. Resource footprint vs baseline (prod v0.29.6: exe 44153856 B, WS 25.5 MB)
-$exeItem = Get-Item (Join-Path $Base 'DonutFree.exe')
+$exeItem = Get-Item (Join-Path $Base 'DonutOS.exe')
 Check 'exe-size' $true "exe=$($exeItem.Length) B (prod 44153856 B)"
-$main = Get-Process -Name DonutFree | Select-Object -First 1
+$main = Get-Process -Name DonutOS | Select-Object -First 1
 if ($main) { Check 'memory' $true "WS=$([math]::Round($main.WorkingSet64/1MB,1))MB Private=$([math]::Round($main.PrivateMemorySize64/1MB,1))MB (prod 25.5/34.2MB)" }
 
 Write-Output "=== RESULT: pass=$pass fail=$fail ==="
