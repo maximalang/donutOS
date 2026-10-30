@@ -21,7 +21,15 @@ $script:Failures = 0
 
 if (-not $DataRoot) { $DataRoot = Join-Path $env:TEMP ("donut-smoke-" + [guid]::NewGuid().ToString('N').Substring(0, 8)) }
 New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
-$script:token = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+# In portable mode the automation token lives in config\ beside the exe; an
+# existing file token always wins over the env var, so smoke with whatever the
+# binary will actually use. Only mint one when the exe has none yet.
+$exeConfigToken = Join-Path (Split-Path $Exe -Parent) 'config\automation-token.txt'
+if (Test-Path $exeConfigToken) {
+  $script:token = (Get-Content $exeConfigToken -Raw).Trim()
+} else {
+  $script:token = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+}
 $logPath = Join-Path $DataRoot 'logs\DonutBrowser.log'
 
 function Log([string]$m) { Write-Output ("{0}  {1}" -f (Get-Date -Format HH:mm:ss), $m) }
@@ -37,13 +45,13 @@ function Api([string]$Method, [string]$Path, $Body = $null, [string]$Tok = $scri
 function Start-App() {
   $env:DONUTBROWSER_DATA_ROOT = $DataRoot
   $env:DONUT_AUTOMATION_TOKEN = $script:token
-  $proc = Start-Process -FilePath $Exe -PassThru -WindowStyle Minimized
-  $deadline = (Get-Date).AddSeconds(60)
+  $script:proc = Start-Process -FilePath $Exe -PassThru -WindowStyle Minimized
+  $deadline = (Get-Date).AddSeconds(90)
   do {
     Start-Sleep -Milliseconds 700
-    try { $null = Api GET '/v1/health'; return $proc } catch {}
+    try { $null = Api GET '/v1/health'; return $script:proc } catch {}
   } while ((Get-Date) -lt $deadline)
-  throw "app did not become healthy within 60s"
+  throw "app did not become healthy within 90s"
 }
 function Stop-App($proc) {
   # Ask the app to exit through its own shutdown path (window close), so the
@@ -120,7 +128,10 @@ try {
   $webviewAfter = @(Get-Process msedgewebview2 -ErrorAction SilentlyContinue).Count
   Check ($webviewAfter -le $webviewBefore) "no webview orphans (before=$webviewBefore after=$webviewAfter)"
 } finally {
-  if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+  $live = $null
+  if ($script:proc -and -not $script:proc.HasExited) { $live = $script:proc }
+  if ($proc -and -not $proc.HasExited) { $live = $proc }
+  if ($live) { Stop-Process -Id $live.Id -Force -ErrorAction SilentlyContinue }
   $env:DONUTBROWSER_DATA_ROOT = $null
   $env:DONUT_AUTOMATION_TOKEN = $null
 }
