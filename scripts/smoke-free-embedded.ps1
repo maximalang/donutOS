@@ -85,9 +85,17 @@ try {
 
   # --- 2. profile round-trip through embedded sync ---------------------------
   $profName = "smoke-$([guid]::NewGuid().ToString('N').Substring(0,6))"
-  # Fresh roots auto-bootstrap the chromium engine; wayfern would have to be
-  # downloaded first, which the profile endpoint refuses to do itself.
-  $prof = Api POST '/v1/profiles' @{ name = $profName; browser = 'chromium'; proxy_id = $null; vpn_id = $null }
+  # Profiles are wayfern-only and the engine must exist first; fresh roots
+  # bootstrap chromium automatically, so pull wayfern explicitly. The download
+  # is synchronous and can take minutes on a cold root.
+  $dlArgs = @{
+    Method = 'POST'; Uri = "http://127.0.0.1:$Port/v1/browsers/download"; TimeoutSec = 600
+    Headers = @{ Authorization = "Bearer $($script:token)" }
+    Body = (@{ browser = 'wayfern' } | ConvertTo-Json); ContentType = 'application/json'
+  }
+  $null = Invoke-RestMethod @dlArgs
+  Log "wayfern engine ready"
+  $prof = Api POST '/v1/profiles' @{ name = $profName; browser = 'wayfern'; proxy_id = $null; vpn_id = $null }
   $profId = $prof.profile.id
   Check ($profId) "profile created ($profName)"
   Start-Sleep -Seconds 3
