@@ -468,7 +468,11 @@ fn kill_own_webview_children() {
     let mut queue = vec![own_pid];
     let mut seen = std::collections::HashSet::from([own_pid]);
     while let Some(current) = queue.pop() {
-      for &child in children.get(&current).map(Vec::as_slice).unwrap_or_default() {
+      for &child in children
+        .get(&current)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+      {
         if seen.insert(child) {
           queue.push(child);
           // The app's own UI runs in msedgewebview2.exe on Windows. An exact,

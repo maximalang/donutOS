@@ -974,11 +974,8 @@ impl SettingsManager {
       );
       std::fs::create_dir_all(token_file.parent().unwrap_or(std::path::Path::new(".")))?;
       std::fs::write(&token_file, &generated)?;
-      log::info!(
-        "Automation token rotated path={}",
-        token_file.display()
-      );
-      return Ok(generated);
+      log::info!("Automation token rotated path={}", token_file.display());
+      Ok(generated)
     }
     #[cfg(not(feature = "free"))]
     {

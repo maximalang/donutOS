@@ -692,7 +692,9 @@ async fn post_webhook(url: &str, secret: Option<&str>, body: &Value) -> Result<u
 
 /// Entry point spawned at app setup (free builds only). One tick every 30 s.
 pub(crate) async fn run_scheduler() {
-  log::info!("Agent-schedule local scheduler started (tick {TICK_SECONDS}s, idle {IDLE_TICK_SECONDS}s)");
+  log::info!(
+    "Agent-schedule local scheduler started (tick {TICK_SECONDS}s, idle {IDLE_TICK_SECONDS}s)"
+  );
   loop {
     let now = Utc::now();
     // Record the fire keys BEFORE firing, so a crash mid-run cannot re-fire.

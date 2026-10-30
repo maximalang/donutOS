@@ -1127,8 +1127,10 @@ impl ApiServer {
         .delete(free_mcp_delete),
     );
     #[cfg(feature = "free")]
-    let v1_routes =
-      v1_routes.route("/v1/automation-token/rotate", axum::routing::post(rotate_automation_token));
+    let v1_routes = v1_routes.route(
+      "/v1/automation-token/rotate",
+      axum::routing::post(rotate_automation_token),
+    );
 
     let api = ApiDoc::openapi();
 
@@ -1455,8 +1457,12 @@ async fn create_member_api(
   Json(request): Json<CreateMemberRequest>,
 ) -> Result<Response, (StatusCode, String)> {
   require_owner(&identity).map_err(|status| (status, "Owner role required".to_string()))?;
-  let role = crate::api_members::Role::parse(&request.role)
-    .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Unknown role: {}", request.role)))?;
+  let role = crate::api_members::Role::parse(&request.role).ok_or_else(|| {
+    (
+      StatusCode::BAD_REQUEST,
+      format!("Unknown role: {}", request.role),
+    )
+  })?;
   let issued = crate::api_members::issue(&request.name, role).map_err(|e| {
     let status = member_error_status(&e);
     (status, e.to_string())
@@ -1519,7 +1525,10 @@ async fn rotate_automation_token(
 ) -> Result<Json<RotatedToken>, (StatusCode, String)> {
   require_owner(&identity).map_err(|status| (status, "Owner role required".to_string()))?;
   let manager = crate::settings_manager::SettingsManager::instance();
-  match manager.rotate_free_automation_token(&state.app_handle).await {
+  match manager
+    .rotate_free_automation_token(&state.app_handle)
+    .await
+  {
     Ok(token) => Ok(Json(RotatedToken { token })),
     Err(e) => {
       let message = e.to_string();
