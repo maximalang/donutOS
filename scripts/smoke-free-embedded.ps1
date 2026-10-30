@@ -85,7 +85,9 @@ try {
 
   # --- 2. profile round-trip through embedded sync ---------------------------
   $profName = "smoke-$([guid]::NewGuid().ToString('N').Substring(0,6))"
-  $prof = Api POST '/v1/profiles' @{ name = $profName; browser = 'wayfern'; proxy_id = $null; vpn_id = $null }
+  # Fresh roots auto-bootstrap the chromium engine; wayfern would have to be
+  # downloaded first, which the profile endpoint refuses to do itself.
+  $prof = Api POST '/v1/profiles' @{ name = $profName; browser = 'chromium'; proxy_id = $null; vpn_id = $null }
   $profId = $prof.profile.id
   Check ($profId) "profile created ($profName)"
   Start-Sleep -Seconds 3
