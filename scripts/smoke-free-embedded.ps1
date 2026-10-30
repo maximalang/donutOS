@@ -32,6 +32,16 @@ if (Test-Path $exeConfigToken) {
 }
 $logPath = Join-Path $DataRoot 'logs\DonutBrowser.log'
 
+# Fresh roots ship with the local API disabled (api_enabled=false by default);
+# the deploy seed is what turns it on in prod. Mirror that here, pinned to the
+# smoke port, so the isolated instance actually serves /v1.
+$settingsDir = Join-Path $DataRoot 'data\settings'
+New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
+$settingsFile = Join-Path $settingsDir 'app_settings.json'
+if (-not (Test-Path $settingsFile)) {
+  @{ api_enabled = $true; api_port = $Port } | ConvertTo-Json | Set-Content -Path $settingsFile -Encoding ASCII
+}
+
 function Log([string]$m) { Write-Output ("{0}  {1}" -f (Get-Date -Format HH:mm:ss), $m) }
 function Check([bool]$ok, [string]$what) {
   if ($ok) { Log "PASS  $what" } else { Log "FAIL  $what"; $script:Failures++ }
