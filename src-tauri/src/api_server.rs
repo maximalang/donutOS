@@ -7748,7 +7748,9 @@ mod tests {
   fn an_unreachable_lock_service_is_not_the_callers_fault() {
     let (status, _) =
       manager_error_response(serde_json::json!({ "code": "PROFILE_LOCK_UNAVAILABLE" }).to_string());
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    // Locked, not broken: the caller's request was fine, the answer is hold
+    // and retry — exactly what 423 encodes for automation clients.
+    assert_eq!(status, StatusCode::LOCKED);
   }
 
   #[test]

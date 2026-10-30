@@ -1898,7 +1898,10 @@ mod tests {
       Duration::from_secs(10)
     );
     assert_eq!(session_reconnect_delay(20, false, false), RECONNECT_MAX);
-    assert_eq!(session_reconnect_delay(20, true, true), RECONNECT_MAX);
+    // A refused token retries at the spec's 10-minute floor at most — never
+    // the plain network-retry ceiling of one minute.
+    assert!(session_reconnect_delay(20, true, true) >= AUTH_RECONNECT_MAX);
+    assert!(session_reconnect_delay(1, true, true) >= AUTH_RECONNECT_MAX);
   }
 
   #[test]
