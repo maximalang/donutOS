@@ -11,14 +11,21 @@ param(
 )
 $ErrorActionPreference = 'SilentlyContinue'
 if (-not $OutDir) { $OutDir = Join-Path $Base 'logs' }
+$Base = [System.IO.Path]::GetFullPath($Base)
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 $logPath = Join-Path $Base 'logs\DonutBrowser.log'
 
 # --- Process tree -----------------------------------------------------------
 $all = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath
-$root = $all | Where-Object { $_.Name -eq 'DonutOS.exe' -and $_.ExecutablePath -like "$Base*" } |
-  Select-Object -First 1
+# Root lookup by name-filtered query with retries: the client-side filtered
+# full enum intermittently misses a live instance on this host.
+$root = $null
+for ($i = 0; $i -lt 3 -and -not $root; $i++) {
+  $root = Get-CimInstance Win32_Process -Filter "Name='DonutOS.exe'" |
+    Where-Object { $_.ExecutablePath -like "$Base*" } | Select-Object -First 1
+  if (-not $root) { Start-Sleep -Seconds 2 }
+}
 if (-not $root) {
   @{ label = $Label; ts = (Get-Date -Format s); error = 'DonutOS.exe not found under Base' } |
     ConvertTo-Json -Depth 4 | Set-Content (Join-Path $OutDir "$Label.json") -Encoding UTF8

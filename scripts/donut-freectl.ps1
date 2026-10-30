@@ -6,6 +6,9 @@ param(
 )
 $ErrorActionPreference = 'SilentlyContinue'
 if (-not $Base) { $Base = Split-Path -Parent $MyInvocation.MyCommand.Path }
+# Normalize: callers from POSIX shells pass forward slashes, which never match
+# the backslashed Win32_Process ExecutablePath in the probes below.
+$Base = [System.IO.Path]::GetFullPath($Base)
 $exe       = Join-Path $Base 'DonutOS.exe'
 $tokenFile = Join-Path $Base 'config\automation-token.txt'
 $settingsF = Join-Path $Base 'data\settings\app_settings.json'
@@ -15,8 +18,20 @@ if (Test-Path $settingsF) { $port = (Get-Content $settingsF -Raw | ConvertFrom-J
 if (-not $port) { $port = 10109 }
 
 function Get-Procs {
-  Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Base*" } |
-    ForEach-Object { Get-Process -Id $_.ProcessId }
+  # Query by process NAME with a WMI-side filter, then confirm the exe lives
+  # under $Base. Enumerating all of Win32_Process and filtering client-side
+  # proved flaky on this host: it intermittently returns nothing for a live,
+  # healthy instance (observed both 3 s and 2 min after spawn), which makes
+  # 'stop' report "not running" while the app keeps serving. The name-filtered
+  # query has not reproduced that miss.
+  for ($i = 0; $i -lt 3; $i++) {
+    $found = @(Get-CimInstance Win32_Process -Filter "Name='DonutOS.exe' OR Name='donut-proxy.exe' OR Name='xray.exe'" |
+      Where-Object { $_.ExecutablePath -like "$Base*" } |
+      ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+    if ($found.Count) { return $found }
+    Start-Sleep -Seconds 2
+  }
+  return @()
 }
 function Api([string]$Path) {
   if (-not $token) { return $null }

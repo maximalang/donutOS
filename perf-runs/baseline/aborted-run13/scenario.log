@@ -1,0 +1,19 @@
+﻿00:54:56 === scenario baseline start (pid 7120) ===
+00:55:01 ctl start: FAILED: spawned child not healthy (alive=True procs=0) - single-instance race or early exit
+00:55:01 health: version=0.35.4 build=free profiles=6 mode=
+00:55:01 idle 600s (window open, signed-out)
+01:05:03 FATAL: profile create failed: Невозможно соединиться с удаленным сервером
+01:09:19 === scenario baseline start (pid 11108) ===
+01:09:23 ctl start: FAILED: spawned child not healthy (alive=True procs=0) - single-instance race or early exit
+01:09:23 health: version=0.35.4 build=free profiles=6 mode=
+01:09:23 idle 600s (window open, signed-out)
+01:19:30 created profile: id= name= engine=
+01:19:30 run #1 FAILED: Удаленный сервер возвратил ошибку: (404) Не найден.
+01:19:30 idle 300s after open/close
+01:24:30 snapshot t1 done
+01:24:30 plateau idle 600s
+01:34:31 snapshot t2 done
+01:34:31 profile cleanup failed (manual cleanup needed): Удаленный сервер возвратил ошибку: (404) Не найден.
+01:34:31 health after cleanup: profiles=7 (before=6)
+01:34:32 ctl stop: not running
+01:34:32 === scenario baseline end ===
