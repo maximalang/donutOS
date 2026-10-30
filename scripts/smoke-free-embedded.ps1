@@ -61,6 +61,9 @@ function Start-App() {
     Start-Sleep -Milliseconds 700
     try { $null = Api GET '/v1/health'; return $script:proc } catch {}
   } while ((Get-Date) -lt $deadline)
+  # Never leak the instance: a stuck donutbrowser holds the single-instance
+  # slot and silently swallows every later launch.
+  if ($script:proc -and -not $script:proc.HasExited) { Stop-Process -Id $script:proc.Id -Force }
   throw "app did not become healthy within 90s"
 }
 function Stop-App($proc) {
