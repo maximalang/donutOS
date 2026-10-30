@@ -41,6 +41,10 @@ const ONCE_WINDOW_MINUTES: i64 = 360;
 const WEEKLY_WINDOW_MINUTES: i64 = 45;
 #[allow(dead_code)]
 const TICK_SECONDS: u64 = 30;
+/// Tick while no schedule is enabled. Nothing can fire, so the only cost of
+/// sleeping is a first run detected up to this late; the spec accepts it in
+/// exchange for an idle desktop not waking every 30 seconds.
+const IDLE_TICK_SECONDS: u64 = 300;
 
 // --- Wire types ------------------------------------------------------------------
 
@@ -688,13 +692,17 @@ async fn post_webhook(url: &str, secret: Option<&str>, body: &Value) -> Result<u
 
 /// Entry point spawned at app setup (free builds only). One tick every 30 s.
 pub(crate) async fn run_scheduler() {
-  log::info!("Agent-schedule local scheduler started (tick {TICK_SECONDS}s)");
+  log::info!("Agent-schedule local scheduler started (tick {TICK_SECONDS}s, idle {IDLE_TICK_SECONDS}s)");
   loop {
     let now = Utc::now();
     // Record the fire keys BEFORE firing, so a crash mid-run cannot re-fire.
-    let due: Vec<(String, String)> = {
+    let (due, idle): (Vec<(String, String)>, bool) = {
       let doc = store().read();
-      due_fires(&doc, now)
+      (
+        due_fires(&doc, now),
+        // No enabled schedule means nothing can ever come due this tick.
+        !doc.schedules.iter().any(|s| s.enabled),
+      )
     };
     if !due.is_empty() {
       // Missed once-slots (older than the window) are also marked, so they
@@ -721,7 +729,12 @@ pub(crate) async fn run_scheduler() {
         tokio::spawn(fire_schedule(schedule, "schedule"));
       }
     }
-    tokio::time::sleep(StdDuration::from_secs(TICK_SECONDS)).await;
+    tokio::time::sleep(StdDuration::from_secs(if idle {
+      IDLE_TICK_SECONDS
+    } else {
+      TICK_SECONDS
+    }))
+    .await;
   }
 }
 

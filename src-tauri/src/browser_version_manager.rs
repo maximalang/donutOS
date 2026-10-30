@@ -257,7 +257,7 @@ impl BrowserVersionManager {
     // Since we don't have detailed date/prerelease info for cached versions,
     // we'll fetch fresh detailed info and map it to our merged versions
     let detailed_info: Vec<BrowserVersionInfo> = match browser {
-      "wayfern" => merged_versions
+      "wayfern" | "chromium" => merged_versions
         .into_iter()
         .map(|version| BrowserVersionInfo {
           version: version.clone(),

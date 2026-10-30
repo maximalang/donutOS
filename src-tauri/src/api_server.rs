@@ -8,7 +8,7 @@ use crate::tag_manager::TAG_MANAGER;
 use axum::{
   extract::{
     ws::{Message as WsMessage, WebSocket, WebSocketUpgrade},
-    DefaultBodyLimit, Path, Query, State,
+    DefaultBodyLimit, Extension, Path, Query, State,
   },
   http::{header, HeaderMap, Method, StatusCode},
   middleware::{self, Next},
@@ -800,6 +800,10 @@ struct ImportProxiesResponse {
 #[openapi(
   paths(
     get_health,
+    rotate_automation_token,
+    list_members_api,
+    create_member_api,
+    revoke_member_api,
     get_profiles,
     get_profile,
     get_profile_fingerprint_api,
@@ -1021,8 +1025,9 @@ struct ImportProxiesResponse {
     (name = "cookies", description = "Cookie management endpoints"),
     (name = "remote-sessions", description = "Sessions running on the leased remote fleet"),
     (name = "cookie-bot", description = "Scheduled cookie-warming runs on the remote fleet"),
+    (name = "members", description = "Named API members with their own tokens and roles (owner only)"),
     (name = "agent", description = "Native page perception, locators, extraction and humanized input for a running profile"),
-    (name = "system", description = "Health and build information"),
+    (name = "system", description = "Health, build information and machine credentials"),
   ),
   modifiers(&SecurityAddon),
 )]
@@ -1121,6 +1126,9 @@ impl ApiServer {
         .head(free_mcp_head)
         .delete(free_mcp_delete),
     );
+    #[cfg(feature = "free")]
+    let v1_routes =
+      v1_routes.route("/v1/automation-token/rotate", axum::routing::post(rotate_automation_token));
 
     let api = ApiDoc::openapi();
 
@@ -1355,6 +1363,8 @@ fn build_v1_router() -> Router<ApiServerState> {
     .routes(routes!(agent_recipes_create_api))
     .routes(routes!(agent_recipes_delete_api))
     .routes(routes!(agent_recipes_run_api))
+    .routes(routes!(list_members_api, create_member_api))
+    .routes(routes!(revoke_member_api))
     .split_for_parts();
 
   // The two paths that carry an extension payload, kept apart so the raised
@@ -1373,6 +1383,156 @@ fn build_v1_router() -> Router<ApiServerState> {
     .split_for_parts();
 
   routes.merge(extension_payload_routes.layer(DefaultBodyLimit::max(64 * 1024 * 1024)))
+}
+
+// ---------------------------------------------------------------------------
+// Named member tokens and automation-token rotation (Owner-only)
+// ---------------------------------------------------------------------------
+
+/// Members and the automation token are the machine's own credentials; only
+/// the owner may read, mint or retire them. `role_allows` already keeps
+/// non-owner roles off the mutating verbs, but reads pass it — the explicit
+/// check keeps the whole surface owner-only, reads included.
+fn require_owner(identity: &ApiIdentity) -> Result<(), StatusCode> {
+  if identity.role != crate::api_members::Role::Owner {
+    return Err(StatusCode::FORBIDDEN);
+  }
+  Ok(())
+}
+
+#[utoipa::path(
+  get,
+  path = "/v1/members",
+  responses(
+    (status = 200, description = "Named API members with roles and last use; tokens are never returned"),
+    (status = 401, description = "Unauthorized"),
+    (status = 403, description = "Owner role required")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "members"
+)]
+async fn list_members_api(
+  Extension(identity): Extension<ApiIdentity>,
+) -> Result<Json<Vec<crate::api_members::ApiMember>>, StatusCode> {
+  require_owner(&identity)?;
+  Ok(Json(crate::api_members::list()))
+}
+
+#[derive(Deserialize, ToSchema)]
+struct CreateMemberRequest {
+  name: String,
+  role: String,
+}
+
+fn member_error_status(error: &crate::api_members::MemberError) -> StatusCode {
+  use crate::api_members::MemberError::*;
+  match error {
+    InvalidName => StatusCode::BAD_REQUEST,
+    Duplicate(_) => StatusCode::CONFLICT,
+    Unknown(_) => StatusCode::NOT_FOUND,
+    Io(_) | Serde(_) => StatusCode::INTERNAL_SERVER_ERROR,
+  }
+}
+
+#[utoipa::path(
+  post,
+  path = "/v1/members",
+  responses(
+    (status = 201, description = "Member issued; the plaintext token appears exactly once, in this response only"),
+    (status = 400, description = "Invalid name or unknown role"),
+    (status = 403, description = "Owner role required"),
+    (status = 409, description = "A member with this name already exists")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "members"
+)]
+async fn create_member_api(
+  Extension(identity): Extension<ApiIdentity>,
+  Json(request): Json<CreateMemberRequest>,
+) -> Result<Response, (StatusCode, String)> {
+  require_owner(&identity).map_err(|status| (status, "Owner role required".to_string()))?;
+  let role = crate::api_members::Role::parse(&request.role)
+    .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Unknown role: {}", request.role)))?;
+  let issued = crate::api_members::issue(&request.name, role).map_err(|e| {
+    let status = member_error_status(&e);
+    (status, e.to_string())
+  })?;
+  Ok((StatusCode::CREATED, Json(issued)).into_response())
+}
+
+#[utoipa::path(
+  delete,
+  path = "/v1/members/{id}",
+  params(
+    ("id" = String, Path, description = "Member id (UUID)")
+  ),
+  responses(
+    (status = 204, description = "Member revoked; their token stops working on the next request"),
+    (status = 403, description = "Owner role required"),
+    (status = 404, description = "No member with this id")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "members"
+)]
+async fn revoke_member_api(
+  Extension(identity): Extension<ApiIdentity>,
+  Path(id): Path<String>,
+) -> Result<StatusCode, (StatusCode, String)> {
+  require_owner(&identity).map_err(|status| (status, "Owner role required".to_string()))?;
+  let id: uuid::Uuid = id
+    .parse()
+    .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid member id".to_string()))?;
+  crate::api_members::revoke(id).map_err(|e| (member_error_status(&e), e.to_string()))?;
+  Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Serialize)]
+struct RotatedToken {
+  /// The new automation token, shown exactly once. Old backups and logs that
+  /// captured the previous token are dead from this moment.
+  token: String,
+}
+
+#[utoipa::path(
+  post,
+  path = "/v1/automation-token/rotate",
+  responses(
+    (status = 200, description = "Token rotated; the new value appears exactly once, in this response only"),
+    (status = 403, description = "Owner role required"),
+    (status = 409, description = "Token pinned by DONUT_AUTOMATION_TOKEN and not rotatable at runtime"),
+    (status = 501, description = "Rotation exists in free builds only")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "system"
+)]
+async fn rotate_automation_token(
+  State(state): State<ApiServerState>,
+  Extension(identity): Extension<ApiIdentity>,
+) -> Result<Json<RotatedToken>, (StatusCode, String)> {
+  require_owner(&identity).map_err(|status| (status, "Owner role required".to_string()))?;
+  let manager = crate::settings_manager::SettingsManager::instance();
+  match manager.rotate_free_automation_token(&state.app_handle).await {
+    Ok(token) => Ok(Json(RotatedToken { token })),
+    Err(e) => {
+      let message = e.to_string();
+      let status = if message.starts_with("TOKEN_PINNED_BY_ENV") {
+        StatusCode::CONFLICT
+      } else if message.starts_with("NOT_SUPPORTED") {
+        StatusCode::NOT_IMPLEMENTED
+      } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+      };
+      Err((status, message))
+    }
+  }
 }
 
 // Terms and Conditions check middleware
@@ -1595,6 +1755,15 @@ async fn request_logging_middleware(request: axum::extract::Request, next: Next)
   }
   let level = if status.is_server_error() {
     log::Level::Error
+  } else if status.as_u16() == 405 && method == Method::GET {
+    // A GET on a POST-only automation route is a client capability probe
+    // (MCP handshakes), not a failure worth a WARN — idle desktops emitted
+    // one per probe per minute.
+    log::Level::Debug
+  } else if status.as_u16() == 401 || status.as_u16() == 404 {
+    // Signed-out desktops and port scanners probe these continuously; a
+    // WARN per burst is noise, a per-minute INFO keeps the signal.
+    log::Level::Info
   } else {
     log::Level::Warn
   };
@@ -1789,11 +1958,18 @@ fn manager_error_response(err: impl std::fmt::Display) -> (StatusCode, String) {
         StatusCode::CONFLICT
       } else if code == "INTERNAL_ERROR" {
         StatusCode::INTERNAL_SERVER_ERROR
-      } else if code == "PROFILE_LOCK_UNAVAILABLE" || code == "PROFILE_DATA_NOT_DOWNLOADED" {
-        // The lock service, or the sync storage holding a profile's first
-        // download, could not be reached. The launch is refused because it
-        // cannot be proven safe, which is an upstream failure, not the
-        // caller's fault.
+      } else if code == "PROFILE_LOCK_UNAVAILABLE" {
+        // The lock service could not be reached, so launching cannot be
+        // proven safe and the profile is, for the moment, unavailable to
+        // anyone. 423 (Locked) is the honest shape for callers and the
+        // automation fleet: the request was valid, hold and retry — a 503
+        // reads as "upstream down, not your business" and invites hard
+        // failure handling instead of a retry.
+        StatusCode::LOCKED
+      } else if code == "PROFILE_DATA_NOT_DOWNLOADED" {
+        // The sync storage holding a profile's first download could not be
+        // reached. The launch is refused because it cannot be proven safe,
+        // which is an upstream failure, not the caller's fault.
         StatusCode::SERVICE_UNAVAILABLE
       } else if code.ends_with("_REQUIRES_PRO")
         || code.ends_with("_PAYMENT_REQUIRED")
@@ -8220,6 +8396,26 @@ mod tests {
 mod role_gate_tests {
   use crate::api_members::Role;
   use crate::api_server::role_allows;
+
+  #[test]
+  fn member_and_token_surfaces_are_owner_only() {
+    use crate::api_server::{require_owner, ApiIdentity};
+
+    let identity = |role| ApiIdentity {
+      name: "probe".to_string(),
+      role,
+    };
+
+    // The master token's implicit owner is the only role the member roster
+    // and automation-token rotation ever serve — including reads.
+    assert!(require_owner(&identity(Role::Owner)).is_ok());
+    for refused in [Role::Operator, Role::Viewer] {
+      assert_eq!(
+        require_owner(&identity(refused)).unwrap_err(),
+        axum::http::StatusCode::FORBIDDEN
+      );
+    }
+  }
 
   #[test]
   fn roles_gate_the_route_surface() {

@@ -945,7 +945,9 @@
       "settingsSaved": "Sync-Einstellungen gespeichert",
       "saveFailed": "Die Einstellungen konnten nicht gespeichert werden",
       "disconnected": "Synchronisierung getrennt",
-      "disconnectFailed": "Trennen fehlgeschlagen"
+      "disconnectFailed": "Trennen fehlgeschlagen",
+      "modeLocal": "Synchronisierung lokal über den integrierten Server",
+      "modeExternal": "Synchronisierung über einen externen Server"
     },
     "serverUrl": "Server-URL",
     "serverUrlPlaceholder": "https://sync.example.com",

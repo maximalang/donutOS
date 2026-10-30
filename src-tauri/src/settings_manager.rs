@@ -947,6 +947,46 @@ impl SettingsManager {
     Self::remove_secret_file(&self.api_token_file())
   }
 
+  /// Rotate the free automation token: mint a new one, replace the file, and
+  /// return it to be shown exactly once. Exactly one token is live at a time,
+  /// so the moment the file is replaced the previous token is dead — including
+  /// in any backup that captured it in plaintext.
+  pub async fn rotate_free_automation_token(
+    &self,
+    _app_handle: &tauri::AppHandle,
+  ) -> Result<String, Box<dyn std::error::Error>> {
+    #[cfg(feature = "free")]
+    {
+      if std::env::var_os("DONUT_AUTOMATION_TOKEN")
+        .map(|token| !token.is_empty())
+        .unwrap_or(false)
+      {
+        return Err(
+          "TOKEN_PINNED_BY_ENV: the token comes from the environment and cannot be rotated at runtime".into(),
+        );
+      }
+      let token_file = Self::free_portable_token_path()
+        .ok_or("NOT_SUPPORTED: no portable config directory beside the executable")?;
+      let generated = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+      );
+      std::fs::create_dir_all(token_file.parent().unwrap_or(std::path::Path::new(".")))?;
+      std::fs::write(&token_file, &generated)?;
+      log::info!(
+        "Automation token rotated path={}",
+        token_file.display()
+      );
+      return Ok(generated);
+    }
+    #[cfg(not(feature = "free"))]
+    {
+      let _ = _app_handle;
+      Err("NOT_SUPPORTED: automation-token rotation is a free-build capability".into())
+    }
+  }
+
   pub async fn store_sync_token(
     &self,
     _app_handle: &tauri::AppHandle,

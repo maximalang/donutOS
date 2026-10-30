@@ -1185,12 +1185,17 @@ fn refresh_next_runs(doc: &mut CookieBotDoc, now: DateTime<Utc>) {
 /// The fire keys are recorded BEFORE the run is spawned, so a crash mid-run
 /// can never re-fire the same slot on restart.
 pub(crate) async fn run_scheduler() {
-  log::info!("Cookie-bot local scheduler started (tick 30s)");
+  log::info!("Cookie-bot local scheduler started (tick 30s, idle 300s)");
   loop {
     let now = Utc::now();
-    let due: Vec<(String, u32, String)> = {
+    let (due, idle): (Vec<(String, u32, String)>, bool) = {
       let doc = doc_store().read();
-      due_slots(&doc, now)
+      (
+        due_slots(&doc, now),
+        // No enabled cookie-bot schedule: nothing can come due, so the loop
+        // sleeps at the idle pace instead of waking every 30 seconds.
+        !doc.schedules.iter().any(|s| s.enabled),
+      )
     };
     if !due.is_empty() {
       let _ = doc_store().update(|doc| {
@@ -1204,7 +1209,7 @@ pub(crate) async fn run_scheduler() {
         tokio::spawn(fire_scheduled(profile_id, jitter));
       }
     }
-    tokio::time::sleep(StdDuration::from_secs(30)).await;
+    tokio::time::sleep(StdDuration::from_secs(if idle { 300 } else { 30 })).await;
   }
 }
 

@@ -2620,13 +2620,20 @@ export default function Home() {
     // Check for startup URLs (when app was launched as default browser)
     void checkCurrentUrl();
 
-    // Set up periodic update checks (every 30 minutes)
-    const updateInterval = setInterval(
-      () => {
-        void checkForUpdates();
-      },
-      30 * 60 * 1000,
-    );
+    // Set up periodic update checks (every 30 minutes). The free build's
+    // engines are pinned: a background engine check can never install
+    // anything, so the interval stays off and the manual check is the only
+    // trigger. This is also what stops the hourly wayfern version fetch and
+    // the pinned-chromium "Unsupported browser" streak in signed-out idle.
+    const updateInterval =
+      freeBuildKnown() && !freeBuild
+        ? null
+        : setInterval(
+            () => {
+              void checkForUpdates();
+            },
+            30 * 60 * 1000,
+          );
 
     // Check for missing binaries after initial profile load
     if (!profilesLoading && profiles.length > 0) {
@@ -2642,7 +2649,9 @@ export default function Home() {
 
     return () => {
       disposed = true;
-      clearInterval(updateInterval);
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
       cleanup?.();
     };
   }, [
@@ -2652,6 +2661,7 @@ export default function Home() {
     checkMissingBinaries,
     profilesLoading,
     profiles.length,
+    freeBuild,
   ]);
 
   // E2E encryption listeners — surface password-required prompts and rollover

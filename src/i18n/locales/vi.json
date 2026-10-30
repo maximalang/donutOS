@@ -945,7 +945,9 @@
       "settingsSaved": "Đã lưu cài đặt đồng bộ",
       "saveFailed": "Lưu cài đặt thất bại",
       "disconnected": "Đã ngắt kết nối đồng bộ",
-      "disconnectFailed": "Ngắt kết nối thất bại"
+      "disconnectFailed": "Ngắt kết nối thất bại",
+      "modeLocal": "Đồng bộ cục bộ qua máy chủ tích hợp",
+      "modeExternal": "Đồng bộ qua máy chủ bên ngoài"
     },
     "serverUrl": "URL máy chủ",
     "serverUrlPlaceholder": "https://sync.example.com",

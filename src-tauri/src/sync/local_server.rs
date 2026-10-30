@@ -36,10 +36,11 @@
 //! * `objects/<key>` — object bodies, one file per key;
 //! * `meta/<key>.json` — sidecar `{contentType, metadata, lastModified}`, a
 //!   parallel tree so no key can ever collide with a sidecar name;
-//! * `server.json` — the bearer token and URL signing key, generated once.
-//!   A loopback-only server whose data already sits on the same disk gains
-//!   nothing from a stronger store for this file: anything that can read it
-//!   can read the objects directly.
+//! * `server-config` — the bearer token and URL signing key, generated once
+//!   and sealed under the installation's vault key; a plaintext `server.json`
+//!   from an older build is adopted into the vault and removed on first read.
+//!   (The loopback-only server's objects sit on the same disk, so sealing is
+//!   hygiene — no plaintext secret greppable on the machine — not a boundary.)
 //!
 //! Snapshot copies live inside the object tree (`snapshots/{root}{id}/…`)
 //! because the client downloads `snapshots/{root}{id}/manifest.json` through
@@ -296,10 +297,36 @@ pub async fn start(root: &FsPath, fixed_token: Option<&str>) -> Result<LocalSync
   })
 }
 
+/// Header plus layout version of the sealed sync-server config file.
+const SERVER_CONFIG_MAGIC: [u8; 6] = *b"DSYNC\x01";
+
+/// Where the sealed config lives: `<root>/server-config` (no extension, no
+/// plaintext on disk).
+fn sealed_config_path(root: &FsPath) -> PathBuf {
+  root.join("server-config")
+}
+
 fn read_config(root: &FsPath) -> Result<Option<ServerConfig>, String> {
-  match std::fs::read_to_string(root.join("server.json")) {
-    Ok(text) => Ok(serde_json::from_str(&text).ok()),
-    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+  let sealed = sealed_config_path(root);
+  match crate::vault::open(&sealed, &SERVER_CONFIG_MAGIC) {
+    Ok(Some(text)) => Ok(serde_json::from_str(&text).ok()),
+    Ok(None) => {
+      // Migration: builds before the seal kept the token and signing key in a
+      // plaintext `server.json`. Adopt it into the vault and remove the
+      // plaintext file so the disk never keeps both.
+      let legacy = root.join("server.json");
+      if !legacy.exists() {
+        return Ok(None);
+      }
+      let text =
+        std::fs::read_to_string(&legacy).map_err(|e| format!("sync server config: {e}"))?;
+      let config: Option<ServerConfig> = serde_json::from_str(&text).ok();
+      if let Some(config) = &config {
+        write_config(root, config)?;
+        let _ = std::fs::remove_file(&legacy);
+      }
+      Ok(config)
+    }
     Err(e) => Err(format!("sync server config: {e}")),
   }
 }
@@ -312,12 +339,9 @@ fn random_hex(bytes: usize) -> String {
 }
 
 fn write_config(root: &FsPath, config: &ServerConfig) -> Result<(), String> {
-  let path = root.join("server.json");
-  let tmp = root.join(format!("server.json.{}", std::process::id()));
   let text = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-  std::fs::write(&tmp, text).map_err(|e| format!("sync server config write: {e}"))?;
-  std::fs::rename(&tmp, &path).map_err(|e| format!("sync server config replace: {e}"))?;
-  Ok(())
+  crate::vault::seal(&sealed_config_path(root), &SERVER_CONFIG_MAGIC, &text)
+    .map_err(|e| format!("sync server config write: {e}"))
 }
 
 /// Load the persisted config, or create one. A fixed token (e2e harness)

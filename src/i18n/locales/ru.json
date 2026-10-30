@@ -955,7 +955,9 @@
       "settingsSaved": "Настройки синхронизации сохранены",
       "saveFailed": "Не удалось сохранить настройки",
       "disconnected": "Синхронизация отключена",
-      "disconnectFailed": "Не удалось отключиться"
+      "disconnectFailed": "Не удалось отключиться",
+      "modeLocal": "Синхронизация локально — через встроенный сервер",
+      "modeExternal": "Синхронизация через внешний сервер"
     },
     "serverUrl": "URL сервера",
     "serverUrlPlaceholder": "https://sync.example.com",

@@ -945,7 +945,9 @@
       "settingsSaved": "同步设置已保存",
       "saveFailed": "保存设置失败",
       "disconnected": "已断开同步",
-      "disconnectFailed": "断开连接失败"
+      "disconnectFailed": "断开连接失败",
+      "modeLocal": "通过内置服务器进行本地同步",
+      "modeExternal": "通过外部服务器同步"
     },
     "serverUrl": "服务器 URL",
     "serverUrlPlaceholder": "https://sync.example.com",

@@ -950,7 +950,9 @@
       "settingsSaved": "Ajustes de sincronización guardados",
       "saveFailed": "Error al guardar los ajustes",
       "disconnected": "Sincronización desconectada",
-      "disconnectFailed": "Error al desconectar"
+      "disconnectFailed": "Error al desconectar",
+      "modeLocal": "Sincronización local a través del servidor integrado",
+      "modeExternal": "Sincronización a través de un servidor externo"
     },
     "serverUrl": "URL del Servidor",
     "serverUrlPlaceholder": "https://sync.ejemplo.com",

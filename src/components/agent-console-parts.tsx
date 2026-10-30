@@ -21,11 +21,21 @@ import { cn } from "@/lib/utils";
 export function useNow(intervalMs = 15_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setNow(Date.now());
-    }, intervalMs);
+    // A hidden window (minimised, another virtual desktop, an inactive OS
+    // session) has nobody to render the clock for; pausing the interval is
+    // what keeps an idle desktop's webview at zero timers instead of a
+    // 15-second wake-up chain through React reconciliation.
+    const tick = () => {
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+      }
+    };
+    const id = window.setInterval(tick, intervalMs);
+    // Refresh immediately on return: the value shown while hidden is stale.
+    document.addEventListener("visibilitychange", tick);
     return () => {
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
     };
   }, [intervalMs]);
   return now;

@@ -411,188 +411,204 @@ export function SyncConfigDialog({
             </div>
           </div>
         ) : (
-          <AnimatedTabs value={activeTab} onValueChange={setActiveTab}>
-            <AnimatedTabsList className="flex w-full">
-              <AnimatedTabsTrigger
-                value="cloud"
-                className="flex-1"
-                disabled={cloudBlocked}
-              >
-                <span className="flex items-center gap-2">
-                  {t("sync.cloud.tabLabel")}
-                  {cloudBlocked && !localBuild && <ProBadge />}
-                </span>
-              </AnimatedTabsTrigger>
-              <AnimatedTabsTrigger
-                value="self-hosted"
-                className="flex-1"
-                disabled={selfHostedBlocked}
-              >
-                <span className="flex items-center gap-2">
-                  {t("sync.cloud.selfHostedTabLabel")}
-                  {selfHostedBlocked && <ProBadge />}
-                </span>
-              </AnimatedTabsTrigger>
-            </AnimatedTabsList>
+          <div className="grid gap-3">
+            {localBuild && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div
+                  className={
+                    serverUrl
+                      ? "size-2 rounded-full bg-info"
+                      : "size-2 rounded-full bg-success"
+                  }
+                />
+                {serverUrl
+                  ? t("sync.config.modeExternal")
+                  : t("sync.config.modeLocal")}
+              </div>
+            )}
+            <AnimatedTabs value={activeTab} onValueChange={setActiveTab}>
+              <AnimatedTabsList className="flex w-full">
+                <AnimatedTabsTrigger
+                  value="cloud"
+                  className="flex-1"
+                  disabled={cloudBlocked}
+                >
+                  <span className="flex items-center gap-2">
+                    {t("sync.cloud.tabLabel")}
+                    {cloudBlocked && !localBuild && <ProBadge />}
+                  </span>
+                </AnimatedTabsTrigger>
+                <AnimatedTabsTrigger
+                  value="self-hosted"
+                  className="flex-1"
+                  disabled={selfHostedBlocked}
+                >
+                  <span className="flex items-center gap-2">
+                    {t("sync.cloud.selfHostedTabLabel")}
+                    {selfHostedBlocked && <ProBadge />}
+                  </span>
+                </AnimatedTabsTrigger>
+              </AnimatedTabsList>
 
-            <AnimatedTabsContent value="cloud">
-              {isCloudLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
-                </div>
-              ) : (
-                <div className="grid gap-4 py-4">
-                  <p className="text-sm text-muted-foreground">
-                    {t("sync.cloud.deviceLinkInstructions")}
-                  </p>
-                  <Button
-                    onClick={() => void handleOpenLogin()}
-                    className="w-full"
-                  >
-                    {t("sync.cloud.openLogin")}
-                  </Button>
-                </div>
-              )}
-            </AnimatedTabsContent>
-
-            <AnimatedTabsContent value="self-hosted">
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
-                </div>
-              ) : (
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sync-server-url">
-                      {t("sync.serverUrl")}
-                    </Label>
-                    <Input
-                      id="sync-server-url"
-                      placeholder={t("sync.serverUrlPlaceholder")}
-                      value={serverUrl}
-                      onChange={(e) => {
-                        setServerUrl(e.target.value);
-                      }}
-                    />
+              <AnimatedTabsContent value="cloud">
+                {isCloudLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
                   </div>
+                ) : (
+                  <div className="grid gap-4 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      {t("sync.cloud.deviceLinkInstructions")}
+                    </p>
+                    <Button
+                      onClick={() => void handleOpenLogin()}
+                      className="w-full"
+                    >
+                      {t("sync.cloud.openLogin")}
+                    </Button>
+                  </div>
+                )}
+              </AnimatedTabsContent>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="sync-token">{t("sync.token")}</Label>
-                    <div className="relative">
+              <AnimatedTabsContent value="self-hosted">
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+                  </div>
+                ) : (
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sync-server-url">
+                        {t("sync.serverUrl")}
+                      </Label>
                       <Input
-                        id="sync-token"
-                        type={showToken ? "text" : "password"}
-                        placeholder={t("sync.tokenPlaceholder")}
-                        value={token}
+                        id="sync-server-url"
+                        placeholder={t("sync.serverUrlPlaceholder")}
+                        value={serverUrl}
                         onChange={(e) => {
-                          setToken(e.target.value);
+                          setServerUrl(e.target.value);
                         }}
-                        className="pr-10"
                       />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowToken(!showToken);
-                            }}
-                            className={cn(
-                              "absolute top-1/2 right-3 -translate-y-1/2 transform rounded-sm p-1 transition-colors hover:bg-foreground/5 hover:text-foreground",
-                              FOCUS_RING,
-                            )}
-                            aria-label={
-                              showToken
-                                ? t("common.aria.hideToken")
-                                : t("common.aria.showToken")
-                            }
-                          >
-                            {showToken ? (
-                              <LuEyeOff className="size-4 text-muted-foreground hover:text-foreground" />
-                            ) : (
-                              <LuEye className="size-4 text-muted-foreground hover:text-foreground" />
-                            )}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {showToken
-                            ? t("common.aria.hideToken")
-                            : t("common.aria.showToken")}
-                        </TooltipContent>
-                      </Tooltip>
                     </div>
-                  </div>
 
-                  {connectionStatus === "testing" && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
-                      {t("sync.status.syncing")}
-                    </div>
-                  )}
-                  {connectionStatus === "connected" && (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="size-2 rounded-full bg-success" />
-                        {t("sync.status.connected")}
+                    <div className="space-y-2">
+                      <Label htmlFor="sync-token">{t("sync.token")}</Label>
+                      <div className="relative">
+                        <Input
+                          id="sync-token"
+                          type={showToken ? "text" : "password"}
+                          placeholder={t("sync.tokenPlaceholder")}
+                          value={token}
+                          onChange={(e) => {
+                            setToken(e.target.value);
+                          }}
+                          className="pr-10"
+                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowToken(!showToken);
+                              }}
+                              className={cn(
+                                "absolute top-1/2 right-3 -translate-y-1/2 transform rounded-sm p-1 transition-colors hover:bg-foreground/5 hover:text-foreground",
+                                FOCUS_RING,
+                              )}
+                              aria-label={
+                                showToken
+                                  ? t("common.aria.hideToken")
+                                  : t("common.aria.showToken")
+                              }
+                            >
+                              {showToken ? (
+                                <LuEyeOff className="size-4 text-muted-foreground hover:text-foreground" />
+                              ) : (
+                                <LuEye className="size-4 text-muted-foreground hover:text-foreground" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {showToken
+                              ? t("common.aria.hideToken")
+                              : t("common.aria.showToken")}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                      {storageEndpoint && (
+                    </div>
+
+                    {connectionStatus === "testing" && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+                        {t("sync.status.syncing")}
+                      </div>
+                    )}
+                    {connectionStatus === "connected" && (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="size-2 rounded-full bg-success" />
+                          {t("sync.status.connected")}
+                        </div>
+                        {storageEndpoint && (
+                          <span className="text-xs text-muted-foreground break-all">
+                            {t("sync.config.storageEndpoint", {
+                              endpoint: storageEndpoint,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {connectionStatus === "storage-unreachable" && (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="size-2 rounded-full bg-destructive" />
+                          {t("sync.config.storageUnreachableStatus")}
+                        </div>
                         <span className="text-xs text-muted-foreground break-all">
-                          {t("sync.config.storageEndpoint", {
-                            endpoint: storageEndpoint,
+                          {t("sync.config.storageUnreachable", {
+                            endpoint: storageEndpoint ?? "",
                           })}
                         </span>
-                      )}
-                    </div>
-                  )}
-                  {connectionStatus === "storage-unreachable" && (
-                    <div className="flex flex-col gap-1">
+                      </div>
+                    )}
+                    {connectionStatus === "error" && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <div className="size-2 rounded-full bg-destructive" />
-                        {t("sync.config.storageUnreachableStatus")}
+                        {t("sync.status.disconnected")}
                       </div>
-                      <span className="text-xs text-muted-foreground break-all">
-                        {t("sync.config.storageUnreachable", {
-                          endpoint: storageEndpoint ?? "",
-                        })}
-                      </span>
-                    </div>
-                  )}
-                  {connectionStatus === "error" && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <div className="size-2 rounded-full bg-destructive" />
-                      {t("sync.status.disconnected")}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <DialogFooter className="flex gap-2">
-                {hasConfig && (
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleDisconnect()}
-                    disabled={isSaving}
-                  >
-                    {t("account.selfHosted.disconnect")}
-                  </Button>
+                    )}
+                  </div>
                 )}
-                <LoadingButton
-                  variant="outline"
-                  onClick={() => void handleTestConnection()}
-                  isLoading={isTesting}
-                  disabled={!serverUrl}
-                >
-                  {t("account.selfHosted.testConnection")}
-                </LoadingButton>
-                <LoadingButton
-                  onClick={() => void handleSave()}
-                  isLoading={isSaving}
-                  disabled={!serverUrl || !token}
-                >
-                  {t("common.buttons.save")}
-                </LoadingButton>
-              </DialogFooter>
-            </AnimatedTabsContent>
-          </AnimatedTabs>
+
+                <DialogFooter className="flex gap-2">
+                  {hasConfig && (
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleDisconnect()}
+                      disabled={isSaving}
+                    >
+                      {t("account.selfHosted.disconnect")}
+                    </Button>
+                  )}
+                  <LoadingButton
+                    variant="outline"
+                    onClick={() => void handleTestConnection()}
+                    isLoading={isTesting}
+                    disabled={!serverUrl}
+                  >
+                    {t("account.selfHosted.testConnection")}
+                  </LoadingButton>
+                  <LoadingButton
+                    onClick={() => void handleSave()}
+                    isLoading={isSaving}
+                    disabled={!serverUrl || !token}
+                  >
+                    {t("common.buttons.save")}
+                  </LoadingButton>
+                </DialogFooter>
+              </AnimatedTabsContent>
+            </AnimatedTabs>
+          </div>
         )}
       </DialogContent>
     </Dialog>

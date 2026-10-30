@@ -849,6 +849,10 @@ const RECONNECT_BASE: Duration = Duration::from_secs(1);
 /// Ceiling on the reconnect delay.
 const RECONNECT_MAX: Duration = Duration::from_secs(60);
 const RECOVERY_RECONNECT_MAX: Duration = Duration::from_secs(10);
+/// A signed-in stream whose token the backend refuses still retries — the
+/// session may have rotated server-side — but no faster than this: the spec
+/// caps hours of once-a-minute auth refusals at one probe per 10 minutes.
+const AUTH_RECONNECT_MAX: Duration = Duration::from_secs(10 * 60);
 /// Where the backoff restarts after an auth failure. Being signed out or
 /// unentitled is not something a fast retry fixes, and hammering an endpoint
 /// that will keep saying no is how a background task becomes a battery bug.
@@ -1104,6 +1108,7 @@ async fn run_session_events(app: AppHandle) {
 
   while STREAM_RUNNING.load(Ordering::SeqCst) {
     let mut auth_failure = false;
+    let mut stop_stream = false;
     match connect_session_events(last_event_id.as_deref()).await {
       Ok(response) => {
         attempt = 0;
@@ -1127,11 +1132,30 @@ async fn run_session_events(app: AppHandle) {
         if matches!(err, RemoteSessionError::NotAuthorised(_)) {
           auth_failure = true;
           attempt = attempt.max(AUTH_BACKOFF_ATTEMPT);
+          // Refused because there is no session to stream: while the desktop
+          // stays signed out, retrying can only re-print the same refusal
+          // every minute for hours. Stop here; the next sign-in wakes the
+          // stream again through start_session_events. A signed-in desktop
+          // (rejected token, not a missing session) keeps the slow
+          // AUTH_RECONNECT_MAX probe instead of stopping.
+          if !crate::cloud_auth::CLOUD_AUTH.is_logged_in().await {
+            stop_stream = true;
+          }
         }
         STREAM_CONNECT.failed(&reason);
         emit_stream_status(&app, false, Some(&reason));
         crate::remote_handoff::finish_startup_check();
       }
+    }
+
+    if stop_stream {
+      // Clear the flag so the next start_session_events spawns a fresh task
+      // instead of only notifying a dead one.
+      STREAM_RUNNING.store(false, Ordering::SeqCst);
+      log::info!(
+        "Remote session stream stopped: not authorised (signed out); restarts on next sign-in"
+      );
+      break;
     }
 
     if !STREAM_RUNNING.load(Ordering::SeqCst) {
@@ -1154,7 +1178,12 @@ async fn run_session_events(app: AppHandle) {
 
 fn session_reconnect_delay(attempt: u32, has_remote_work: bool, auth_failure: bool) -> Duration {
   let delay = reconnect_delay(attempt);
-  if has_remote_work && !auth_failure {
+  if auth_failure {
+    // Auth refused: either the desktop is signed out (the loop stops instead,
+    // see run_session_events) or a live session's token was rejected. The
+    // latter keeps one slow probe per AUTH_RECONNECT_MAX, never the 60 s cap.
+    delay.max(AUTH_RECONNECT_MAX)
+  } else if has_remote_work {
     delay.min(RECOVERY_RECONNECT_MAX)
   } else {
     delay
@@ -1387,6 +1416,16 @@ pub async fn start_profile_remote_session(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn auth_failure_retry_is_capped_at_ten_minutes_floor() {
+    // A refused token must not come back faster than the spec's 10-minute
+    // floor, whatever the attempt counter says.
+    assert!(session_reconnect_delay(0, false, true) >= Duration::from_secs(600));
+    assert!(session_reconnect_delay(50, true, true) >= Duration::from_secs(600));
+    // The recovery fast-path never applies to auth failures.
+    assert!(session_reconnect_delay(1, true, false) <= Duration::from_secs(10));
+  }
 
   #[test]
   fn a_window_launch_names_the_rule_a_profile_breaks() {

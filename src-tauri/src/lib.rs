@@ -435,6 +435,77 @@ impl<R: Runtime> WindowExt for WebviewWindow<R> {
   }
 }
 
+/// Terminate the app's own UI webview descendants. Called as the last act of
+/// a clean exit: WebView2 teardown normally handles them itself, this only
+/// covers the race where the webview browser process outlives the app that
+/// spawned it (observed as a 37 MB orphan after a clean exit).
+///
+/// Only descendants of THIS process are considered, so webviews belonging to
+/// other applications are never touched.
+fn kill_own_webview_children() {
+  #[cfg(target_os = "windows")]
+  {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+      ProcessesToUpdate::All,
+      true,
+      ProcessRefreshKind::nothing()
+        .with_cmd(UpdateKind::OnlyIfNotSet)
+        .without_tasks(),
+    );
+    let mut children: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+    for (pid, process) in system.processes() {
+      if let Some(parent) = process.parent() {
+        children
+          .entry(parent.as_u32())
+          .or_default()
+          .push(pid.as_u32());
+      }
+    }
+    let own_pid = std::process::id();
+    let mut targets: Vec<u32> = Vec::new();
+    let mut queue = vec![own_pid];
+    let mut seen = std::collections::HashSet::from([own_pid]);
+    while let Some(current) = queue.pop() {
+      for &child in children.get(&current).map(Vec::as_slice).unwrap_or_default() {
+        if seen.insert(child) {
+          queue.push(child);
+          // The app's own UI runs in msedgewebview2.exe on Windows. An exact,
+          // case-insensitive name match keeps anything else we spawned
+          // (tools, browsers) untouched.
+          let is_webview = system
+            .process(sysinfo::Pid::from_u32(child))
+            .is_some_and(|p| {
+              p.name()
+                .to_string_lossy()
+                .eq_ignore_ascii_case("msedgewebview2.exe")
+            });
+          if is_webview {
+            targets.push(child);
+          }
+        }
+      }
+    }
+    if targets.is_empty() {
+      return;
+    }
+    for pid in &targets {
+      let _ = std::process::Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .status();
+    }
+    log::info!(
+      "Exit webview cleanup: terminated {} own webview process(es)",
+      targets.len()
+    );
+  }
+  #[cfg(not(target_os = "windows"))]
+  {
+    // Other platforms reap the webview with the app process; nothing to do.
+  }
+}
+
 /// True when the app runs under a headless automation driver: the `e2e`
 /// feature is compiled in, the tauri-wd WebDriver launched this process
 /// (`TAURI_AUTOMATION`), and the session asked for the `headless` capability
@@ -3918,6 +3989,11 @@ pub fn run_with_builder(
         tauri::async_runtime::block_on(
           team_lock::PROFILE_LOCK.release_all_held_within(team_lock::SHUTDOWN_RELEASE_TIMEOUT),
         );
+        // Last act: make sure no UI webview of ours outlives the app. A clean
+        // exit normally tears WebView2 down itself, but an exit that races the
+        // browser process leaves an orphan holding tens of MB forever. Only
+        // OUR descendants are touched, so other apps' webviews are safe.
+        kill_own_webview_children();
       }
 
       #[cfg(target_os = "macos")]

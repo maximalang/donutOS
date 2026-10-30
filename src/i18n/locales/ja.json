@@ -945,7 +945,9 @@
       "settingsSaved": "同期設定を保存しました",
       "saveFailed": "設定の保存に失敗しました",
       "disconnected": "同期を切断しました",
-      "disconnectFailed": "切断に失敗しました"
+      "disconnectFailed": "切断に失敗しました",
+      "modeLocal": "内蔵サーバーによるローカル同期",
+      "modeExternal": "外部サーバーによる同期"
     },
     "serverUrl": "サーバーURL",
     "serverUrlPlaceholder": "https://sync.example.com",

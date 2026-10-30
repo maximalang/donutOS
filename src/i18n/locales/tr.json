@@ -945,7 +945,9 @@
       "settingsSaved": "Eşitleme ayarları kaydedildi",
       "saveFailed": "Ayarlar kaydedilemedi",
       "disconnected": "Eşitleme bağlantısı kesildi",
-      "disconnectFailed": "Bağlantı kesilemedi"
+      "disconnectFailed": "Bağlantı kesilemedi",
+      "modeLocal": "Yerleşik sunucu ile yerel eşitleme",
+      "modeExternal": "Harici bir sunucu ile eşitleme"
     },
     "serverUrl": "Sunucu URL'si",
     "serverUrlPlaceholder": "https://sync.example.com",

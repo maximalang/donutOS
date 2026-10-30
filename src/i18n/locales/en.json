@@ -945,7 +945,9 @@
       "settingsSaved": "Sync settings saved",
       "saveFailed": "Failed to save settings",
       "disconnected": "Sync disconnected",
-      "disconnectFailed": "Failed to disconnect"
+      "disconnectFailed": "Failed to disconnect",
+      "modeLocal": "Syncing locally through the built-in server",
+      "modeExternal": "Syncing through an external server"
     },
     "serverUrl": "Server URL",
     "serverUrlPlaceholder": "https://sync.example.com",

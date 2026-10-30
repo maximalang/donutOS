@@ -1,0 +1,23 @@
+﻿12:11:23 === scenario baseline start (pid 13760) ===
+12:11:34 ctl start: STARTED  http://127.0.0.1:10109  v0.35.4 build=free (pid 628)
+12:11:34 health: status=ok version=0.35.4 build=free profiles=6
+12:11:34 main pid: 628
+12:11:34 idle 600s (window open, signed-out)
+12:21:44 created profile: id=74f5a149-7049-4377-9d3e-c690d14d029a name=perf-baseline-122134 engine=wayfern
+12:21:48 run #1 ok: attached=False cdp_port=59820
+12:22:20 kill #1 ok
+12:22:39 run #2 ok: attached=False cdp_port=52568
+12:23:11 kill #2 ok
+12:23:31 run #3 ok: attached=False cdp_port=52657
+12:24:03 kill #3 ok
+12:24:18 idle 300s after open/close
+13:11:07 === scenario baseline RESUME (pid 28116, prod untouched since 12:11) ===
+13:11:07 main window: hwnd=35784358 minimized=False title='com.donutbrowser.free-siw'
+13:18:34 snapshot t1 done
+13:18:34 plateau idle 600s
+13:35:05 snapshot t2 done
+13:35:05 test profile removed
+13:35:05 health after cleanup: profiles=6 (before=6)
+13:35:21 ctl stop: STOPPED 1 process(es)
+13:35:24 verified: no DonutOS.exe process left
+13:35:24 === scenario baseline end ===
