@@ -28,14 +28,14 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # pnpm must be on PATH BEFORE setup-node: its `cache: pnpm` resolves
       # the store through the pnpm executable and fails with
       # "Unable to locate executable file: pnpm" otherwise.
       - run: npm install -g pnpm@12.8.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
@@ -88,13 +88,13 @@ jobs:
 
           Compress-Archive -Path $dst -DestinationPath "DonutOS-portable-x64.zip" -Force
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: donutos-portable
           path: DonutOS-portable-x64.zip
           retention-days: 7
 
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v3
         with:
           files: DonutOS-portable-x64.zip
           tag_name: "free-${{ github.run_number }}"
