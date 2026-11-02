@@ -354,7 +354,8 @@
       "current": "使用中：{{proxy}}",
       "checkNote": "保存前，Donut 会检查其服务器能否通过该代理响应。协议：http、https、socks5、socks5h。",
       "saved": "Donut 现在通过 {{proxy}} 连接。",
-      "removed": "Donut 不再使用专用代理。"    }
+      "removed": "Donut 不再使用专用代理。"
+    }
   },
   "header": {
     "searchPlaceholder": "搜索配置文件...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "已打补丁的引擎未通过自动化检查，已被移除。请继续使用已安装的版本。",
     "syncPasswordBlocksRemoteRun": "同步加密密码加密了此配置文件已同步的设置，远程主机无法解密。要远程运行，请在同步加密设置中删除密码。",
     "appProxyInvalid": "请按 协议://主机:端口 的格式输入代理，可在主机前加上 用户名:密码@。协议为 http、https、socks5 或 socks5h。",
-    "appProxyUnreachable": "Donut 无法通过其代理 {{proxy}} 连接。请在设置的“网络”中检查代理。"  },
+    "appProxyUnreachable": "Donut 无法通过其代理 {{proxy}} 连接。请在设置的“网络”中检查代理。"
+  },
   "rail": {
     "profiles": "配置文件",
     "extensions": "扩展",

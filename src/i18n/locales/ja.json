@@ -354,7 +354,8 @@
       "current": "使用中: {{proxy}}",
       "checkNote": "保存する前に、プロキシ経由で Donut のサーバーが応答するか確認します。スキーム: http、https、socks5、socks5h。",
       "saved": "Donut は {{proxy}} 経由で接続します。",
-      "removed": "Donut は独自のプロキシを使わなくなりました。"    }
+      "removed": "Donut は独自のプロキシを使わなくなりました。"
+    }
   },
   "header": {
     "searchPlaceholder": "プロファイルを検索...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "パッチ済みエンジンが自動化チェックに失敗したため削除されました。インストール済みのバージョンを引き続きご利用ください。",
     "syncPasswordBlocksRemoteRun": "同期暗号化のパスワードがこのプロファイルの同期済み設定を暗号化しているため、リモートホストでは復号できません。リモートで実行するには、同期暗号化の設定でパスワードを削除してください。",
     "appProxyInvalid": "プロキシを scheme://host:port の形式で入力してください。ホストの前に user:password@ を付けることもできます。スキームは http、https、socks5、socks5h のいずれかです。",
-    "appProxyUnreachable": "Donut はプロキシ {{proxy}} 経由で接続できませんでした。設定の「ネットワーク」でプロキシを確認してください。"  },
+    "appProxyUnreachable": "Donut はプロキシ {{proxy}} 経由で接続できませんでした。設定の「ネットワーク」でプロキシを確認してください。"
+  },
   "rail": {
     "profiles": "プロファイル",
     "extensions": "拡張機能",

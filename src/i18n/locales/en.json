@@ -354,7 +354,8 @@
       "current": "In use: {{proxy}}",
       "checkNote": "Donut checks that its servers answer through the proxy before it saves it. Schemes: http, https, socks5, socks5h.",
       "saved": "Donut now connects through {{proxy}}.",
-      "removed": "Donut no longer uses its own proxy."    }
+      "removed": "Donut no longer uses its own proxy."
+    }
   },
   "header": {
     "searchPlaceholder": "Search profiles...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "The patched engine failed its automation check, so it was removed. Keep using the installed version.",
     "syncPasswordBlocksRemoteRun": "The sync encryption password encrypts this profile's synced settings, and a remote host cannot decrypt them. To run it remotely, remove the password in the Sync encryption settings.",
     "appProxyInvalid": "Enter the proxy as scheme://host:port, with an optional user:password@ before the host. The scheme is http, https, socks5 or socks5h.",
-    "appProxyUnreachable": "Donut could not connect through its proxy {{proxy}}. Check the proxy in Settings, under Network."  },
+    "appProxyUnreachable": "Donut could not connect through its proxy {{proxy}}. Check the proxy in Settings, under Network."
+  },
   "rail": {
     "profiles": "Profiles",
     "extensions": "Extensions",

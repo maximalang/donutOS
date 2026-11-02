@@ -354,7 +354,8 @@
       "current": "사용 중: {{proxy}}",
       "checkNote": "저장하기 전에 프록시를 통해 Donut 서버가 응답하는지 확인합니다. 스킴: http, https, socks5, socks5h.",
       "saved": "이제 Donut이 {{proxy}}를 통해 연결합니다.",
-      "removed": "Donut이 더 이상 자체 프록시를 사용하지 않습니다."    }
+      "removed": "Donut이 더 이상 자체 프록시를 사용하지 않습니다."
+    }
   },
   "header": {
     "searchPlaceholder": "프로필 검색...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "패치된 엔진이 자동화 확인을 통과하지 못해 제거되었습니다. 설치된 버전을 계속 사용하세요.",
     "syncPasswordBlocksRemoteRun": "동기화 암호화 비밀번호가 이 프로필의 동기화된 설정을 암호화하므로 원격 호스트가 복호화할 수 없습니다. 원격으로 실행하려면 동기화 암호화 설정에서 비밀번호를 제거하세요.",
     "appProxyInvalid": "프록시를 scheme://host:port 형식으로 입력하세요. 호스트 앞에 user:password@를 넣을 수 있습니다. 스킴은 http, https, socks5, socks5h 중 하나입니다.",
-    "appProxyUnreachable": "Donut이 프록시 {{proxy}}를 통해 연결하지 못했습니다. 설정의 네트워크에서 프록시를 확인하세요."  },
+    "appProxyUnreachable": "Donut이 프록시 {{proxy}}를 통해 연결하지 못했습니다. 설정의 네트워크에서 프록시를 확인하세요."
+  },
   "rail": {
     "profiles": "프로필",
     "extensions": "확장 프로그램",

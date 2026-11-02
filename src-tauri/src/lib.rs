@@ -493,7 +493,11 @@ fn kill_own_webview_children() {
   #[cfg(target_os = "windows")]
   {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
-    let mut system = System::new();
+    // sysinfo 0.40 hands the process table back as a Result: without it there
+    // is nothing to sweep, and teardown continues its normal course.
+    let Ok(mut system) = System::new() else {
+      return;
+    };
     system.refresh_processes_specifics(
       ProcessesToUpdate::All,
       true,

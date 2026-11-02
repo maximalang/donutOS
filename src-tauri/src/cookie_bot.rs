@@ -12,7 +12,7 @@
 
 use crate::cloud_errors::{self, BackendFailure, FailureCodes};
 use crate::profile::types::BrowserProfile;
-use crate::sync::encryption::{remote_seal, RemoteSeal};
+use crate::sync::encryption::remote_seal;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -617,7 +617,7 @@ pub fn run_precondition(profile: &BrowserProfile) -> Result<(), String> {
     return Err(refusal);
   }
   let seal = remote_seal(profile, crate::sync::encryption::has_e2e_password());
-  if seal == Some(RemoteSeal::SyncPassword) {
+  if seal == Some(crate::sync::encryption::RemoteSeal::SyncPassword) {
     return Err(error("SYNC_PASSWORD_BLOCKS_REMOTE_RUN", &[]));
   }
   bot_precondition(profile, &exit_reachability(profile))
@@ -631,7 +631,6 @@ pub fn run_precondition(profile: &BrowserProfile) -> Result<(), String> {
   let _ = profile;
   Ok(())
 }
-
 
 /// Whether this profile could ever be warmed by the bot.
 ///
@@ -1690,6 +1689,7 @@ mod tests {
   use super::*;
   use crate::profile::types::SyncMode;
   use crate::remote_exit::ExitReachability;
+  use crate::sync::encryption::RemoteSeal;
 
   fn eligible_profile() -> BrowserProfile {
     BrowserProfile {

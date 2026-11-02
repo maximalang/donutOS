@@ -354,7 +354,8 @@
       "current": "Đang dùng: {{proxy}}",
       "checkNote": "Donut kiểm tra máy chủ của nó có phản hồi qua proxy trước khi lưu. Lược đồ: http, https, socks5, socks5h.",
       "saved": "Donut hiện kết nối qua {{proxy}}.",
-      "removed": "Donut không còn dùng proxy riêng."    }
+      "removed": "Donut không còn dùng proxy riêng."
+    }
   },
   "header": {
     "searchPlaceholder": "Tìm kiếm hồ sơ...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "Trình duyệt đã vá không vượt qua kiểm tra tự động hóa và đã bị gỡ bỏ. Hãy tiếp tục dùng phiên bản đã cài.",
     "syncPasswordBlocksRemoteRun": "Mật khẩu mã hóa đồng bộ mã hóa các cài đặt đã đồng bộ của hồ sơ này, và máy chủ từ xa không thể giải mã chúng. Để chạy từ xa, hãy xóa mật khẩu trong cài đặt Mã hóa đồng bộ.",
     "appProxyInvalid": "Nhập proxy theo dạng lược_đồ://máy_chủ:cổng, có thể thêm người_dùng:mật_khẩu@ trước máy chủ. Lược đồ là http, https, socks5 hoặc socks5h.",
-    "appProxyUnreachable": "Donut không thể kết nối qua proxy {{proxy}}. Hãy kiểm tra proxy trong Cài đặt, mục Mạng."  },
+    "appProxyUnreachable": "Donut không thể kết nối qua proxy {{proxy}}. Hãy kiểm tra proxy trong Cài đặt, mục Mạng."
+  },
   "rail": {
     "profiles": "Profile",
     "extensions": "Tiện ích",

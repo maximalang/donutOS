@@ -355,7 +355,8 @@
       "current": "Utilisé : {{proxy}}",
       "checkNote": "Donut vérifie que ses serveurs répondent via le proxy avant de l'enregistrer. Schémas : http, https, socks5, socks5h.",
       "saved": "Donut se connecte maintenant via {{proxy}}.",
-      "removed": "Donut n'utilise plus de proxy propre."    }
+      "removed": "Donut n'utilise plus de proxy propre."
+    }
   },
   "header": {
     "searchPlaceholder": "Rechercher des profils...",
@@ -3054,7 +3055,8 @@
     "engineSmokeFailed": "Le moteur corrigé a échoué au test d'automatisation et a été supprimé. Continuez avec la version installée.",
     "syncPasswordBlocksRemoteRun": "Le mot de passe du chiffrement de synchronisation chiffre les réglages synchronisés de ce profil, et un hôte distant ne peut pas les déchiffrer. Pour l'exécuter à distance, supprimez le mot de passe dans les réglages Chiffrement de synchronisation.",
     "appProxyInvalid": "Saisissez le proxy sous la forme schéma://hôte:port, avec utilisateur:mot_de_passe@ facultatif avant l'hôte. Le schéma est http, https, socks5 ou socks5h.",
-    "appProxyUnreachable": "Donut n'a pas pu se connecter via son proxy {{proxy}}. Vérifiez le proxy dans Paramètres, sous Réseau."  },
+    "appProxyUnreachable": "Donut n'a pas pu se connecter via son proxy {{proxy}}. Vérifiez le proxy dans Paramètres, sous Réseau."
+  },
   "rail": {
     "profiles": "Profils",
     "extensions": "Extensions",

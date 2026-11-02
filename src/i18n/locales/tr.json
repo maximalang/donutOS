@@ -354,7 +354,8 @@
       "current": "Kullanımda: {{proxy}}",
       "checkNote": "Donut, kaydetmeden önce sunucularının proxy üzerinden yanıt verdiğini denetler. Şemalar: http, https, socks5, socks5h.",
       "saved": "Donut artık {{proxy}} üzerinden bağlanıyor.",
-      "removed": "Donut artık kendi proxy'sini kullanmıyor."    }
+      "removed": "Donut artık kendi proxy'sini kullanmıyor."
+    }
   },
   "header": {
     "searchPlaceholder": "Profillerde ara...",
@@ -3033,7 +3034,8 @@
     "engineSmokeFailed": "Yamalanmış motor otomasyon testini geçemedi ve kaldırıldı. Yüklü sürümü kullanmaya devam edin.",
     "syncPasswordBlocksRemoteRun": "Eşitleme şifrelemesi parolası bu profilin eşitlenen ayarlarını şifreler ve uzak sunucu bunları çözemez. Uzakta çalıştırmak için Eşitleme şifrelemesi ayarlarından parolayı kaldırın.",
     "appProxyInvalid": "Proxy'yi şema://sunucu:port biçiminde girin; sunucudan önce isteğe bağlı kullanıcı:parola@ ekleyebilirsiniz. Şema http, https, socks5 veya socks5h olmalıdır.",
-    "appProxyUnreachable": "Donut, {{proxy}} proxy'si üzerinden bağlanamadı. Proxy'yi Ayarlar'da, Ağ bölümünde denetleyin."  },
+    "appProxyUnreachable": "Donut, {{proxy}} proxy'si üzerinden bağlanamadı. Proxy'yi Ayarlar'da, Ağ bölümünde denetleyin."
+  },
   "rail": {
     "profiles": "Profiller",
     "extensions": "Uzantılar",
