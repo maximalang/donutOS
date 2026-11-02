@@ -346,7 +346,16 @@
       "saved": "Salvo",
       "save": "Salvar",
       "hint": "Serve qualquer provedor com /v1/chat/completions compatível com OpenAI - modelo local ou hospedado. As requisições vão direto deste app ao seu endpoint."
-    }
+    },
+    "network": {
+      "title": "Rede",
+      "appProxy": "Proxy para o Donut",
+      "appProxyDescription": "As conexões do próprio Donut usam este proxy: downloads, verificação de atualizações, login e sincronização. Os perfis mantêm os próprios proxies.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "Em uso: {{proxy}}",
+      "checkNote": "O Donut verifica se os servidores dele respondem pelo proxy antes de salvá-lo. Esquemas: http, https, socks5, socks5h.",
+      "saved": "O Donut agora se conecta por {{proxy}}.",
+      "removed": "O Donut não usa mais um proxy próprio."    }
   },
   "header": {
     "searchPlaceholder": "Pesquisar perfis...",
@@ -1194,7 +1203,7 @@
       "toggleFailed": "Não foi possível alterar o controlo remoto",
       "endpointLabel": "Ponto final MCP remoto",
       "endpointCopied": "Ponto final copiado",
-      "endpointDescription": "Aponte um cliente MCP para aqui usando a credencial acima como token bearer. Uma instância por conta: a primeira aplicação a ligar-se mantém o lugar.",
+      "endpointDescription": "Aponte um cliente MCP para aqui. Um cliente com OAuth, como o Claude ou o ChatGPT, pede-lhe que inicie sessão; os outros clientes enviam a credencial acima como token bearer. Uma instância por conta: a primeira aplicação a ligar-se mantém o lugar.",
       "exampleRequest": "Pedido de exemplo",
       "credentialLabel": "Credencial",
       "credentialPrefix": "{{prefix}}…",
@@ -2764,6 +2773,7 @@
     "wayfernNotResponding": "O Wayfern iniciou, mas não respondeu em {{seconds}} segundos. Um software de segurança pode estar bloqueando-o, ou ele não conseguiu abrir a janela. Permita o Wayfern no seu antivírus e tente novamente.",
     "updateProfilesRunning": "Pare todos os perfis em execução antes de instalar a atualização.",
     "updatePreparationFailed": "O Donut Browser não conseguiu encerrar com segurança um processo de rede em segundo plano. Reinicie o computador e tente atualizar novamente.",
+    "portableUpdateFailed": "O Donut Browser não conseguiu substituir os arquivos na pasta portátil e manteve a versão atual. Feche os programas que usam arquivos dessa pasta e reinicie novamente.",
     "wayfernTermsRequired": "Aceite os Termos e Condições da Wayfern para usar o Wayfern.",
     "apiPortUnavailable": "O servidor da API não encontrou uma porta disponível.",
     "mcpAgentUnknown": "Este cliente MCP não é compatível.",
@@ -2840,6 +2850,7 @@
     "wayfernFingerprintGenerationFailed": "Não foi possível criar uma impressão digital para este perfil. {{detail}}",
     "wayfernGenerationLimitReached": "Limite temporário de geração de impressões digitais atingido. Tente novamente mais tarde.",
     "wayfernCrossOsRequiresPlan": "Este perfil é executado como {{detail}} e este computador usa outro sistema operativo. Para o abrir aqui, é necessário um plano Pro ou Team.",
+    "wayfernCrossOsPrimaryDevice": "Este perfil é executado como {{detail}}. Os perfis de outro sistema operativo só funcionam no seu dispositivo principal. Saia do Donut Browser nos seus outros computadores e tente novamente.",
     "wayfernIdentityRefused": "O navegador não iniciou com a identidade deste perfil, então foi fechado. {{detail}}",
     "wayfernInstanceLimitReached": "Há navegadores abertos demais para o seu plano. Feche um navegador e tente novamente.",
     "tooManyBrowsersRunning": "Feche uma janela do navegador para continuar.",
@@ -3040,8 +3051,10 @@
     "aiRecipeInvalid": "O rascunho da IA não era uma receita válida.",
     "aiKeyStoreFailed": "Não foi possível guardar a chave API.",
     "enginePatchFailed": "O motor não pôde ser corrigido automaticamente, então não foi instalado.",
-    "engineSmokeFailed": "O motor corrigido falhou no teste de automação e foi removido. Continue usando a versão instalada."
-  },
+    "engineSmokeFailed": "O motor corrigido falhou no teste de automação e foi removido. Continue usando a versão instalada.",
+    "syncPasswordBlocksRemoteRun": "A senha da criptografia de sincronização criptografa as configurações sincronizadas deste perfil, e um host remoto não consegue descriptografá-las. Para executá-lo remotamente, remova a senha nas configurações de Criptografia de sincronização.",
+    "appProxyInvalid": "Informe o proxy como esquema://host:porta, com usuário:senha@ opcional antes do host. O esquema é http, https, socks5 ou socks5h.",
+    "appProxyUnreachable": "O Donut não conseguiu se conectar pelo proxy {{proxy}}. Verifique o proxy em Configurações, em Rede."  },
   "rail": {
     "profiles": "Perfis",
     "extensions": "Extensões",
@@ -3346,7 +3359,8 @@
       "errorDownload": "Não foi possível baixar o {{browser}}. Verifique sua conexão e tente novamente.",
       "errorExtraction": "Não foi possível extrair o {{browser}}. Tente novamente.",
       "errorGeneric": "Algo deu errado ao configurar o {{browser}}. Tente novamente.",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "proxyHint": "Se a sua rede bloqueia os servidores do Donut, informe um proxy para o Donut e tente novamente."
     },
     "features": {
       "title": "Recursos",
@@ -3374,8 +3388,8 @@
     "progress": "Progresso da configuração"
   },
   "wayfernBlocked": {
-    "title": "Automação do navegador pausada",
-    "description": "A automação do navegador funciona em um dispositivo por vez e outro dispositivo com a sessão ativa está usando-a. Saia da conta nesse dispositivo e inicie o perfil novamente."
+    "title": "Não é o seu dispositivo principal",
+    "description": "A automação do navegador e os perfis de outro sistema operativo só funcionam no seu dispositivo principal. Saia do Donut Browser nos seus outros computadores e tente novamente."
   },
   "profileGenerationLimit": {
     "title": "Limite de perfis por hora atingido",
@@ -3743,7 +3757,8 @@
       "fixEncrypted": "Abrir as configurações de sincronização",
       "fixProxy": "Anexar um proxy",
       "fixFailed": "Não foi possível aplicar essa correção.",
-      "exitNodeHint": "Sem proxy nem VPN, a execução sai pelo próprio endereço do data center da frota. Horas de tráfego vindo de uma rede de hospedagem danificam a identidade do perfil mais do que não aquecê-lo."
+      "exitNodeHint": "Sem proxy nem VPN, a execução sai pelo próprio endereço do data center da frota. Horas de tráfego vindo de uma rede de hospedagem danificam a identidade do perfil mais do que não aquecê-lo.",
+      "reasonSyncPassword": "Senha de criptografia de sincronização definida"
     },
     "conflict": {
       "title": "{{email}} já aquece este perfil às {{time}}",
@@ -4257,6 +4272,7 @@
       "stepTypes": {
         "click": "Clicar",
         "extract": "Extrair",
+        "hold": "Pressionar e segurar",
         "navigate": "Ir para uma página",
         "pressKey": "Premir uma tecla",
         "screenshot": "Captura",

@@ -131,7 +131,7 @@ const CONTROL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 /// the bare `reqwest::Client::new()` these calls used to use — which inherited
 /// no timeout at all.
 fn control_client(total: std::time::Duration) -> reqwest::Client {
-  reqwest::Client::builder()
+  crate::app_proxy::client_builder()
     .connect_timeout(CONTROL_CONNECT_TIMEOUT)
     .timeout(total)
     .build()
@@ -1207,14 +1207,10 @@ pub(crate) fn jittered(delay: Duration) -> Duration {
 /// Deliberately not the shared one: a total request timeout would kill a
 /// healthy stream on schedule, so only the connect phase is bounded and
 /// liveness is enforced by the idle timeout instead.
-pub(crate) fn stream_client() -> &'static reqwest::Client {
-  static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
-  CLIENT.get_or_init(|| {
-    reqwest::Client::builder()
-      .connect_timeout(Duration::from_secs(10))
-      .build()
-      .unwrap_or_else(|_| reqwest::Client::new())
-  })
+pub(crate) fn stream_client() -> reqwest::Client {
+  static CLIENT: crate::app_proxy::SharedClient =
+    crate::app_proxy::SharedClient::new(|builder| builder.connect_timeout(Duration::from_secs(10)));
+  CLIENT.get()
 }
 
 async fn connect_session_events(
@@ -1358,11 +1354,14 @@ fn emit_stream_status(app: &AppHandle, connected: bool, reason: Option<&str>) {
 
 /// The profile rules of `api_server::remote_launch_profile_rules`, as the
 /// codes the window translates.
-fn remote_rule_code(profile: &BrowserProfile) -> Option<&'static str> {
+fn remote_rule_code(profile: &BrowserProfile, sync_password_stored: bool) -> Option<&'static str> {
+  use crate::sync::encryption::{remote_seal, RemoteSeal};
   if !profile.is_sync_enabled() {
     Some("REMOTE_REQUIRES_CLOUD_SYNC")
   } else if profile.is_encrypted_sync() {
     Some("REMOTE_ENCRYPTED_SYNC_UNSUPPORTED")
+  } else if remote_seal(profile, sync_password_stored) == Some(RemoteSeal::SyncPassword) {
+    Some("SYNC_PASSWORD_BLOCKS_REMOTE_RUN")
   } else if profile.remote_platform().is_none() {
     Some("REMOTE_UNKNOWN_PLATFORM")
   } else {
@@ -1393,7 +1392,7 @@ pub async fn start_profile_remote_session(
     .into_iter()
     .find(|p| p.id.to_string() == profile_id)
     .ok_or_else(|| crate::backend_error("PROFILE_NOT_FOUND"))?;
-  if let Some(code) = remote_rule_code(&profile) {
+  if let Some(code) = remote_rule_code(&profile, crate::sync::encryption::has_e2e_password()) {
     return Err(crate::backend_error(code));
   }
   // The profile rules passed above, so what is left to refuse here is coded.
@@ -1434,12 +1433,12 @@ mod tests {
       ..Default::default()
     };
     assert_eq!(
-      remote_rule_code(&profile),
+      remote_rule_code(&profile, false),
       Some("REMOTE_REQUIRES_CLOUD_SYNC")
     );
     profile.sync_mode = crate::profile::types::SyncMode::Encrypted;
     assert_eq!(
-      remote_rule_code(&profile),
+      remote_rule_code(&profile, false),
       Some("REMOTE_ENCRYPTED_SYNC_UNSUPPORTED")
     );
     profile.sync_mode = crate::profile::types::SyncMode::Regular;
@@ -1448,11 +1447,20 @@ mod tests {
     } else {
       Some("REMOTE_UNKNOWN_PLATFORM")
     };
-    assert_eq!(remote_rule_code(&profile), expected);
+    assert_eq!(remote_rule_code(&profile, false), expected);
     assert_eq!(
-      remote_rule_code(&profile).is_none(),
-      crate::api_server::remote_launch_profile_rules(&profile).is_ok()
+      remote_rule_code(&profile, false).is_none(),
+      crate::api_server::remote_launch_profile_rules(&profile, false).is_ok()
     );
+
+    profile.browser = "wayfern".to_string();
+    profile.host_os = Some("macos".to_string());
+    assert_eq!(remote_rule_code(&profile, false), None);
+    assert_eq!(
+      remote_rule_code(&profile, true),
+      Some("SYNC_PASSWORD_BLOCKS_REMOTE_RUN")
+    );
+    assert!(crate::api_server::remote_launch_profile_rules(&profile, true).is_err());
   }
 
   #[test]

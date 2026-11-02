@@ -345,7 +345,16 @@
       "saved": "Đã lưu",
       "save": "Lưu",
       "hint": "Bất kỳ nhà cung cấp nào có /v1/chat/completions tương thích OpenAI đều dùng được - mô hình cục bộ hoặc đám mây. Yêu cầu đi thẳng từ ứng dụng này tới endpoint của bạn."
-    }
+    },
+    "network": {
+      "title": "Mạng",
+      "appProxy": "Proxy cho Donut",
+      "appProxyDescription": "Các kết nối riêng của Donut dùng proxy này: tải xuống, kiểm tra cập nhật, đăng nhập và đồng bộ. Hồ sơ vẫn dùng proxy riêng của chúng.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "Đang dùng: {{proxy}}",
+      "checkNote": "Donut kiểm tra máy chủ của nó có phản hồi qua proxy trước khi lưu. Lược đồ: http, https, socks5, socks5h.",
+      "saved": "Donut hiện kết nối qua {{proxy}}.",
+      "removed": "Donut không còn dùng proxy riêng."    }
   },
   "header": {
     "searchPlaceholder": "Tìm kiếm hồ sơ...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "Không thể thay đổi điều khiển từ xa",
       "endpointLabel": "Điểm cuối MCP từ xa",
       "endpointCopied": "Đã sao chép điểm cuối",
-      "endpointDescription": "Trỏ một máy khách MCP tới đây và dùng thông tin xác thực ở trên làm bearer token. Một phiên bản cho mỗi tài khoản: ứng dụng kết nối đầu tiên giữ chỗ.",
+      "endpointDescription": "Trỏ một máy khách MCP tới đây. Máy khách có OAuth, như Claude hoặc ChatGPT, sẽ yêu cầu bạn đăng nhập; các máy khách khác gửi thông tin xác thực ở trên làm bearer token. Một phiên bản cho mỗi tài khoản: ứng dụng kết nối đầu tiên giữ chỗ.",
       "exampleRequest": "Yêu cầu ví dụ",
       "credentialLabel": "Thông tin xác thực",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern đã khởi động nhưng không phản hồi trong {{seconds}} giây. Có thể phần mềm bảo mật đang giữ nó, hoặc nó không mở được cửa sổ. Hãy cho phép Wayfern trong phần mềm diệt virus rồi thử lại.",
     "updateProfilesRunning": "Hãy dừng tất cả hồ sơ đang chạy trước khi cài đặt bản cập nhật.",
     "updatePreparationFailed": "Donut Browser không thể dừng an toàn một tiến trình mạng chạy nền. Hãy khởi động lại máy tính rồi thử cập nhật lại.",
+    "portableUpdateFailed": "Donut Browser không thể thay thế các tệp trong thư mục di động và giữ phiên bản hiện tại. Hãy đóng các chương trình đang dùng tệp trong thư mục đó, rồi khởi động lại lần nữa.",
     "wayfernTermsRequired": "Hãy chấp nhận Điều khoản và Điều kiện của Wayfern để sử dụng Wayfern.",
     "apiPortUnavailable": "Máy chủ API không tìm thấy cổng khả dụng.",
     "mcpAgentUnknown": "Ứng dụng MCP này không được hỗ trợ.",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "Không thể tạo dấu vân tay cho hồ sơ này. {{detail}}",
     "wayfernGenerationLimitReached": "Đã đạt giới hạn tạm thời về tạo dấu vân tay. Vui lòng thử lại sau.",
     "wayfernCrossOsRequiresPlan": "Hồ sơ này chạy dưới dạng {{detail}}, còn máy tính này dùng hệ điều hành khác. Để mở hồ sơ ở đây, bạn cần gói Pro hoặc Team.",
+    "wayfernCrossOsPrimaryDevice": "Hồ sơ này chạy dưới dạng {{detail}}. Hồ sơ cho hệ điều hành khác chỉ chạy trên thiết bị chính của bạn. Hãy đăng xuất Donut Browser trên các máy tính khác, rồi thử lại.",
     "wayfernIdentityRefused": "Trình duyệt không khởi động với danh tính của hồ sơ này nên đã bị đóng. {{detail}}",
     "wayfernInstanceLimitReached": "Có quá nhiều trình duyệt đang mở so với gói của bạn. Hãy đóng một trình duyệt rồi thử lại.",
     "tooManyBrowsersRunning": "Hãy đóng một cửa sổ trình duyệt để tiếp tục.",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "Bản nháp AI không phải công thức hợp lệ.",
     "aiKeyStoreFailed": "Không lưu được khóa API.",
     "enginePatchFailed": "Không thể tự động vá trình duyệt nên nó chưa được cài đặt.",
-    "engineSmokeFailed": "Trình duyệt đã vá không vượt qua kiểm tra tự động hóa và đã bị gỡ bỏ. Hãy tiếp tục dùng phiên bản đã cài."
-  },
+    "engineSmokeFailed": "Trình duyệt đã vá không vượt qua kiểm tra tự động hóa và đã bị gỡ bỏ. Hãy tiếp tục dùng phiên bản đã cài.",
+    "syncPasswordBlocksRemoteRun": "Mật khẩu mã hóa đồng bộ mã hóa các cài đặt đã đồng bộ của hồ sơ này, và máy chủ từ xa không thể giải mã chúng. Để chạy từ xa, hãy xóa mật khẩu trong cài đặt Mã hóa đồng bộ.",
+    "appProxyInvalid": "Nhập proxy theo dạng lược_đồ://máy_chủ:cổng, có thể thêm người_dùng:mật_khẩu@ trước máy chủ. Lược đồ là http, https, socks5 hoặc socks5h.",
+    "appProxyUnreachable": "Donut không thể kết nối qua proxy {{proxy}}. Hãy kiểm tra proxy trong Cài đặt, mục Mạng."  },
   "rail": {
     "profiles": "Profile",
     "extensions": "Tiện ích",
@@ -3325,7 +3338,8 @@
       "errorDownload": "Không thể tải {{browser}}. Kiểm tra kết nối và thử lại.",
       "errorExtraction": "Không thể giải nén {{browser}}. Vui lòng thử lại.",
       "errorGeneric": "Đã xảy ra lỗi khi thiết lập {{browser}}. Vui lòng thử lại.",
-      "retry": "Thử lại"
+      "retry": "Thử lại",
+      "proxyHint": "Nếu mạng của bạn chặn máy chủ của Donut, hãy nhập proxy cho Donut rồi thử lại."
     },
     "features": {
       "title": "Tính năng",
@@ -3353,8 +3367,8 @@
     "progress": "Tiến độ thiết lập"
   },
   "wayfernBlocked": {
-    "title": "Tự động hóa trình duyệt đã tạm dừng",
-    "description": "Tự động hóa trình duyệt chỉ chạy trên một thiết bị tại một thời điểm và một thiết bị khác đang đăng nhập hiện đang sử dụng nó. Hãy đăng xuất trên thiết bị đó, rồi khởi chạy lại cấu hình."
+    "title": "Không phải thiết bị chính",
+    "description": "Tự động hóa trình duyệt và hồ sơ cho hệ điều hành khác chỉ chạy trên thiết bị chính của bạn. Hãy đăng xuất Donut Browser trên các máy tính khác, rồi thử lại."
   },
   "profileGenerationLimit": {
     "title": "Đã đạt giới hạn hồ sơ mỗi giờ",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "Mở cài đặt đồng bộ",
       "fixProxy": "Gán một proxy",
       "fixFailed": "Không áp dụng được cách khắc phục đó.",
-      "exitNodeHint": "Không có proxy hoặc VPN, lần chạy sẽ đi ra từ chính địa chỉ trung tâm dữ liệu của hệ thống máy. Nhiều giờ lưu lượng từ một mạng lưu trữ gây hại cho danh tính hồ sơ hơn cả việc không làm ấm."
+      "exitNodeHint": "Không có proxy hoặc VPN, lần chạy sẽ đi ra từ chính địa chỉ trung tâm dữ liệu của hệ thống máy. Nhiều giờ lưu lượng từ một mạng lưu trữ gây hại cho danh tính hồ sơ hơn cả việc không làm ấm.",
+      "reasonSyncPassword": "Đã đặt mật khẩu mã hóa đồng bộ"
     },
     "conflict": {
       "title": "{{email}} đã làm ấm hồ sơ này lúc {{time}}",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "Nhấp",
         "extract": "Trích xuất",
+        "hold": "Nhấn giữ",
         "navigate": "Mở một trang",
         "pressKey": "Nhấn phím",
         "screenshot": "Ảnh màn hình",

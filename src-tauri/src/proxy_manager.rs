@@ -74,6 +74,37 @@ pub enum ProxyParseResult {
   Invalid { line: String, reason: String },
 }
 
+/// The colon-separated fields of a proxy line. An IPv6 address in brackets at
+/// the start of a field stays one field: `[2001:db8::1]:8080:user:pass`.
+fn split_proxy_fields(line: &str) -> Vec<&str> {
+  let mut fields = Vec::new();
+  let mut rest = line;
+  loop {
+    if let Some(end) = rest.starts_with('[').then(|| rest.find(']')).flatten() {
+      let after = &rest[end + 1..];
+      if after.is_empty() {
+        fields.push(rest);
+        return fields;
+      }
+      if let Some(next) = after.strip_prefix(':') {
+        fields.push(&rest[..=end]);
+        rest = next;
+        continue;
+      }
+    }
+    match rest.split_once(':') {
+      Some((field, next)) => {
+        fields.push(field);
+        rest = next;
+      }
+      None => {
+        fields.push(rest);
+        return fields;
+      }
+    }
+  }
+}
+
 // Store active proxy information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyInfo {
@@ -338,7 +369,7 @@ pub fn is_launch_placeholder_pid(pid: u32) -> bool {
 /// read of the process table. A process that exited but is still listed
 /// (a zombie) is not alive.
 fn live_process_start_times(pids: &[u32]) -> HashMap<u32, u64> {
-  use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+  use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
   if pids.is_empty() {
     return HashMap::new();
   }
@@ -346,7 +377,7 @@ fn live_process_start_times(pids: &[u32]) -> HashMap<u32, u64> {
     .iter()
     .map(|&pid| sysinfo::Pid::from_u32(pid))
     .collect();
-  let mut system = System::new();
+  let mut system = crate::proxy_storage::process_table(sysinfo::RefreshKind::nothing());
   system.refresh_processes_specifics(
     ProcessesToUpdate::Some(&pids),
     true,
@@ -1489,7 +1520,7 @@ impl ProxyManager {
       url.push('@');
     }
 
-    url.push_str(&proxy_settings.host);
+    url.push_str(&crate::proxy_storage::url_host(&proxy_settings.host));
     url.push(':');
     url.push_str(&proxy_settings.port.to_string());
 
@@ -1523,9 +1554,9 @@ impl ProxyManager {
   /// type resistant to an active man-in-the-middle rather than only to a
   /// passive one, so a failure here is fatal by design.
   async fn verify_upstream_tls(proxy_settings: &ProxySettings) -> Result<(), String> {
-    let host = proxy_settings.host.clone();
+    let host = crate::proxy_storage::bare_host(&proxy_settings.host).to_string();
     let port = proxy_settings.port;
-    let addr = format!("{host}:{port}");
+    let addr = crate::proxy_server::connect_authority(&host, port);
 
     let attempt = async {
       let tcp = tokio::net::TcpStream::connect((host.as_str(), port))
@@ -1812,7 +1843,7 @@ impl ProxyManager {
     }
 
     // Try colon-separated formats
-    let parts: Vec<&str> = line.split(':').collect();
+    let parts = split_proxy_fields(line);
 
     match parts.len() {
       // host:port (no auth)
@@ -1846,10 +1877,13 @@ impl ProxyManager {
       }
       // 4 parts: could be host:port:user:pass OR user:pass:host:port
       4 => Self::parse_colon_separated_quad(&parts, "http", line),
-      _ => ProxyParseResult::Invalid {
-        line: line.to_string(),
-        reason: format!("Unexpected format with {} parts", parts.len()),
-      },
+      // username:password@[IPv6]:port
+      _ => {
+        Self::try_parse_user_pass_at_host_port(line).unwrap_or_else(|| ProxyParseResult::Invalid {
+          line: line.to_string(),
+          reason: format!("Unexpected format with {} parts", parts.len()),
+        })
+      }
     }
   }
 
@@ -1977,10 +2011,8 @@ impl ProxyManager {
       }
     } else {
       // Vendors also hand out the colon-separated body behind a scheme, as in
-      // socks5://host:port:user:pass, so try that before plain host:port. An
-      // IPv6 literal splits into four too ("[", "", "1]", "8080" for [::1]:8080),
-      // so require every field to be populated before reading it that way.
-      let parts: Vec<&str> = rest.split(':').collect();
+      // socks5://host:port:user:pass, so try that before plain host:port.
+      let parts = split_proxy_fields(rest);
       if parts.len() == 4 && parts.iter().all(|part| !part.is_empty()) {
         return Some(Self::parse_colon_separated_quad(&parts, protocol, line));
       }
@@ -2820,28 +2852,12 @@ impl ProxyManager {
           // A launch reusing the profile's worker must not race its stop.
           let _lifecycle = self.worker_lifecycle.lock().await;
           for (browser_pid, proxy_id, profile_id) in dead_browser_entries {
+            if self
+              .reap_worker_of_dead_browser(browser_pid, &proxy_id, profile_id.as_deref())
+              .await
             {
-              let mut proxies = self.active_proxies.lock().unwrap();
-              // Re-check the entry still maps to the same proxy_id — another
-              // thread may have replaced it with a new proxy since we snapshotted.
-              if let Some(current) = proxies.get(&browser_pid) {
-                if current.id != proxy_id {
-                  continue;
-                }
-              } else {
-                continue;
-              }
-              proxies.remove(&browser_pid);
+              changed = true;
             }
-            changed = true;
-            if let Some(ref pid) = profile_id {
-              let mut map = self.profile_active_proxy_ids.lock().unwrap();
-              if map.get(pid) == Some(&proxy_id) {
-                map.remove(pid);
-              }
-            }
-            let reason = format!("browser_exited({browser_pid})");
-            let _ = crate::proxy_runner::stop_proxy_process_because(&proxy_id, &reason).await;
           }
         }
       }
@@ -2919,6 +2935,83 @@ impl ProxyManager {
     }
 
     Ok(dead_pids)
+  }
+
+  /// Stop the worker of a browser the app has just seen exit, at once rather
+  /// than at the sweep that confirms the exit a minute later. The exit is
+  /// checked against the exact process the worker recorded, because the app's
+  /// own running check can miss a live browser on Linux; a browser that still
+  /// runs keeps its worker.
+  pub async fn stop_worker_of_exited_browser(&self, browser_pid: u32) {
+    if browser_pid == 0 || is_launch_placeholder_pid(browser_pid) {
+      return;
+    }
+    let Some((proxy_id, profile_id)) = self
+      .active_proxies
+      .lock()
+      .unwrap()
+      .get(&browser_pid)
+      .map(|info| (info.id.clone(), info.profile_id.clone()))
+    else {
+      return;
+    };
+    let expected_start_time = crate::proxy_storage::get_proxy_config(&proxy_id)
+      .and_then(|config| config.browser_pid_start_time);
+    let still_running = live_process_start_times(&[browser_pid])
+      .get(&browser_pid)
+      .is_some_and(|&started| expected_start_time.is_none_or(|expected| started == expected));
+    if still_running {
+      return;
+    }
+
+    let _lifecycle = self.worker_lifecycle.lock().await;
+    if self
+      .reap_worker_of_dead_browser(browser_pid, &proxy_id, profile_id.as_deref())
+      .await
+    {
+      if let Err(e) = events::emit_empty("proxies-changed") {
+        log::warn!("Event emit failed event=proxies-changed err=\"{e}\"");
+      }
+    }
+  }
+
+  /// Forget and stop the worker that served `browser_pid`, which is gone.
+  /// False when the entry now maps to another worker or to none. The caller
+  /// holds `worker_lifecycle`.
+  async fn reap_worker_of_dead_browser(
+    &self,
+    browser_pid: u32,
+    proxy_id: &str,
+    profile_id: Option<&str>,
+  ) -> bool {
+    {
+      let mut proxies = self.active_proxies.lock().unwrap();
+      // Another thread may have replaced the entry since it was read.
+      if proxies
+        .get(&browser_pid)
+        .is_none_or(|current| current.id != proxy_id)
+      {
+        return false;
+      }
+      proxies.remove(&browser_pid);
+    }
+    self
+      .dead_browser_misses
+      .lock()
+      .unwrap()
+      .remove(&browser_pid);
+    if let Some(profile_id) = profile_id {
+      let mut map = self.profile_active_proxy_ids.lock().unwrap();
+      if map
+        .get(profile_id)
+        .is_some_and(|current| current == proxy_id)
+      {
+        map.remove(profile_id);
+      }
+    }
+    let reason = format!("browser_exited({browser_pid})");
+    let _ = crate::proxy_runner::stop_proxy_process_because(proxy_id, &reason).await;
+    true
   }
 
   /// Snapshot the set of tracked proxy IDs (for asserting in tests).
@@ -4702,6 +4795,65 @@ mod tests {
       vless_uri: None,
     });
     assert_eq!(url, "http://justuser@host.io:3128");
+  }
+
+  #[test]
+  fn an_ipv6_proxy_host_is_bracketed_in_its_url() {
+    let settings = |host: &str| ProxySettings {
+      proxy_type: "http".to_string(),
+      host: host.to_string(),
+      port: 8080,
+      username: Some("user".to_string()),
+      password: Some("pass".to_string()),
+      vless_uri: None,
+    };
+    for host in ["2001:db8::1", "[2001:db8::1]"] {
+      let url = ProxyManager::build_proxy_url(&settings(host));
+      assert_eq!(url, "http://user:pass@[2001:db8::1]:8080");
+      let parsed = url::Url::parse(&url).unwrap();
+      assert_eq!(parsed.port(), Some(8080));
+      assert_eq!(
+        crate::proxy_storage::build_proxy_url("http", host, 8080, Some("user"), Some("pass")),
+        url
+      );
+    }
+    assert_eq!(
+      ProxyManager::build_proxy_url(&settings("1.2.3.4")),
+      "http://user:pass@1.2.3.4:8080"
+    );
+  }
+
+  #[test]
+  fn proxy_lines_with_a_bracketed_ipv6_host_parse() {
+    let lines = [
+      "[2001:db8::1]:8080:user:pass",
+      "user:pass:[2001:db8::1]:8080",
+      "user:pass@[2001:db8::1]:8080",
+      "http://user:pass@[2001:db8::1]:8080",
+      "socks5://[2001:db8::1]:8080:user:pass",
+    ];
+    for line in lines {
+      match &ProxyManager::parse_txt_proxies(line)[0] {
+        ProxyParseResult::Parsed(p) => {
+          assert_eq!(p.host, "[2001:db8::1]", "{line}");
+          assert_eq!(p.port, 8080, "{line}");
+          assert_eq!(p.username.as_deref(), Some("user"), "{line}");
+          assert_eq!(p.password.as_deref(), Some("pass"), "{line}");
+        }
+        other => panic!("{line}: expected Parsed, got {other:?}"),
+      }
+    }
+    match &ProxyManager::parse_txt_proxies("[2001:db8::1]:3128")[0] {
+      ProxyParseResult::Parsed(p) => {
+        assert_eq!((p.host.as_str(), p.port), ("[2001:db8::1]", 3128));
+        assert_eq!(p.username, None);
+      }
+      other => panic!("expected Parsed, got {other:?}"),
+    }
+    assert_eq!(
+      split_proxy_fields("1.2.3.4:80:[user:pass"),
+      vec!["1.2.3.4", "80", "[user", "pass"]
+    );
   }
 
   #[test]

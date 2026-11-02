@@ -1280,6 +1280,51 @@ mod tests {
   }
 
   #[test]
+  fn a_rebuild_leaves_the_first_build_only_when_no_profile_uses_it() {
+    let first = "155.0.8059.79";
+    let rebuilt = "155.0.8059.79-2";
+    let wayfern = |version: &str| ("wayfern".to_string(), version.to_string());
+    let registry_with_both = || {
+      let registry = DownloadedBrowsersRegistry::new();
+      for version in [first, rebuilt] {
+        registry.add_browser(DownloadedBrowserInfo {
+          browser: "wayfern".to_string(),
+          version: version.to_string(),
+          file_path: PathBuf::from(format!("/test/wayfern/{version}")),
+        });
+      }
+      registry
+    };
+    let first_entry = format!("wayfern {first}");
+
+    // A profile still on the first build keeps it.
+    let registry = registry_with_both();
+    let cleaned = registry
+      .cleanup_unused_binaries_internal(&[wayfern(first), wayfern(rebuilt)], &[])
+      .expect("cleanup should succeed");
+    assert!(!cleaned.contains(&first_entry), "{cleaned:?}");
+    assert!(registry.is_browser_registered("wayfern", first));
+
+    // A running profile on the first build keeps it, also when no profile lists it as active.
+    let registry = registry_with_both();
+    let cleaned = registry
+      .cleanup_unused_binaries_internal(&[wayfern(rebuilt)], &[wayfern(first)])
+      .expect("cleanup should succeed");
+    assert!(!cleaned.contains(&first_entry), "{cleaned:?}");
+    assert!(registry.is_browser_registered("wayfern", first));
+
+    // When every profile is on the rebuild and none runs on the first build, the first build goes
+    // and the rebuild stays.
+    let registry = registry_with_both();
+    let cleaned = registry
+      .cleanup_unused_binaries_internal(&[wayfern(rebuilt)], &[])
+      .expect("cleanup should succeed");
+    assert!(cleaned.contains(&first_entry), "{cleaned:?}");
+    assert!(!registry.is_browser_registered("wayfern", first));
+    assert!(registry.is_browser_registered("wayfern", rebuilt));
+  }
+
+  #[test]
   fn test_last_version_kept_during_cleanup() {
     let registry = DownloadedBrowsersRegistry::new();
 
@@ -1604,44 +1649,47 @@ pub async fn ensure_active_browsers_downloaded(
       }
     };
 
-    // Retry transient failures a few times. Each attempt is wrapped in an overall
-    // timeout so that a hang anywhere in the download pipeline (version resolution,
-    // a stalled stream, extraction) cannot block the next browser forever. This is
-    // the core of the bug fix: Wayfern downloads proceed independently.
+    // Retry transient failures a few times. An attempt that stops moving is
+    // dropped, so a hang anywhere in the pipeline (version resolution, a stalled
+    // stream, extraction) cannot block the next browser forever. Only a stall
+    // counts: a fixed limit cut off every slow connection in the middle of
+    // Wayfern's gigabyte.
     const MAX_ATTEMPTS: u32 = 3;
-    const ATTEMPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
+    const ATTEMPT_STALL: std::time::Duration = std::time::Duration::from_secs(600);
     let mut succeeded = false;
     for attempt in 1..=MAX_ATTEMPTS {
-      let result = tokio::time::timeout(
-        ATTEMPT_TIMEOUT,
+      let result = crate::downloader::unless_stalled(
         crate::downloader::download_browser(
           app_handle.clone(),
           browser.to_string(),
           version.clone(),
         ),
+        browser,
+        &version,
+        ATTEMPT_STALL,
       )
       .await;
 
       match result {
-        Ok(Ok(_)) => {
+        Some(Ok(_)) => {
           downloaded.push(format!("{browser} {version}"));
           succeeded = true;
           break;
         }
-        Ok(Err(e)) => {
+        Some(Err(e)) => {
           // A proxy setting stays wrong until the user changes it.
           if crate::system_proxy::is_unreachable_error(&e.to_string()) {
             break;
           }
         }
-        Err(_) => {
-          // The download future itself hung past the overall timeout and was dropped,
-          // so its own cleanup never ran. Clear any leftover in-progress bookkeeping
-          // (by browser prefix, as a catch-all for whatever key was in flight) and
-          // emit a terminal error event so the UI stops spinning.
+        None => {
+          // The download future stalled and was dropped, so its own cleanup
+          // never ran. Clear any leftover in-progress bookkeeping (by browser
+          // prefix, as a catch-all for whatever key was in flight) and emit a
+          // terminal error event so the UI stops spinning.
           log::warn!(
-            "Browser auto-download timed out browser={browser} version={version} attempt={attempt}/{MAX_ATTEMPTS} timeout_s={}",
-            ATTEMPT_TIMEOUT.as_secs()
+            "Browser auto-download stalled browser={browser} version={version} attempt={attempt}/{MAX_ATTEMPTS} stall_s={}",
+            ATTEMPT_STALL.as_secs()
           );
           crate::downloader::clear_download_state_for_browser(browser);
           let progress = crate::downloader::DownloadProgress::failed(browser, &version, None);

@@ -346,7 +346,16 @@
       "saved": "Guardado",
       "save": "Guardar",
       "hint": "Sirve cualquier proveedor con /v1/chat/completions compatible con OpenAI - modelo local o en la nube. Las peticiones van directas de esta app a su endpoint."
-    }
+    },
+    "network": {
+      "title": "Red",
+      "appProxy": "Proxy para Donut",
+      "appProxyDescription": "Las conexiones propias de Donut usan este proxy: descargas, comprobación de actualizaciones, inicio de sesión y sincronización. Los perfiles conservan sus propios proxies.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "En uso: {{proxy}}",
+      "checkNote": "Donut comprueba que sus servidores responden a través del proxy antes de guardarlo. Esquemas: http, https, socks5, socks5h.",
+      "saved": "Donut ahora se conecta a través de {{proxy}}.",
+      "removed": "Donut ya no usa un proxy propio."    }
   },
   "header": {
     "searchPlaceholder": "Buscar perfiles...",
@@ -1194,7 +1203,7 @@
       "toggleFailed": "No se pudo cambiar el control remoto",
       "endpointLabel": "Punto final MCP remoto",
       "endpointCopied": "Punto final copiado",
-      "endpointDescription": "Apunta un cliente MCP aquí usando la credencial de arriba como token bearer. Una instancia por cuenta: la primera aplicación que se conecta conserva la ranura.",
+      "endpointDescription": "Apunta un cliente MCP aquí. Un cliente con OAuth, como Claude o ChatGPT, te pide que inicies sesión; los demás clientes envían la credencial de arriba como token bearer. Una instancia por cuenta: la primera aplicación que se conecta conserva la ranura.",
       "exampleRequest": "Solicitud de ejemplo",
       "credentialLabel": "Credencial",
       "credentialPrefix": "{{prefix}}…",
@@ -2764,6 +2773,7 @@
     "wayfernNotResponding": "Wayfern se inició, pero no respondió en {{seconds}} segundos. Puede que un software de seguridad lo esté reteniendo o que no haya podido abrir su ventana. Permite Wayfern en tu antivirus y vuelve a intentarlo.",
     "updateProfilesRunning": "Detén todos los perfiles en ejecución antes de instalar la actualización.",
     "updatePreparationFailed": "Donut Browser no pudo detener de forma segura un proceso de red en segundo plano. Reinicia el equipo y vuelve a intentar la actualización.",
+    "portableUpdateFailed": "Donut Browser no pudo reemplazar sus archivos en la carpeta portátil y mantiene la versión actual. Cierra los programas que usan archivos de esa carpeta y vuelve a reiniciar.",
     "wayfernTermsRequired": "Acepta los Términos y condiciones de Wayfern para usar Wayfern.",
     "apiPortUnavailable": "El servidor API no pudo encontrar un puerto disponible.",
     "mcpAgentUnknown": "Este cliente MCP no es compatible.",
@@ -2840,6 +2850,7 @@
     "wayfernFingerprintGenerationFailed": "No se pudo crear una huella digital para este perfil. {{detail}}",
     "wayfernGenerationLimitReached": "Se alcanzó el límite temporal de generación de huellas digitales. Inténtalo de nuevo más tarde.",
     "wayfernCrossOsRequiresPlan": "Este perfil se ejecuta como {{detail}} y este equipo usa otro sistema operativo. Para abrirlo aquí se necesita un plan Pro o Team.",
+    "wayfernCrossOsPrimaryDevice": "Este perfil se ejecuta como {{detail}}. Los perfiles de otro sistema operativo solo funcionan en tu dispositivo principal. Cierra la sesión de Donut Browser en tus otros equipos y vuelve a intentarlo.",
     "wayfernIdentityRefused": "El navegador no se inició con la identidad de este perfil, así que se cerró. {{detail}}",
     "wayfernInstanceLimitReached": "Hay demasiados navegadores abiertos para tu plan. Cierra un navegador e inténtalo de nuevo.",
     "tooManyBrowsersRunning": "Cierra una ventana del navegador para continuar.",
@@ -3040,8 +3051,10 @@
     "aiRecipeInvalid": "El borrador de IA no era una receta válida.",
     "aiKeyStoreFailed": "No se pudo guardar la clave API.",
     "enginePatchFailed": "No se pudo parchear el motor automáticamente, así que no se instaló.",
-    "engineSmokeFailed": "El motor parcheado no superó la prueba de automatización y se eliminó. Siga usando la versión instalada."
-  },
+    "engineSmokeFailed": "El motor parcheado no superó la prueba de automatización y se eliminó. Siga usando la versión instalada.",
+    "syncPasswordBlocksRemoteRun": "La contraseña del cifrado de sincronización cifra los ajustes sincronizados de este perfil, y un host remoto no puede descifrarlos. Para ejecutarlo en remoto, elimina la contraseña en los ajustes de Cifrado de sincronización.",
+    "appProxyInvalid": "Introduce el proxy como esquema://host:puerto, con usuario:contraseña@ opcional antes del host. El esquema es http, https, socks5 o socks5h.",
+    "appProxyUnreachable": "Donut no pudo conectarse a través de su proxy {{proxy}}. Revisa el proxy en Ajustes, en Red."  },
   "rail": {
     "profiles": "Perfiles",
     "extensions": "Extensiones",
@@ -3346,7 +3359,8 @@
       "errorDownload": "No se pudo descargar {{browser}}. Comprueba tu conexión e inténtalo de nuevo.",
       "errorExtraction": "No se pudo extraer {{browser}}. Inténtalo de nuevo.",
       "errorGeneric": "Algo salió mal al configurar {{browser}}. Inténtalo de nuevo.",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "proxyHint": "Si tu red bloquea los servidores de Donut, introduce un proxy para Donut y vuelve a intentarlo."
     },
     "features": {
       "title": "Funciones",
@@ -3374,8 +3388,8 @@
     "progress": "Progreso de la configuración"
   },
   "wayfernBlocked": {
-    "title": "Automatización del navegador en pausa",
-    "description": "La automatización del navegador funciona en un solo dispositivo a la vez y otro dispositivo con la sesión abierta la está usando. Cierra la sesión allí y vuelve a iniciar el perfil."
+    "title": "No es tu dispositivo principal",
+    "description": "La automatización del navegador y los perfiles de otro sistema operativo solo funcionan en tu dispositivo principal. Cierra la sesión de Donut Browser en tus otros equipos y vuelve a intentarlo."
   },
   "profileGenerationLimit": {
     "title": "Límite de perfiles por hora alcanzado",
@@ -3743,7 +3757,8 @@
       "fixEncrypted": "Abrir los ajustes de sincronización",
       "fixProxy": "Asignar un proxy",
       "fixFailed": "No se pudo aplicar esa corrección.",
-      "exitNodeHint": "Sin proxy ni VPN, la ejecución sale por la propia dirección del centro de datos de la flota. Horas de tráfico desde una red de alojamiento dañan la identidad del perfil más que no calentarlo en absoluto."
+      "exitNodeHint": "Sin proxy ni VPN, la ejecución sale por la propia dirección del centro de datos de la flota. Horas de tráfico desde una red de alojamiento dañan la identidad del perfil más que no calentarlo en absoluto.",
+      "reasonSyncPassword": "Hay una contraseña de cifrado de sincronización"
     },
     "conflict": {
       "title": "{{email}} ya calienta este perfil a las {{time}}",
@@ -4257,6 +4272,7 @@
       "stepTypes": {
         "click": "Hacer clic",
         "extract": "Extraer",
+        "hold": "Mantener pulsado",
         "navigate": "Ir a una página",
         "pressKey": "Pulsar una tecla",
         "screenshot": "Captura",

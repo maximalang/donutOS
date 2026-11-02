@@ -345,7 +345,16 @@
       "saved": "保存しました",
       "save": "保存",
       "hint": "/v1/chat/completions がOpenAI互換ならどのプロバイダーでも動作します。リクエストはこのアプリから直接エンドポイントへ送られます。"
-    }
+    },
+    "network": {
+      "title": "ネットワーク",
+      "appProxy": "Donut 用プロキシ",
+      "appProxyDescription": "Donut 自身の接続（ダウンロード、更新の確認、サインイン、同期）はこのプロキシを使います。プロファイルはそれぞれのプロキシを使います。",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "使用中: {{proxy}}",
+      "checkNote": "保存する前に、プロキシ経由で Donut のサーバーが応答するか確認します。スキーム: http、https、socks5、socks5h。",
+      "saved": "Donut は {{proxy}} 経由で接続します。",
+      "removed": "Donut は独自のプロキシを使わなくなりました。"    }
   },
   "header": {
     "searchPlaceholder": "プロファイルを検索...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "リモート制御を変更できませんでした",
       "endpointLabel": "リモート MCP エンドポイント",
       "endpointCopied": "エンドポイントをコピーしました",
-      "endpointDescription": "MCP クライアントをここに向け、上の資格情報を Bearer トークンとして使用してください。1 アカウントにつき 1 インスタンスです。最初に接続したアプリが枠を保持します。",
+      "endpointDescription": "MCP クライアントをここに向けてください。Claude や ChatGPT など OAuth 対応のクライアントはサインインを求めます。その他のクライアントは上の資格情報を Bearer トークンとして送信します。1 アカウントにつき 1 インスタンスです。最初に接続したアプリが枠を保持します。",
       "exampleRequest": "リクエスト例",
       "credentialLabel": "資格情報",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern は起動しましたが、{{seconds}} 秒以内に応答しませんでした。セキュリティソフトが止めているか、ウィンドウを開けなかった可能性があります。ウイルス対策ソフトで Wayfern を許可してから、もう一度お試しください。",
     "updateProfilesRunning": "アップデートをインストールする前に、実行中のプロファイルをすべて停止してください。",
     "updatePreparationFailed": "バックグラウンドのネットワークプロセスを安全に停止できませんでした。コンピューターを再起動してから、もう一度アップデートしてください。",
+    "portableUpdateFailed": "ポータブルフォルダー内のファイルを置き換えられなかったため、現在のバージョンのままです。このフォルダーのファイルを使っているプログラムを閉じてから、もう一度再起動してください。",
     "wayfernTermsRequired": "Wayfernを使用するには、Wayfernの利用規約に同意してください。",
     "apiPortUnavailable": "APIサーバーで利用可能なポートが見つかりませんでした。",
     "mcpAgentUnknown": "このMCPクライアントはサポートされていません。",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "このプロファイルのフィンガープリントを作成できませんでした。{{detail}}",
     "wayfernGenerationLimitReached": "一時的なフィンガープリント生成上限に達しました。しばらくしてから再度お試しください。",
     "wayfernCrossOsRequiresPlan": "このプロファイルは {{detail}} として動作し、このコンピューターでは別のオペレーティングシステムが動作しています。ここで開くには Pro または Team プランが必要です。",
+    "wayfernCrossOsPrimaryDevice": "このプロファイルは {{detail}} として動作します。別のオペレーティングシステムのプロファイルは、プライマリデバイスでのみ実行できます。ほかのコンピューターで Donut Browser からサインアウトしてから、もう一度お試しください。",
     "wayfernIdentityRefused": "ブラウザーがこのプロファイルのアイデンティティで起動しなかったため、終了しました。{{detail}}",
     "wayfernInstanceLimitReached": "ご利用のプランでは、開いているブラウザーが多すぎます。ブラウザーを1つ閉じてからもう一度お試しください。",
     "tooManyBrowsersRunning": "続行するには、ブラウザーのウィンドウを1つ閉じてください。",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "AIの草案は有効なレシピではありません。",
     "aiKeyStoreFailed": "APIキーを保存できませんでした。",
     "enginePatchFailed": "エンジンを自動的にパッチできなかったため、インストールされませんでした。",
-    "engineSmokeFailed": "パッチ済みエンジンが自動化チェックに失敗したため削除されました。インストール済みのバージョンを引き続きご利用ください。"
-  },
+    "engineSmokeFailed": "パッチ済みエンジンが自動化チェックに失敗したため削除されました。インストール済みのバージョンを引き続きご利用ください。",
+    "syncPasswordBlocksRemoteRun": "同期暗号化のパスワードがこのプロファイルの同期済み設定を暗号化しているため、リモートホストでは復号できません。リモートで実行するには、同期暗号化の設定でパスワードを削除してください。",
+    "appProxyInvalid": "プロキシを scheme://host:port の形式で入力してください。ホストの前に user:password@ を付けることもできます。スキームは http、https、socks5、socks5h のいずれかです。",
+    "appProxyUnreachable": "Donut はプロキシ {{proxy}} 経由で接続できませんでした。設定の「ネットワーク」でプロキシを確認してください。"  },
   "rail": {
     "profiles": "プロファイル",
     "extensions": "拡張機能",
@@ -3325,7 +3338,8 @@
       "errorDownload": "{{browser}} をダウンロードできませんでした。接続を確認して、もう一度お試しください。",
       "errorExtraction": "{{browser}} を展開できませんでした。もう一度お試しください。",
       "errorGeneric": "{{browser}} のセットアップ中に問題が発生しました。もう一度お試しください。",
-      "retry": "再試行"
+      "retry": "再試行",
+      "proxyHint": "ネットワークが Donut のサーバーをブロックしている場合は、Donut 用のプロキシを入力してから再試行してください。"
     },
     "features": {
       "title": "機能",
@@ -3353,8 +3367,8 @@
     "progress": "セットアップの進行状況"
   },
   "wayfernBlocked": {
-    "title": "ブラウザの自動化が一時停止しました",
-    "description": "ブラウザの自動化は同時に1台のデバイスでのみ利用できます。現在、サインイン中の別のデバイスが使用しています。そのデバイスからサインアウトして、プロファイルを再起動してください。"
+    "title": "プライマリデバイスではありません",
+    "description": "ブラウザの自動化と別のオペレーティングシステムのプロファイルは、プライマリデバイスでのみ実行できます。ほかのコンピューターで Donut Browser からサインアウトしてから、もう一度お試しください。"
   },
   "profileGenerationLimit": {
     "title": "1時間あたりのプロファイル上限に達しました",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "同期設定を開く",
       "fixProxy": "プロキシを割り当てる",
       "fixFailed": "その修正を適用できませんでした。",
-      "exitNodeHint": "プロキシも VPN もない場合、通信はマシン群自身のデータセンターのアドレスから出ていきます。ホスティングネットワークからの長時間のトラフィックは、ウォームアップしない場合よりもプロファイルの信頼性を損ないます。"
+      "exitNodeHint": "プロキシも VPN もない場合、通信はマシン群自身のデータセンターのアドレスから出ていきます。ホスティングネットワークからの長時間のトラフィックは、ウォームアップしない場合よりもプロファイルの信頼性を損ないます。",
+      "reasonSyncPassword": "同期暗号化のパスワードが設定済み"
     },
     "conflict": {
       "title": "{{email}} がすでにこのプロファイルを {{time}} にウォームアップしています",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "クリック",
         "extract": "抽出",
+        "hold": "長押し",
         "navigate": "ページを開く",
         "pressKey": "キーを押す",
         "screenshot": "スクリーンショット",

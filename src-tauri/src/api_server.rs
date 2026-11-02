@@ -890,6 +890,7 @@ struct ImportProxiesResponse {
     agent_recipes_run_api,
     agent_resolve_locator_api,
     agent_click_api,
+    agent_hold_api,
     agent_type_api,
     agent_extract_api,
     agent_pick_api,
@@ -1008,6 +1009,8 @@ struct ImportProxiesResponse {
     crate::mcp_server::AgentResolveRequest,
     crate::mcp_server::AgentClickRequest,
     crate::mcp_server::AgentClick,
+    crate::mcp_server::AgentHoldRequest,
+    crate::mcp_server::AgentHold,
     crate::mcp_server::AgentTypeRequest,
     crate::mcp_server::AgentTyping,
     crate::mcp_server::AgentPickRequest,
@@ -1358,6 +1361,7 @@ fn build_v1_router() -> Router<ApiServerState> {
     .routes(routes!(agent_perceive_api))
     .routes(routes!(agent_resolve_locator_api))
     .routes(routes!(agent_click_api))
+    .routes(routes!(agent_hold_api))
     .routes(routes!(agent_type_api))
     .routes(routes!(agent_extract_api))
     .routes(routes!(agent_pick_api))
@@ -1851,7 +1855,7 @@ fn is_automation_request(method: &Method, path: &str) -> bool {
       // exactly as a script one is.
       Some(_),
       Some("agent"),
-      Some("perceive" | "resolve-locator" | "click" | "type" | "extract" | "pick"),
+      Some("perceive" | "resolve-locator" | "click" | "hold" | "type" | "extract" | "pick"),
       None
     )
   )
@@ -1988,6 +1992,10 @@ fn manager_error_response(err: impl std::fmt::Display) -> (StatusCode, String) {
         // Mapping them here lets the gate live in the shared manager instead of
         // being re-implemented in each handler to get the status right.
         StatusCode::PAYMENT_REQUIRED
+      } else if code == "WAYFERN_CROSS_OS_PRIMARY_DEVICE" {
+        // The plan includes it; the server refuses this desktop because
+        // another one is the account's primary device.
+        StatusCode::FORBIDDEN
       } else if code == "WAYFERN_INSTANCE_LIMIT_REACHED"
         || code == "TOO_MANY_BROWSERS_RUNNING"
         || code == "WAYFERN_GENERATION_LIMIT_REACHED"
@@ -4292,7 +4300,7 @@ pub async fn remote_launch_precondition(
   if let Some(refusal) = crate::sync::account_server::cloud_run_refusal() {
     return Err(refusal);
   }
-  remote_launch_profile_rules(profile)?;
+  remote_launch_profile_rules(profile, crate::sync::encryption::has_e2e_password())?;
 
   // The manifest is written last, so a host pulling mid-upload gets files
   // that are about to be replaced and a manifest that does not describe them.
@@ -4316,6 +4324,7 @@ pub async fn remote_launch_precondition(
 /// scheduler, and so the live check above cannot be reached without them.
 pub fn remote_launch_profile_rules(
   profile: &crate::profile::types::BrowserProfile,
+  sync_password_stored: bool,
 ) -> Result<(), String> {
   if !profile.is_sync_enabled() {
     return Err(
@@ -4331,6 +4340,16 @@ pub fn remote_launch_profile_rules(
     return Err(
       "profile uses end-to-end encrypted sync; a remote host cannot decrypt \
        it. Switch the profile to Regular sync to run it remotely."
+        .to_string(),
+    );
+  }
+  if crate::sync::encryption::remote_seal(profile, sync_password_stored)
+    == Some(crate::sync::encryption::RemoteSeal::SyncPassword)
+  {
+    return Err(
+      "the account's sync password seals the profile's synced settings, its \
+       proxy included; a remote host cannot decrypt them. Remove the sync \
+       password to run the profile remotely."
         .to_string(),
     );
   }
@@ -6221,6 +6240,37 @@ async fn agent_click_api(
 
 #[utoipa::path(
   post,
+  path = "/v1/profiles/{id}/agent/hold",
+  params(
+    ("id" = String, Path, description = "Profile ID")
+  ),
+  request_body = crate::mcp_server::AgentHoldRequest,
+  responses(
+    (status = 200, description = "The element was pressed and held, then let go: for a press-and-hold check. The pointer moves a little while the button is down; `held_ms` is how long the button was down", body = crate::mcp_server::AgentHold),
+    (status = 400, description = "Malformed request, duration_ms out of 100 to 30000, no element matched, or several did"),
+    (status = 401, description = "Unauthorized"),
+    (status = 402, description = "Active paid plan with browser automation required"),
+    (status = 404, description = "Profile not found"),
+    (status = 409, description = "The profile is not running"),
+    (status = 429, description = "Automation request rate limit exceeded"),
+    (status = 502, description = "The browser did not answer as documented"),
+    (status = 500, description = "Internal server error")
+  ),
+  security(
+    ("bearer_auth" = [])
+  ),
+  tag = "agent"
+)]
+async fn agent_hold_api(
+  Path(id): Path<String>,
+  Json(request): Json<crate::mcp_server::AgentHoldRequest>,
+) -> Result<Json<crate::mcp_server::AgentHold>, (StatusCode, String)> {
+  let ctx = agent_context_for(&id).await?;
+  agent_reply(&id, crate::mcp_server::agent_hold(&ctx, &request).await).await
+}
+
+#[utoipa::path(
+  post,
   path = "/v1/profiles/{id}/agent/type",
   params(
     ("id" = String, Path, description = "Profile ID")
@@ -6422,12 +6472,12 @@ mod tests {
   // would launch an empty browser and push that emptiness over the real one.
   #[test]
   fn remote_launch_requires_cloud_sync() {
-    let err = remote_launch_profile_rules(&profile_with(SyncMode::Disabled, Some("macos")))
+    let err = remote_launch_profile_rules(&profile_with(SyncMode::Disabled, Some("macos")), false)
       .expect_err("a non-synced profile must be refused");
     assert!(err.contains("cloud sync"), "unhelpful message: {err}");
 
     assert!(
-      remote_launch_profile_rules(&profile_with(SyncMode::Regular, Some("macos"))).is_ok(),
+      remote_launch_profile_rules(&profile_with(SyncMode::Regular, Some("macos")), false).is_ok(),
       "a synced profile must be allowed"
     );
   }
@@ -6439,7 +6489,7 @@ mod tests {
     // the corruption back over the user's real profile. Refusing here also
     // saves taking the profile lock and a slot on leased hardware for a
     // session that cannot possibly work.
-    let err = remote_launch_profile_rules(&profile_with(SyncMode::Encrypted, Some("macos")))
+    let err = remote_launch_profile_rules(&profile_with(SyncMode::Encrypted, Some("macos")), false)
       .expect_err("an encrypted profile must be refused");
     assert!(
       err.contains("encrypted") && err.contains("Regular"),
@@ -6448,10 +6498,21 @@ mod tests {
   }
 
   #[test]
+  fn remote_launch_refuses_a_profile_sealed_by_the_sync_password() {
+    // The password seals the profile's metadata and proxy even on Regular
+    // sync: a host would launch it without its proxy, or not at all.
+    let profile = profile_with(SyncMode::Regular, Some("macos"));
+    let err = remote_launch_profile_rules(&profile, true)
+      .expect_err("a profile sealed by the sync password must be refused");
+    assert!(err.contains("sync password"), "unhelpful message: {err}");
+    assert!(remote_launch_profile_rules(&profile, false).is_ok());
+  }
+
+  #[test]
   fn remote_launch_requires_a_known_operating_system() {
     // Without one a Linux host has no OS to present the profile as, and a
     // guess would change the OS the profile reports to sites.
-    assert!(remote_launch_profile_rules(&profile_with(SyncMode::Regular, None)).is_err());
+    assert!(remote_launch_profile_rules(&profile_with(SyncMode::Regular, None), false).is_err());
   }
 
   #[test]
@@ -6465,14 +6526,14 @@ mod tests {
     let foreign = profile_with(SyncMode::Regular, Some(other));
     // A Wayfern profile from another OS runs locally too, and remotely.
     assert!(!foreign.is_cross_os());
-    assert!(remote_launch_profile_rules(&foreign).is_ok());
+    assert!(remote_launch_profile_rules(&foreign, false).is_ok());
 
     let mut bound = foreign.clone();
     bound.browser = "camoufox".to_string();
     assert!(bound.is_cross_os(), "test setup: profile should be foreign");
     // Local /run refuses this; running it remotely on a host of its own OS is
     // exactly what /run-remote is for.
-    assert!(remote_launch_profile_rules(&bound).is_ok());
+    assert!(remote_launch_profile_rules(&bound, false).is_ok());
   }
 
   #[tokio::test]
@@ -6483,6 +6544,8 @@ mod tests {
     // over the real profile.
     let scheduler = std::sync::Arc::new(crate::sync::SyncScheduler::new());
     crate::sync::set_global_scheduler(scheduler.clone());
+    let data = tempfile::tempdir().unwrap();
+    let _data = crate::app_dirs::set_test_data_dir(data.path().to_path_buf());
 
     let mut profile = profile_with(SyncMode::Regular, Some("macos"));
     profile.id = uuid::Uuid::new_v4();
@@ -6705,6 +6768,7 @@ mod tests {
       "/v1/profiles/profile-id/agent/perceive",
       "/v1/profiles/profile-id/agent/resolve-locator",
       "/v1/profiles/profile-id/agent/click",
+      "/v1/profiles/profile-id/agent/hold",
       "/v1/profiles/profile-id/agent/type",
       "/v1/profiles/profile-id/agent/extract",
       "/v1/profiles/profile-id/agent/pick",
@@ -7538,6 +7602,9 @@ mod tests {
       vec!["locator"]
     );
     assert_eq!(schema_required(&spec, "AgentClickRequest"), vec!["locator"]);
+    // A hold names its element by locator or selector, and both are optional
+    // in the schema because exactly one is required, which the handler checks.
+    assert!(schema_required(&spec, "AgentHoldRequest").is_empty());
     let type_request = schema_required(&spec, "AgentTypeRequest");
     assert!(
       type_request.contains(&"locator".to_string()) && type_request.contains(&"text".to_string())
@@ -7717,6 +7784,7 @@ mod tests {
         "WAYFERN_CUSTOM_FINGERPRINT_REQUIRES_PLAN",
         StatusCode::PAYMENT_REQUIRED,
       ),
+      ("WAYFERN_CROSS_OS_PRIMARY_DEVICE", StatusCode::FORBIDDEN),
       (
         "WAYFERN_INSTANCE_LIMIT_REACHED",
         StatusCode::TOO_MANY_REQUESTS,
@@ -8045,6 +8113,7 @@ mod tests {
       "/v1/profiles/{id}/agent/perceive",
       "/v1/profiles/{id}/agent/resolve-locator",
       "/v1/profiles/{id}/agent/click",
+      "/v1/profiles/{id}/agent/hold",
       "/v1/profiles/{id}/agent/type",
       "/v1/profiles/{id}/agent/extract",
       "/v1/profiles/{id}/agent/pick",
@@ -8252,6 +8321,7 @@ mod tests {
       "/v1/profiles/{id}/agent/perceive",
       "/v1/profiles/{id}/agent/resolve-locator",
       "/v1/profiles/{id}/agent/click",
+      "/v1/profiles/{id}/agent/hold",
       "/v1/profiles/{id}/agent/type",
       "/v1/profiles/{id}/agent/extract",
       "/v1/profiles/{id}/agent/pick",
@@ -8278,6 +8348,7 @@ mod tests {
         "LocatorResolution",
       ),
       ("/v1/profiles/{id}/agent/click", "AgentClick"),
+      ("/v1/profiles/{id}/agent/hold", "AgentHold"),
       ("/v1/profiles/{id}/agent/type", "AgentTyping"),
       ("/v1/profiles/{id}/agent/extract", "Extraction"),
       ("/v1/profiles/{id}/agent/pick", "PickedElement"),

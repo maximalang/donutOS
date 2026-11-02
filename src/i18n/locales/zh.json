@@ -345,7 +345,16 @@
       "saved": "已保存",
       "save": "保存",
       "hint": "任何提供 OpenAI 兼容 /v1/chat/completions 的服务商均可——本地或托管模型。请求由本应用直接发往您的端点。"
-    }
+    },
+    "network": {
+      "title": "网络",
+      "appProxy": "Donut 专用代理",
+      "appProxyDescription": "Donut 自身的连接使用此代理：下载、检查更新、登录和同步。各配置文件仍使用各自的代理。",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "使用中：{{proxy}}",
+      "checkNote": "保存前，Donut 会检查其服务器能否通过该代理响应。协议：http、https、socks5、socks5h。",
+      "saved": "Donut 现在通过 {{proxy}} 连接。",
+      "removed": "Donut 不再使用专用代理。"    }
   },
   "header": {
     "searchPlaceholder": "搜索配置文件...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "无法更改远程控制",
       "endpointLabel": "远程 MCP 端点",
       "endpointCopied": "已复制端点",
-      "endpointDescription": "将 MCP 客户端指向此处，并使用上方的凭据作为 Bearer 令牌。每个账户一个实例：先连接的应用保留该名额。",
+      "endpointDescription": "将 MCP 客户端指向此处。支持 OAuth 的客户端（如 Claude 或 ChatGPT）会请你登录；其他客户端将上方的凭据作为 Bearer 令牌发送。每个账户一个实例：最先连接的应用保留该位置。",
       "exampleRequest": "请求示例",
       "credentialLabel": "凭据",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern 已启动，但未在 {{seconds}} 秒内响应。可能是安全软件拦截了它，或它无法打开窗口。请在杀毒软件中允许 Wayfern，然后重试。",
     "updateProfilesRunning": "安装更新前，请停止所有正在运行的配置文件。",
     "updatePreparationFailed": "Donut Browser 无法安全停止后台网络进程。请重启电脑，然后再次尝试更新。",
+    "portableUpdateFailed": "Donut Browser 无法替换便携文件夹中的文件，已保留当前版本。请关闭正在使用该文件夹中文件的程序，然后再次重启。",
     "wayfernTermsRequired": "请先接受 Wayfern 条款与条件，再使用 Wayfern。",
     "apiPortUnavailable": "API 服务器找不到可用端口。",
     "mcpAgentUnknown": "不支持此 MCP 客户端。",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "无法为此配置文件创建指纹。{{detail}}",
     "wayfernGenerationLimitReached": "已达到临时指纹生成上限。请稍后再试。",
     "wayfernCrossOsRequiresPlan": "此配置文件以 {{detail}} 身份运行，而这台电脑使用其他操作系统。要在此处打开，需要 Pro 或 Team 套餐。",
+    "wayfernCrossOsPrimaryDevice": "此配置文件以 {{detail}} 身份运行。其他操作系统的配置文件只能在您的主设备上运行。请在其他电脑上退出 Donut Browser 登录，然后重试。",
     "wayfernIdentityRefused": "浏览器未以此配置文件的身份启动，因此已被关闭。{{detail}}",
     "wayfernInstanceLimitReached": "当前套餐下打开的浏览器过多。请关闭一个浏览器后重试。",
     "tooManyBrowsersRunning": "请关闭一个浏览器窗口以继续。",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "AI 草稿不是有效的配方。",
     "aiKeyStoreFailed": "无法保存 API 密钥。",
     "enginePatchFailed": "引擎无法自动打补丁，因此未安装。",
-    "engineSmokeFailed": "已打补丁的引擎未通过自动化检查，已被移除。请继续使用已安装的版本。"
-  },
+    "engineSmokeFailed": "已打补丁的引擎未通过自动化检查，已被移除。请继续使用已安装的版本。",
+    "syncPasswordBlocksRemoteRun": "同步加密密码加密了此配置文件已同步的设置，远程主机无法解密。要远程运行，请在同步加密设置中删除密码。",
+    "appProxyInvalid": "请按 协议://主机:端口 的格式输入代理，可在主机前加上 用户名:密码@。协议为 http、https、socks5 或 socks5h。",
+    "appProxyUnreachable": "Donut 无法通过其代理 {{proxy}} 连接。请在设置的“网络”中检查代理。"  },
   "rail": {
     "profiles": "配置文件",
     "extensions": "扩展",
@@ -3325,7 +3338,8 @@
       "errorDownload": "无法下载 {{browser}}。请检查网络连接后重试。",
       "errorExtraction": "无法解压 {{browser}}。请重试。",
       "errorGeneric": "设置 {{browser}} 时出现问题。请重试。",
-      "retry": "重试"
+      "retry": "重试",
+      "proxyHint": "如果你的网络屏蔽了 Donut 的服务器，请为 Donut 输入代理，然后重试。"
     },
     "features": {
       "title": "功能",
@@ -3353,8 +3367,8 @@
     "progress": "设置进度"
   },
   "wayfernBlocked": {
-    "title": "浏览器自动化已暂停",
-    "description": "浏览器自动化一次只能在一台设备上运行，目前有另一台已登录的设备正在使用。请在该设备上退出登录，然后重新启动此配置文件。"
+    "title": "不是您的主设备",
+    "description": "浏览器自动化和其他操作系统的配置文件只能在您的主设备上运行。请在其他电脑上退出 Donut Browser 登录，然后重试。"
   },
   "profileGenerationLimit": {
     "title": "已达到每小时的配置文件上限",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "打开同步设置",
       "fixProxy": "绑定代理",
       "fixFailed": "无法应用该修复。",
-      "exitNodeHint": "没有代理或 VPN 时，流量会从机器集群自己的数据中心地址发出。来自托管网络的长时间流量对配置文件身份的损害，比完全不养号还要大。"
+      "exitNodeHint": "没有代理或 VPN 时，流量会从机器集群自己的数据中心地址发出。来自托管网络的长时间流量对配置文件身份的损害，比完全不养号还要大。",
+      "reasonSyncPassword": "已设置同步加密密码"
     },
     "conflict": {
       "title": "{{email}} 已在 {{time}} 养这个配置文件",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "点击",
         "extract": "提取",
+        "hold": "长按",
         "navigate": "打开页面",
         "pressKey": "按键",
         "screenshot": "截图",

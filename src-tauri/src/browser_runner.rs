@@ -16,6 +16,12 @@ static PROFILE_LAUNCH_LOCKS: LazyLock<
   tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
 > = LazyLock::new(|| tokio::sync::Mutex::new(HashMap::new()));
 
+/// Wakes the app's running-state check (`lib.rs`) when a browser starts. While
+/// nothing runs, that check sleeps on a long interval, and a browser that
+/// exits before it wakes would keep its Stop button, its proxy worker and its
+/// exit cleanup until then.
+pub static BROWSER_STARTED: tokio::sync::Notify = tokio::sync::Notify::const_new();
+
 /// How long a remote navigation waits for the page to settle.
 ///
 /// A relayed round trip crosses two networks and the page load itself happens
@@ -94,7 +100,7 @@ fn log_err(err: &str, profile: &BrowserProfile) -> String {
 }
 
 /// Outcomes the person meets as a dialog or a notice, not a fault.
-const LAUNCH_BLOCK_CODES: [&str; 11] = [
+const LAUNCH_BLOCK_CODES: [&str; 12] = [
   "FINGERPRINT_EXIT_MISMATCH",
   "LAUNCH_CONSENT_EXPIRED",
   "PROFILE_RUNNING",
@@ -106,6 +112,7 @@ const LAUNCH_BLOCK_CODES: [&str; 11] = [
   "PROFILE_ROUTE_REQUIRED",
   "PROFILE_ROUTE_UNAVAILABLE",
   "WAYFERN_CROSS_OS_REQUIRES_PLAN",
+  "WAYFERN_CROSS_OS_PRIMARY_DEVICE",
 ];
 
 /// One line per failed launch. A coded error logs its code and detail only:
@@ -842,7 +849,11 @@ impl BrowserRunner {
           // can name the cause. Prefixing it would put English in front of the
           // JSON the frontend parses, and the whole thing would reach the user
           // as raw machine output.
-          crate::wrap_backend_error(e, "Failed to launch Wayfern").into()
+          crate::wrap_backend_error(
+            crate::wayfern_manager::explain_cross_os_refusal(e.to_string()),
+            "Failed to launch Wayfern",
+          )
+          .into()
         })?
       };
 
@@ -978,6 +989,7 @@ impl BrowserRunner {
       } else {
         self.save_process_info(&updated_profile)?;
       }
+      BROWSER_STARTED.notify_one();
       let _ = crate::tag_manager::TAG_MANAGER.lock().map(|tm| {
         let _ = tm.rebuild_from_profiles(&self.profile_manager.list_profiles().unwrap_or_default());
       });
@@ -1578,6 +1590,9 @@ impl BrowserRunner {
       self
         .save_process_info(&updated_profile)
         .map_err(|e| format!("Failed to update profile: {e}"))?;
+      if let Some(pid) = profile.process_id {
+        PROXY_MANAGER.stop_worker_of_exited_browser(pid).await;
+      }
 
       // Check for pending updates and apply them
       if let Ok(Some(pending_update)) = self

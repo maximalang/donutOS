@@ -345,7 +345,16 @@
       "saved": "Gespeichert",
       "save": "Speichern",
       "hint": "Jeder Anbieter mit OpenAI-kompatiblem /v1/chat/completions funktioniert - lokales oder gehostetes Modell. Anfragen gehen direkt von dieser App an Ihren Endpunkt."
-    }
+    },
+    "network": {
+      "title": "Netzwerk",
+      "appProxy": "Proxy für Donut",
+      "appProxyDescription": "Donuts eigene Verbindungen nutzen diesen Proxy: Downloads, Update-Prüfungen, Anmeldung und Synchronisierung. Profile behalten ihre eigenen Proxys.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "In Verwendung: {{proxy}}",
+      "checkNote": "Donut prüft vor dem Speichern, ob seine Server über den Proxy antworten. Schemata: http, https, socks5, socks5h.",
+      "saved": "Donut verbindet sich jetzt über {{proxy}}.",
+      "removed": "Donut nutzt keinen eigenen Proxy mehr."    }
   },
   "header": {
     "searchPlaceholder": "Profile durchsuchen...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "Die Fernsteuerung konnte nicht geändert werden",
       "endpointLabel": "Remote-MCP-Endpunkt",
       "endpointCopied": "Endpunkt kopiert",
-      "endpointDescription": "Richten Sie einen MCP-Client auf diese Adresse aus und verwenden Sie die Zugangsdaten oben als Bearer-Token. Eine Instanz pro Konto: Die erste App, die sich verbindet, behält den Platz.",
+      "endpointDescription": "Richten Sie einen MCP-Client auf diese Adresse aus. Ein Client mit OAuth, etwa Claude oder ChatGPT, bittet Sie um eine Anmeldung; andere Clients senden die Zugangsdaten oben als Bearer-Token. Eine Instanz pro Konto: Die erste App, die sich verbindet, behält den Platz.",
       "exampleRequest": "Beispielanfrage",
       "credentialLabel": "Zugangsdaten",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern wurde gestartet, hat aber nicht innerhalb von {{seconds}} Sekunden geantwortet. Möglicherweise hält eine Sicherheitssoftware es fest, oder es konnte sein Fenster nicht öffnen. Erlauben Sie Wayfern in Ihrem Virenschutz und versuchen Sie es erneut.",
     "updateProfilesRunning": "Stoppen Sie alle laufenden Profile, bevor Sie das Update installieren.",
     "updatePreparationFailed": "Donut Browser konnte einen Netzwerkprozess im Hintergrund nicht sicher beenden. Starten Sie Ihren Computer neu und versuchen Sie das Update dann erneut.",
+    "portableUpdateFailed": "Donut Browser konnte seine Dateien im portablen Ordner nicht ersetzen und behält die aktuelle Version. Schließen Sie Programme, die Dateien in diesem Ordner verwenden, und starten Sie dann erneut neu.",
     "wayfernTermsRequired": "Akzeptieren Sie die Nutzungsbedingungen von Wayfern, um Wayfern zu verwenden.",
     "apiPortUnavailable": "Der API-Server konnte keinen freien Port finden.",
     "mcpAgentUnknown": "Dieser MCP-Client wird nicht unterstützt.",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "Für dieses Profil konnte kein Fingerprint erstellt werden. {{detail}}",
     "wayfernGenerationLimitReached": "Vorübergehendes Limit für die Fingerprint-Erzeugung erreicht. Versuchen Sie es später erneut.",
     "wayfernCrossOsRequiresPlan": "Dieses Profil läuft als {{detail}}, und dieser Computer nutzt ein anderes Betriebssystem. Um es hier zu öffnen, ist ein Pro- oder Team-Tarif nötig.",
+    "wayfernCrossOsPrimaryDevice": "Dieses Profil läuft als {{detail}}. Profile für ein anderes Betriebssystem laufen nur auf Ihrem Hauptgerät. Melden Sie sich auf Ihren anderen Computern von Donut Browser ab und versuchen Sie es dann erneut.",
     "wayfernIdentityRefused": "Der Browser ist nicht mit der Identität dieses Profils gestartet und wurde daher geschlossen. {{detail}}",
     "wayfernInstanceLimitReached": "Für Ihren Tarif sind zu viele Browser geöffnet. Schließen Sie einen Browser und versuchen Sie es erneut.",
     "tooManyBrowsersRunning": "Schließen Sie ein Browserfenster, um fortzufahren.",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "Der KI-Entwurf war kein gültiges Rezept.",
     "aiKeyStoreFailed": "Der API-Schlüssel konnte nicht gespeichert werden.",
     "enginePatchFailed": "Die Engine konnte nicht automatisch gepatcht werden und wurde daher nicht installiert.",
-    "engineSmokeFailed": "Die gepatchte Engine bestand die Automatisierungsprüfung nicht und wurde entfernt. Nutzen Sie weiter die installierte Version."
-  },
+    "engineSmokeFailed": "Die gepatchte Engine bestand die Automatisierungsprüfung nicht und wurde entfernt. Nutzen Sie weiter die installierte Version.",
+    "syncPasswordBlocksRemoteRun": "Das Passwort der Sync-Verschlüsselung verschlüsselt die synchronisierten Einstellungen dieses Profils, und ein Remote-Host kann sie nicht entschlüsseln. Um es remote auszuführen, entfernen Sie das Passwort in den Einstellungen der Sync-Verschlüsselung.",
+    "appProxyInvalid": "Gib den Proxy als schema://host:port ein, optional mit benutzer:passwort@ vor dem Host. Das Schema ist http, https, socks5 oder socks5h.",
+    "appProxyUnreachable": "Donut konnte keine Verbindung über seinen Proxy {{proxy}} herstellen. Prüfe den Proxy in den Einstellungen unter Netzwerk."  },
   "rail": {
     "profiles": "Profile",
     "extensions": "Erweiterungen",
@@ -3325,7 +3338,8 @@
       "errorDownload": "{{browser}} konnte nicht heruntergeladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
       "errorExtraction": "{{browser}} konnte nicht entpackt werden. Bitte versuchen Sie es erneut.",
       "errorGeneric": "Beim Einrichten von {{browser}} ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.",
-      "retry": "Erneut versuchen"
+      "retry": "Erneut versuchen",
+      "proxyHint": "Wenn dein Netzwerk Donuts Server blockiert, gib einen Proxy für Donut ein und versuche es erneut."
     },
     "features": {
       "title": "Funktionen",
@@ -3353,8 +3367,8 @@
     "progress": "Fortschritt der Einrichtung"
   },
   "wayfernBlocked": {
-    "title": "Browser-Automatisierung pausiert",
-    "description": "Die Browser-Automatisierung läuft immer nur auf einem Gerät, und ein anderes angemeldetes Gerät nutzt sie gerade. Melden Sie sich dort ab und starten Sie das Profil dann neu."
+    "title": "Nicht Ihr Hauptgerät",
+    "description": "Browser-Automatisierung und Profile für ein anderes Betriebssystem laufen nur auf Ihrem Hauptgerät. Melden Sie sich auf Ihren anderen Computern von Donut Browser ab und versuchen Sie es dann erneut."
   },
   "profileGenerationLimit": {
     "title": "Stündliches Profillimit erreicht",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "Sync-Einstellungen öffnen",
       "fixProxy": "Proxy verknüpfen",
       "fixFailed": "Diese Korrektur konnte nicht angewendet werden.",
-      "exitNodeHint": "Ohne Proxy oder VPN geht der Durchlauf von der eigenen Rechenzentrumsadresse der Remote-Rechner aus. Stundenlanger Datenverkehr aus einem Hosting-Netz schadet der Identität des Profils mehr, als es gar nicht aufzuwärmen."
+      "exitNodeHint": "Ohne Proxy oder VPN geht der Durchlauf von der eigenen Rechenzentrumsadresse der Remote-Rechner aus. Stundenlanger Datenverkehr aus einem Hosting-Netz schadet der Identität des Profils mehr, als es gar nicht aufzuwärmen.",
+      "reasonSyncPassword": "Passwort der Sync-Verschlüsselung ist festgelegt"
     },
     "conflict": {
       "title": "{{email}} wärmt dieses Profil bereits um {{time}} auf",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "Klicken",
         "extract": "Extrahieren",
+        "hold": "Gedrückt halten",
         "navigate": "Seite aufrufen",
         "pressKey": "Taste drücken",
         "screenshot": "Screenshot",

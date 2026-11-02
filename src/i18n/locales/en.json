@@ -345,7 +345,16 @@
       "saved": "Saved",
       "save": "Save",
       "hint": "Any provider with an OpenAI-compatible /v1/chat/completions endpoint works - a local model or a hosted one. Requests go straight from this app to your endpoint."
-    }
+    },
+    "network": {
+      "title": "Network",
+      "appProxy": "Proxy for Donut",
+      "appProxyDescription": "Donut's own connections use this proxy: downloads, update checks, sign-in and sync. Profiles keep their own proxies.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "In use: {{proxy}}",
+      "checkNote": "Donut checks that its servers answer through the proxy before it saves it. Schemes: http, https, socks5, socks5h.",
+      "saved": "Donut now connects through {{proxy}}.",
+      "removed": "Donut no longer uses its own proxy."    }
   },
   "header": {
     "searchPlaceholder": "Search profiles...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "Could not change remote control",
       "endpointLabel": "Remote MCP endpoint",
       "endpointCopied": "Endpoint copied",
-      "endpointDescription": "Point an MCP client here with the credential above as its bearer token. One instance per account: the first app to connect keeps the slot.",
+      "endpointDescription": "Point an MCP client here. A client with OAuth, such as Claude or ChatGPT, asks you to sign in; other clients send the credential above as their bearer token. One instance per account: the first app to connect keeps the slot.",
       "exampleRequest": "Example request",
       "credentialLabel": "Credential",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern started but did not answer within {{seconds}} seconds. Security software may be holding it, or it could not open its window. Allow Wayfern in your antivirus, then try again.",
     "updateProfilesRunning": "Stop all running profiles before installing the update.",
     "updatePreparationFailed": "Donut Browser could not safely stop a background network process. Restart your computer, then try the update again.",
+    "portableUpdateFailed": "Donut Browser could not replace its files in the portable folder and kept the current version. Close programs that use files in that folder, then restart again.",
     "wayfernTermsRequired": "Accept the Wayfern Terms and Conditions to use Wayfern.",
     "apiPortUnavailable": "The API server could not find an available port.",
     "mcpAgentUnknown": "This MCP client is not supported.",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "Could not create a fingerprint for this profile. {{detail}}",
     "wayfernGenerationLimitReached": "Temporary fingerprint generation limit reached. Try again later.",
     "wayfernCrossOsRequiresPlan": "This profile runs as {{detail}}, and this computer runs another operating system. Opening it here needs a Pro or Team plan.",
+    "wayfernCrossOsPrimaryDevice": "This profile runs as {{detail}}. Profiles for another operating system run only on your primary device. Sign out of Donut Browser on your other computers, then try again.",
     "wayfernIdentityRefused": "The browser did not start on this profile's identity, so it was closed. {{detail}}",
     "wayfernInstanceLimitReached": "Too many browsers are open for your plan. Close a browser and try again.",
     "tooManyBrowsersRunning": "Close one browser window to continue.",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "The AI draft was not a valid recipe.",
     "aiKeyStoreFailed": "The API key could not be stored.",
     "enginePatchFailed": "The engine could not be patched automatically, so it was not installed.",
-    "engineSmokeFailed": "The patched engine failed its automation check, so it was removed. Keep using the installed version."
-  },
+    "engineSmokeFailed": "The patched engine failed its automation check, so it was removed. Keep using the installed version.",
+    "syncPasswordBlocksRemoteRun": "The sync encryption password encrypts this profile's synced settings, and a remote host cannot decrypt them. To run it remotely, remove the password in the Sync encryption settings.",
+    "appProxyInvalid": "Enter the proxy as scheme://host:port, with an optional user:password@ before the host. The scheme is http, https, socks5 or socks5h.",
+    "appProxyUnreachable": "Donut could not connect through its proxy {{proxy}}. Check the proxy in Settings, under Network."  },
   "rail": {
     "profiles": "Profiles",
     "extensions": "Extensions",
@@ -3325,7 +3338,8 @@
       "errorDownload": "{{browser}} couldn't be downloaded. Check your connection and try again.",
       "errorExtraction": "{{browser}} couldn't be extracted. Please try again.",
       "errorGeneric": "Something went wrong while setting up {{browser}}. Please try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "proxyHint": "If your network blocks Donut's servers, enter a proxy for Donut, then try again."
     },
     "features": {
       "title": "Features",
@@ -3353,8 +3367,8 @@
     "progress": "Setup progress"
   },
   "wayfernBlocked": {
-    "title": "Browser automation paused",
-    "description": "Browser automation runs on one device at a time, and another signed-in device is currently using it. Sign out there, then relaunch the profile."
+    "title": "Not your primary device",
+    "description": "Browser automation and profiles for another operating system run only on your primary device. Sign out of Donut Browser on your other computers, then try again."
   },
   "profileGenerationLimit": {
     "title": "Hourly profile limit reached",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "Open sync settings",
       "fixProxy": "Attach a proxy",
       "fixFailed": "Could not apply that fix.",
-      "exitNodeHint": "Without a proxy or VPN the run leaves from the fleet's own datacenter address. Hours of traffic from a hosting network damages the profile's identity more than not warming it at all."
+      "exitNodeHint": "Without a proxy or VPN the run leaves from the fleet's own datacenter address. Hours of traffic from a hosting network damages the profile's identity more than not warming it at all.",
+      "reasonSyncPassword": "Sync encryption password is set"
     },
     "conflict": {
       "title": "{{email}} already warms this profile at {{time}}",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "Click",
         "extract": "Extract",
+        "hold": "Press and hold",
         "navigate": "Go to a page",
         "pressKey": "Press a key",
         "screenshot": "Screenshot",

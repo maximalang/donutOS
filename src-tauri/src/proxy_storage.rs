@@ -137,10 +137,28 @@ pub fn build_proxy_url(
   } else if let Some(user) = username {
     url.push_str(&format!("{}@", urlencoding::encode(user)));
   }
-  url.push_str(host);
+  url.push_str(&url_host(host));
   url.push(':');
   url.push_str(&port.to_string());
   url
+}
+
+/// `host` without the brackets of an IPv6 address, for a socket connect.
+pub fn bare_host(host: &str) -> &str {
+  host
+    .strip_prefix('[')
+    .and_then(|h| h.strip_suffix(']'))
+    .unwrap_or(host)
+}
+
+/// `host` as the host of a URL: a bare IPv6 address gets its brackets, or
+/// its last group reads as the port.
+pub fn url_host(host: &str) -> std::borrow::Cow<'_, str> {
+  if host.parse::<std::net::Ipv6Addr>().is_ok() {
+    format!("[{host}]").into()
+  } else {
+    host.into()
+  }
 }
 
 /// Rewrite a stored upstream URL into something `reqwest::Proxy` accepts.
@@ -318,10 +336,17 @@ fn process_has_exited(process: &sysinfo::Process) -> bool {
   }
 }
 
+/// A process table refreshed as `refreshes` asks. sysinfo refuses only
+/// platforms Donut is not built for, so the error cannot happen here.
+pub fn process_table(refreshes: sysinfo::RefreshKind) -> sysinfo::System {
+  sysinfo::System::new_with_specifics(refreshes)
+    .expect("sysinfo supports every platform Donut is built for")
+}
+
 pub fn process_start_time(pid: u32) -> Option<u64> {
-  use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+  use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind};
   let pid = sysinfo::Pid::from_u32(pid);
-  let mut system = System::new();
+  let mut system = process_table(RefreshKind::nothing());
   system.refresh_processes_specifics(
     ProcessesToUpdate::Some(&[pid]),
     true,

@@ -345,7 +345,16 @@
       "saved": "Kaydedildi",
       "save": "Kaydet",
       "hint": "OpenAI uyumlu /v1/chat/completions sunan her sağlayıcı olur - yerel veya barındırılan model. İstekler bu uygulamadan doğrudan uç noktanıza gider."
-    }
+    },
+    "network": {
+      "title": "Ağ",
+      "appProxy": "Donut için proxy",
+      "appProxyDescription": "Donut'un kendi bağlantıları bu proxy'yi kullanır: indirmeler, güncelleme denetimleri, oturum açma ve eşitleme. Profiller kendi proxy'lerini kullanmaya devam eder.",
+      "placeholder": "socks5://user:password@host:1080",
+      "current": "Kullanımda: {{proxy}}",
+      "checkNote": "Donut, kaydetmeden önce sunucularının proxy üzerinden yanıt verdiğini denetler. Şemalar: http, https, socks5, socks5h.",
+      "saved": "Donut artık {{proxy}} üzerinden bağlanıyor.",
+      "removed": "Donut artık kendi proxy'sini kullanmıyor."    }
   },
   "header": {
     "searchPlaceholder": "Profillerde ara...",
@@ -1185,7 +1194,7 @@
       "toggleFailed": "Uzaktan kontrol değiştirilemedi",
       "endpointLabel": "Uzak MCP uç noktası",
       "endpointCopied": "Uç nokta kopyalandı",
-      "endpointDescription": "Bir MCP istemcisini yukarıdaki kimlik bilgisini bearer belirteci olarak kullanarak buraya yönlendirin. Hesap başına bir örnek: yeri ilk bağlanan uygulama tutar.",
+      "endpointDescription": "Bir MCP istemcisini buraya yönlendirin. Claude veya ChatGPT gibi OAuth destekleyen bir istemci oturum açmanızı ister; diğer istemciler yukarıdaki kimlik bilgisini bearer belirteci olarak gönderir. Hesap başına bir örnek: yeri ilk bağlanan uygulama tutar.",
       "exampleRequest": "Örnek istek",
       "credentialLabel": "Kimlik bilgisi",
       "credentialPrefix": "{{prefix}}…",
@@ -2744,6 +2753,7 @@
     "wayfernNotResponding": "Wayfern başladı ancak {{seconds}} saniye içinde yanıt vermedi. Bir güvenlik yazılımı onu bekletiyor olabilir veya penceresini açamadı. Antivirüs programınızda Wayfern'e izin verin ve yeniden deneyin.",
     "updateProfilesRunning": "Güncellemeyi yüklemeden önce çalışan tüm profilleri durdurun.",
     "updatePreparationFailed": "Donut Browser arka plandaki bir ağ işlemini güvenli şekilde durduramadı. Bilgisayarınızı yeniden başlatıp güncellemeyi tekrar deneyin.",
+    "portableUpdateFailed": "Donut Browser taşınabilir klasördeki dosyalarını değiştiremedi ve mevcut sürümü korudu. Bu klasördeki dosyaları kullanan programları kapatıp yeniden başlatın.",
     "wayfernTermsRequired": "Wayfern'ü kullanmak için Wayfern Hüküm ve Koşullarını kabul edin.",
     "apiPortUnavailable": "API sunucusu kullanılabilir bir bağlantı noktası bulamadı.",
     "mcpAgentUnknown": "Bu MCP istemcisi desteklenmiyor.",
@@ -2820,6 +2830,7 @@
     "wayfernFingerprintGenerationFailed": "Bu profil için parmak izi oluşturulamadı. {{detail}}",
     "wayfernGenerationLimitReached": "Geçici parmak izi oluşturma sınırına ulaşıldı. Daha sonra tekrar deneyin.",
     "wayfernCrossOsRequiresPlan": "Bu profil {{detail}} olarak çalışıyor ve bu bilgisayarda başka bir işletim sistemi var. Burada açmak için Pro veya Team planı gerekir.",
+    "wayfernCrossOsPrimaryDevice": "Bu profil {{detail}} olarak çalışıyor. Başka bir işletim sistemi için olan profiller yalnızca birincil cihazınızda çalışır. Diğer bilgisayarlarınızda Donut Browser oturumunu kapatın, ardından yeniden deneyin.",
     "wayfernIdentityRefused": "Tarayıcı bu profilin kimliğiyle başlamadığı için kapatıldı. {{detail}}",
     "wayfernInstanceLimitReached": "Planınız için çok fazla tarayıcı açık. Bir tarayıcıyı kapatıp tekrar deneyin.",
     "tooManyBrowsersRunning": "Devam etmek için bir tarayıcı penceresini kapatın.",
@@ -3019,8 +3030,10 @@
     "aiRecipeInvalid": "YZ taslağı geçerli bir tarif değildi.",
     "aiKeyStoreFailed": "API anahtarı kaydedilemedi.",
     "enginePatchFailed": "Motor otomatik olarak yamalanamadı, bu yüzden kurulmadı.",
-    "engineSmokeFailed": "Yamalanmış motor otomasyon testini geçemedi ve kaldırıldı. Yüklü sürümü kullanmaya devam edin."
-  },
+    "engineSmokeFailed": "Yamalanmış motor otomasyon testini geçemedi ve kaldırıldı. Yüklü sürümü kullanmaya devam edin.",
+    "syncPasswordBlocksRemoteRun": "Eşitleme şifrelemesi parolası bu profilin eşitlenen ayarlarını şifreler ve uzak sunucu bunları çözemez. Uzakta çalıştırmak için Eşitleme şifrelemesi ayarlarından parolayı kaldırın.",
+    "appProxyInvalid": "Proxy'yi şema://sunucu:port biçiminde girin; sunucudan önce isteğe bağlı kullanıcı:parola@ ekleyebilirsiniz. Şema http, https, socks5 veya socks5h olmalıdır.",
+    "appProxyUnreachable": "Donut, {{proxy}} proxy'si üzerinden bağlanamadı. Proxy'yi Ayarlar'da, Ağ bölümünde denetleyin."  },
   "rail": {
     "profiles": "Profiller",
     "extensions": "Uzantılar",
@@ -3325,7 +3338,8 @@
       "errorDownload": "{{browser}} indirilemedi. Bağlantınızı kontrol edip yeniden deneyin.",
       "errorExtraction": "{{browser}} çıkarılamadı. Lütfen yeniden deneyin.",
       "errorGeneric": "{{browser}} kurulurken bir şeyler ters gitti. Lütfen yeniden deneyin.",
-      "retry": "Yeniden dene"
+      "retry": "Yeniden dene",
+      "proxyHint": "Ağınız Donut'un sunucularını engelliyorsa Donut için bir proxy girin ve yeniden deneyin."
     },
     "features": {
       "title": "Özellikler",
@@ -3353,8 +3367,8 @@
     "progress": "Kurulum ilerlemesi"
   },
   "wayfernBlocked": {
-    "title": "Tarayıcı otomasyonu duraklatıldı",
-    "description": "Tarayıcı otomasyonu aynı anda yalnızca tek bir cihazda çalışır ve şu anda oturum açmış başka bir cihaz tarafından kullanılıyor. O cihazdan çıkış yapın, ardından profili yeniden başlatın."
+    "title": "Birincil cihazınız değil",
+    "description": "Tarayıcı otomasyonu ve başka bir işletim sistemi için olan profiller yalnızca birincil cihazınızda çalışır. Diğer bilgisayarlarınızda Donut Browser oturumunu kapatın, ardından yeniden deneyin."
   },
   "profileGenerationLimit": {
     "title": "Saatlik profil sınırına ulaşıldı",
@@ -3702,7 +3716,8 @@
       "fixEncrypted": "Eşitleme ayarlarını aç",
       "fixProxy": "Bir proxy ata",
       "fixFailed": "Bu düzeltme uygulanamadı.",
-      "exitNodeHint": "Proxy veya VPN olmadan çalışma, filonun kendi veri merkezi adresinden çıkar. Bir barındırma ağından saatlerce gelen trafik, profilin kimliğine hiç ısıtmamaktan daha çok zarar verir."
+      "exitNodeHint": "Proxy veya VPN olmadan çalışma, filonun kendi veri merkezi adresinden çıkar. Bir barındırma ağından saatlerce gelen trafik, profilin kimliğine hiç ısıtmamaktan daha çok zarar verir.",
+      "reasonSyncPassword": "Eşitleme şifrelemesi parolası ayarlı"
     },
     "conflict": {
       "title": "{{email}} bu profili zaten {{time}} saatinde ısıtıyor",
@@ -4204,6 +4219,7 @@
       "stepTypes": {
         "click": "Tıkla",
         "extract": "Çıkar",
+        "hold": "Basılı tut",
         "navigate": "Bir sayfaya git",
         "pressKey": "Bir tuşa bas",
         "screenshot": "Ekran görüntüsü",

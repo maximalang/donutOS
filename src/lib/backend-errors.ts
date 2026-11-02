@@ -111,10 +111,13 @@ export type BackendErrorCode =
   | "BROWSER_CHECKSUM_UNAVAILABLE"
   | "BROWSER_CHECKSUM_MISMATCH"
   | "SYSTEM_PROXY_UNREACHABLE"
+  | "APP_PROXY_INVALID"
+  | "APP_PROXY_UNREACHABLE"
   | "PROFILE_ROUTE_REQUIRED"
   | "PROFILE_ROUTE_UNAVAILABLE"
   | "UPDATE_PROFILES_RUNNING"
   | "UPDATE_PREPARATION_FAILED"
+  | "PORTABLE_UPDATE_FAILED"
   | "PROFILE_NAME_EXISTS"
   | "IMPORT_SOURCE_NOT_FOUND"
   | "IMPORT_SOURCE_NOT_CHROMIUM"
@@ -226,6 +229,7 @@ export type BackendErrorCode =
   | "REMOTE_HOURS_EXHAUSTED"
   | "REMOTE_REQUIRES_CLOUD_SYNC"
   | "REMOTE_ENCRYPTED_SYNC_UNSUPPORTED"
+  | "SYNC_PASSWORD_BLOCKS_REMOTE_RUN"
   | "REMOTE_UNKNOWN_PLATFORM"
   | "PROFILE_RUNNING_REMOTELY"
   | "PROFILE_REMOTE_SYNC_PENDING"
@@ -305,6 +309,9 @@ export type BackendErrorCode =
   // offline one cannot apply it. Distinct from the generic apply failure because
   // signing in again is the fix; `detail` names the claimed OS.
   | "WAYFERN_CROSS_OS_REQUIRES_PLAN"
+  // The plan includes it, but the server gives the token only to the account's
+  // primary desktop. `detail` names the claimed OS.
+  | "WAYFERN_CROSS_OS_PRIMARY_DEVICE"
   | "WAYFERN_IDENTITY_REFUSED"
   | "WAYFERN_INSTANCE_LIMIT_REACHED"
   | "TOO_MANY_BROWSERS_RUNNING"
@@ -692,6 +699,12 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.systemProxyUnreachable", {
         proxy: parsed.params?.proxy ?? "",
       });
+    case "APP_PROXY_INVALID":
+      return t("backendErrors.appProxyInvalid");
+    case "APP_PROXY_UNREACHABLE":
+      return t("backendErrors.appProxyUnreachable", {
+        proxy: parsed.params?.proxy ?? "",
+      });
     case "BROWSER_CHECKSUM_MISMATCH":
       return t("backendErrors.browserChecksumMismatch", {
         browser: parsed.params?.browser ?? "",
@@ -701,6 +714,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.updateProfilesRunning");
     case "UPDATE_PREPARATION_FAILED":
       return t("backendErrors.updatePreparationFailed");
+    case "PORTABLE_UPDATE_FAILED":
+      return t("backendErrors.portableUpdateFailed");
     case "PROFILE_NAME_EXISTS":
       return t("backendErrors.profileNameExists", {
         name: parsed.params?.name ?? "",
@@ -954,6 +969,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.remoteRequiresCloudSync");
     case "REMOTE_ENCRYPTED_SYNC_UNSUPPORTED":
       return t("backendErrors.remoteEncryptedSyncUnsupported");
+    case "SYNC_PASSWORD_BLOCKS_REMOTE_RUN":
+      return t("backendErrors.syncPasswordBlocksRemoteRun");
     case "REMOTE_UNKNOWN_PLATFORM":
       return t("backendErrors.remoteUnknownPlatform");
     case "PROFILE_RUNNING_REMOTELY":
@@ -1102,6 +1119,10 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.wayfernGenerationLimitReached");
     case "WAYFERN_CROSS_OS_REQUIRES_PLAN":
       return t("backendErrors.wayfernCrossOsRequiresPlan", {
+        detail: remoteOsLabel(parsed.params?.detail ?? ""),
+      });
+    case "WAYFERN_CROSS_OS_PRIMARY_DEVICE":
+      return t("backendErrors.wayfernCrossOsPrimaryDevice", {
         detail: remoteOsLabel(parsed.params?.detail ?? ""),
       });
     case "WAYFERN_IDENTITY_REFUSED":

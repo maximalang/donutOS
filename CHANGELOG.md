@@ -1,6 +1,39 @@
 # Changelog
 
 
+## v0.35.5 (2026-10-24)
+
+### Bug Fixes
+
+- remote sync password
+- keydown without key
+- ipv6 proxy routes
+
+### Maintenance
+
+- chore: version bump
+- ci(deps): bump the github-actions group with 5 updates (#686)
+- chore: update flake.nix for v0.35.4 [skip ci] (#685)
+
+
+## v0.35.4 (2026-10-24)
+
+### Bug Fixes
+
+- bump multer
+- renew wayfern token
+- headless profile folder
+
+### Documentation
+
+- update CHANGELOG.md and README.md for v0.35.3 [skip ci] (#682)
+
+### Maintenance
+
+- chore: version bump
+- chore: update flake.nix for v0.35.3 [skip ci] (#683)
+
+
 ## v0.35.3 (2026-10-23)
 
 ### Features

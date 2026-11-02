@@ -8,7 +8,7 @@ use crate::proxy_manager::PROXY_MANAGER;
 use crate::wayfern_manager::WayfernConfig;
 use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
-use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
+use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, UpdateKind};
 use url::Url;
 
 static METADATA_WRITES: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -401,26 +401,9 @@ impl ProfileManager {
       // Pass upstream proxy information to config for fingerprint generation
       if let Some(proxy_id_ref) = &proxy_id {
         if let Some(proxy_settings) = PROXY_MANAGER.get_proxy_settings_by_id(proxy_id_ref) {
-          let proxy_url = if let (Some(username), Some(password)) =
-            (&proxy_settings.username, &proxy_settings.password)
-          {
-            format!(
-              "{}://{}:{}@{}:{}",
-              proxy_settings.proxy_type.to_lowercase(),
-              username,
-              password,
-              proxy_settings.host,
-              proxy_settings.port
-            )
-          } else {
-            format!(
-              "{}://{}:{}",
-              proxy_settings.proxy_type.to_lowercase(),
-              proxy_settings.host,
-              proxy_settings.port
-            )
-          };
-          config.proxy = Some(proxy_url);
+          config.proxy = Some(crate::proxy_manager::ProxyManager::build_proxy_url(
+            &proxy_settings,
+          ));
         }
       }
 
@@ -2122,7 +2105,7 @@ impl ProfileManager {
     // For non-wayfern browsers, use the existing PID-based logic
     let inner_profile = profile.clone();
     // Only command lines are read below.
-    let system = System::new_with_specifics(
+    let system = crate::proxy_storage::process_table(
       RefreshKind::nothing().with_processes(
         ProcessRefreshKind::nothing()
           .with_cmd(UpdateKind::OnlyIfNotSet)

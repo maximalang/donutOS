@@ -103,17 +103,17 @@
           (lib.makeSearchPath "lib/pkgconfig" (pkgConfigClosure ++ map lib.getDev pkgConfigClosure))
           (lib.makeSearchPath "share/pkgconfig" pkgConfigClosure)
         ];
-        releaseVersion = "0.35.3";
+        releaseVersion = "0.35.5";
         releaseAppImage =
           if system == "x86_64-linux" then
             pkgs.fetchurl {
-              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.3/Donut_0.35.3_amd64.AppImage";
-              hash = "sha256-eQsQcE2/F6+NXeKk0Wn5xlXEK+2QeH1MdQv9Zw94yVs=";
+              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.5/Donut_0.35.5_amd64.AppImage";
+              hash = "sha256-9byLUlnsmFXF74JbBRkItqooJXbI9i5VyHm0DRJ+WAY=";
             }
           else if system == "aarch64-linux" then
             pkgs.fetchurl {
-              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.3/Donut_0.35.3_aarch64.AppImage";
-              hash = "sha256-pAcRtD95JatIjdOrJjKfWAE9TifNWEYS8tSCb3l3uxQ=";
+              url = "https://github.com/donutbrowser/donutbrowser/releases/download/v0.35.5/Donut_0.35.5_aarch64.AppImage";
+              hash = "sha256-v2ZXwQEMsF5igbobGoecsderRPuLw2Z4zHW7NHDgpKc=";
             }
           else
             null;
@@ -199,9 +199,9 @@
         # hash here, the launcher falls back to the binary in node_modules.
         tsrsVersion = (builtins.fromJSON (builtins.readFile ./package.json)).devDependencies.tsrs;
         tsrsHashes = {
-          "0.18.0-ts7.1.0-dev.20260929" = {
-            x86_64-linux = "sha512-LHk+AOAtXuTlhJhOJ2+elriEIX17ycXljojeNxrrzckOipTG1LksoVWuCSas2nu00EnWAzrdKpt9oqPylUKZfQ==";
-            aarch64-linux = "sha512-Lw7VVU/YQ9JcarODICEiwzMLdFqZprqh5RGTgbS5Uc6I95P635/g5xA1pOC8RVs4efBvAR30J54iDG3l5JEYiw==";
+          "0.20.1-ts7.1.0-beta" = {
+            x86_64-linux = "sha512-DoqErlQkQioKYunFyl6nUXWR1kjerqoRV56dggx7qMKvauSZMGkjBQ2Za4tmnISIn4BiJBOyZa/SYc0wfnxDpA==";
+            aarch64-linux = "sha512-AEj++EKJ+ZlRLWdFtYopctph5klOpUtZ+ehiezsrgMr/GP118E0H+5ux1vg1FM20jbAipNxecPg/311MOzN/fw==";
           };
         };
         tsrsHash = (tsrsHashes.${tsrsVersion} or { }).${system} or null;

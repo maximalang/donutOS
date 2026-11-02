@@ -1,4 +1,3 @@
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -19,6 +18,69 @@ const STREAM_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 // Sent on both the asset request and its checksum sidecar so the CDN sees one
 // consistent client for the pair.
 const DOWNLOAD_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
+
+// When each download ("browser-version") last moved: bytes received or
+// unpacked. `unless_stalled` reads it.
+static LAST_PROGRESS: std::sync::LazyLock<
+  Mutex<std::collections::HashMap<String, std::time::Instant>>,
+> = std::sync::LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
+
+// How often `unless_stalled` looks at the progress.
+const STALL_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Record that the download of `browser` `version` moved.
+pub(crate) fn note_progress(browser: &str, version: &str) {
+  if let Ok(mut moved) = LAST_PROGRESS.lock() {
+    moved.insert(format!("{browser}-{version}"), std::time::Instant::now());
+  }
+}
+
+/// Run `download` until it ends, or until neither its transfer nor its
+/// extraction has moved for `stall`; `None` then. A slow connection keeps
+/// moving, so only a hang stops it.
+pub(crate) async fn unless_stalled<T>(
+  download: impl std::future::Future<Output = T>,
+  browser: &str,
+  version: &str,
+  stall: std::time::Duration,
+) -> Option<T> {
+  let started = std::time::Instant::now();
+  let key = format!("{browser}-{version}");
+  tokio::pin!(download);
+  loop {
+    tokio::select! {
+      result = &mut download => return Some(result),
+      () = tokio::time::sleep(STALL_CHECK_INTERVAL.min(stall)) => {
+        let moved = LAST_PROGRESS
+          .lock()
+          .ok()
+          .and_then(|moved| moved.get(&key).copied())
+          .filter(|at| *at > started)
+          .unwrap_or(started);
+        if moved.elapsed() >= stall {
+          return None;
+        }
+      }
+    }
+  }
+}
+
+/// Remove everything in `dir` but `keep`.
+fn remove_all_but(dir: &Path, keep: &Path) -> std::io::Result<()> {
+  for entry in std::fs::read_dir(dir)? {
+    let entry = entry?;
+    let path = entry.path();
+    if path == keep {
+      continue;
+    }
+    if entry.file_type()?.is_dir() {
+      std::fs::remove_dir_all(&path)?;
+    } else {
+      std::fs::remove_file(&path)?;
+    }
+  }
+  Ok(())
+}
 
 // Global state to track currently downloading browser-version pairs
 static DOWNLOADING_BROWSERS: std::sync::LazyLock<
@@ -77,7 +139,7 @@ impl DownloadProgress {
 }
 
 pub struct Downloader {
-  client: Client,
+  client: crate::app_proxy::SharedClient,
   api_client: &'static ApiClient,
   registry: &'static crate::downloaded_browsers_registry::DownloadedBrowsersRegistry,
   version_service: &'static crate::browser_version_manager::BrowserVersionManager,
@@ -87,15 +149,15 @@ pub struct Downloader {
 impl Downloader {
   fn new() -> Self {
     Self {
-      client: Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(30))
-        // Per-read idle timeout: if the connection stalls mid-stream with no bytes
-        // for this long, the read fails instead of hanging forever. This is the
-        // transport-level guard; the streaming loop also wraps each read in an
-        // explicit tokio timeout as defense-in-depth.
-        .read_timeout(STREAM_IDLE_TIMEOUT)
-        .build()
-        .unwrap_or_else(|_| Client::new()),
+      client: crate::app_proxy::SharedClient::new(|builder| {
+        builder
+          .connect_timeout(std::time::Duration::from_secs(30))
+          // Per-read idle timeout: if the connection stalls mid-stream with no
+          // bytes for this long, the read fails instead of hanging forever. This
+          // is the transport-level guard; the streaming loop also wraps each read
+          // in an explicit tokio timeout as defense-in-depth.
+          .read_timeout(STREAM_IDLE_TIMEOUT)
+      }),
       api_client: ApiClient::instance(),
       registry: crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance(),
       version_service: crate::browser_version_manager::BrowserVersionManager::instance(),
@@ -110,7 +172,7 @@ impl Downloader {
   #[cfg(test)]
   pub fn new_for_test() -> Self {
     Self {
-      client: Client::new(),
+      client: crate::app_proxy::SharedClient::new(|builder| builder),
       api_client: ApiClient::instance(),
       registry: crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance(),
       version_service: crate::browser_version_manager::BrowserVersionManager::instance(),
@@ -129,6 +191,7 @@ impl Downloader {
 
     let response = self
       .client
+      .get()
       .get(download_url)
       .header(
         "User-Agent",
@@ -168,7 +231,7 @@ impl Downloader {
     &self,
     browser_type: BrowserType,
     version: &str,
-    _download_info: &DownloadInfo,
+    download_info: &DownloadInfo,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match browser_type {
       // The open engine's archives are pinned public URLs: nothing to resolve.
@@ -193,22 +256,23 @@ impl Downloader {
           );
         }
 
-        // Get the download URL for current platform
-        let download_url = self
-          .api_client
-          .get_wayfern_download_url(&version_info)
-          .ok_or_else(|| {
-            let (os, arch) = Self::get_platform_info();
-            format!(
-              "No compatible download found for Wayfern on {os}/{arch}. Available platforms: {}",
-              version_info
-                .downloads
-                .iter()
-                .filter_map(|(k, v)| if v.is_some() { Some(k.as_str()) } else { None })
-                .collect::<Vec<_>>()
-                .join(", ")
-            )
-          })?;
+        // Take the build that the local file name was made for, so the name and the bytes always
+        // describe the same platform.
+        let download_url =
+          crate::browser_version_manager::wayfern_slot_of_archive(&download_info.filename, version)
+            .and_then(|slot| version_info.downloads.get(slot).cloned().flatten())
+            .ok_or_else(|| {
+              let (os, arch) = Self::get_platform_info();
+              format!(
+                "No compatible download found for Wayfern on {os}/{arch}. Available platforms: {}",
+                version_info
+                  .downloads
+                  .iter()
+                  .filter_map(|(k, v)| if v.is_some() { Some(k.as_str()) } else { None })
+                  .collect::<Vec<_>>()
+                  .join(", ")
+              )
+            })?;
 
         Ok(download_url)
       }
@@ -217,25 +281,7 @@ impl Downloader {
 
   /// Get platform and architecture information
   fn get_platform_info() -> (String, String) {
-    let os = if cfg!(target_os = "windows") {
-      "windows"
-    } else if cfg!(target_os = "linux") {
-      "linux"
-    } else if cfg!(target_os = "macos") {
-      "macos"
-    } else {
-      "unknown"
-    };
-
-    let arch = if cfg!(target_arch = "x86_64") {
-      "x64"
-    } else if cfg!(target_arch = "aarch64") {
-      "arm64"
-    } else {
-      "unknown"
-    };
-
-    (os.to_string(), arch.to_string())
+    crate::browser_version_manager::host_platform()
   }
 
   pub async fn download_browser<R: tauri::Runtime>(
@@ -328,6 +374,7 @@ impl Downloader {
     let sidecar_url = checksum_sidecar_url(download_url);
     let response = match self
       .client
+      .get()
       .get(&sidecar_url)
       .header("User-Agent", DOWNLOAD_USER_AGENT)
       .send()
@@ -401,6 +448,7 @@ impl Downloader {
       for attempt in 0..=max_send_retries {
         let mut request = self
           .client
+          .get()
           .get(download_url)
           .header("User-Agent", DOWNLOAD_USER_AGENT);
 
@@ -620,6 +668,7 @@ impl Downloader {
             None
           };
 
+          note_progress(browser_type.as_str(), version);
           let _ = events::emit(
             "download-progress",
             &DownloadProgress {
@@ -831,6 +880,14 @@ impl Downloader {
 
     // Use the extraction module
     if download_info.is_archive {
+      // An attempt that ended after extracting leaves its files here, and the
+      // archive's top folder would land beside them as a second copy of the
+      // browser. Extract into a folder that holds only the archive.
+      if let Err(e) = remove_all_but(&browser_dir, &download_path) {
+        log::warn!(
+          "Earlier extraction cleanup failed browser={browser_str} version={version} err=\"{e}\""
+        );
+      }
       match self
         .extractor
         .extract_browser(
@@ -1286,6 +1343,48 @@ mod tests {
   use tempfile::TempDir;
   use wiremock::matchers::{method, path};
   use wiremock::{Mock, MockServer, ResponseTemplate};
+
+  #[tokio::test]
+  async fn a_slow_download_that_keeps_moving_is_not_cut_off() {
+    let stall = std::time::Duration::from_millis(300);
+    let slow = async {
+      for _ in 0..20 {
+        note_progress("stall-test", "moving");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+      }
+      "done"
+    };
+    assert_eq!(
+      unless_stalled(slow, "stall-test", "moving", stall).await,
+      Some("done"),
+      "a second of steady progress outlives a 300 ms stall limit"
+    );
+
+    let hung = tokio::time::sleep(std::time::Duration::from_secs(5));
+    let started = std::time::Instant::now();
+    assert_eq!(
+      unless_stalled(hung, "stall-test", "hung", stall).await,
+      None
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+  }
+
+  #[test]
+  fn only_the_archive_is_left_before_extraction() {
+    let dir = TempDir::new().unwrap();
+    let archive = dir.path().join("wayfern.tar.xz");
+    std::fs::write(&archive, b"archive").unwrap();
+    std::fs::write(dir.path().join("chrome"), b"earlier").unwrap();
+    std::fs::create_dir_all(dir.path().join("wayfern-1-linux-x64-portable/locales")).unwrap();
+
+    remove_all_but(dir.path(), &archive).unwrap();
+
+    let left: Vec<_> = std::fs::read_dir(dir.path())
+      .unwrap()
+      .map(|entry| entry.unwrap().path())
+      .collect();
+    assert_eq!(left, vec![archive]);
+  }
 
   #[tokio::test]
   async fn test_download_file_with_progress() {

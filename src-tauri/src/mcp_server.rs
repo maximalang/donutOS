@@ -181,7 +181,200 @@ fn negotiate_protocol_version(requested: Option<&str>) -> &'static str {
   }
 }
 const SERVER_NAME: &str = "donut-browser";
+const SERVER_TITLE: &str = "Donut Browser";
+const SERVER_WEBSITE: &str = "https://donutbrowser.com";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// What a tool does to the world, as MCP tool annotations say it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ToolHints {
+  read_only: bool,
+  destructive: bool,
+  idempotent: bool,
+  /// Acts on or reads websites, VPN servers or other parties.
+  open_world: bool,
+}
+
+const fn hints(
+  read_only: bool,
+  destructive: bool,
+  idempotent: bool,
+  open_world: bool,
+) -> ToolHints {
+  ToolHints {
+    read_only,
+    destructive,
+    idempotent,
+    open_world,
+  }
+}
+
+/// Reads the app's own data.
+const READS: ToolHints = hints(true, false, true, false);
+/// Reads the page of a running browser.
+const READS_PAGE: ToolHints = hints(true, false, true, true);
+/// Adds something and changes nothing that exists.
+const ADDS: ToolHints = hints(false, false, false, false);
+/// Changes or replaces what exists.
+const CHANGES: ToolHints = hints(false, true, true, false);
+/// Acts on a website, which can do anything in answer.
+const ACTS_ON_PAGE: ToolHints = hints(false, true, false, true);
+/// Opens or moves a browser without acting on the page.
+const BROWSES: ToolHints = hints(false, false, false, true);
+/// Stops something that runs.
+const STOPS: ToolHints = hints(false, false, true, false);
+
+/// The hints of every tool. None for a tool this table does not know, which a
+/// test forbids.
+fn tool_hints(name: &str) -> Option<ToolHints> {
+  Some(match name {
+    "list_profiles"
+    | "get_profile"
+    | "list_tags"
+    | "list_proxies"
+    | "get_profile_status"
+    | "list_profile_statuses"
+    | "list_profile_templates"
+    | "list_groups"
+    | "get_group"
+    | "get_proxy"
+    | "list_vpn_configs"
+    | "get_vpn_status"
+    | "get_profile_fingerprint"
+    | "get_dns_blocklist_status"
+    | "list_extensions"
+    | "list_extension_groups"
+    | "get_team_locks"
+    | "get_team_lock_status"
+    | "get_sync_sessions"
+    | "list_remote_sessions"
+    | "get_remote_session"
+    | "get_remote_hours_quota"
+    | "list_cookie_bot_schedules"
+    | "get_cookie_bot_schedule"
+    | "check_cookie_bot_conflicts"
+    | "list_cookie_bot_runs"
+    | "list_cookie_bot_presets"
+    | "get_cookie_bot_usage"
+    | "detect_browser_profiles"
+    | "export_proxies"
+    | "list_network_requests"
+    | "get_network_request"
+    | "get_human_updates"
+    | "get_diagnostics"
+    | "wait_for_human"
+    | "list_tabs"
+    | "pick_element" => READS,
+    "screenshot"
+    | "get_page_content"
+    | "get_page_info"
+    | "get_interactive_elements"
+    | "perceive_page"
+    | "resolve_locator"
+    | "wait_for" => READS_PAGE,
+    "create_profile"
+    | "create_profiles_from_template"
+    | "import_browser_profiles"
+    | "create_group"
+    | "create_proxy"
+    | "import_proxies"
+    | "import_vpn"
+    | "add_extension"
+    | "create_extension_group"
+    | "start_sync_session"
+    | "ask_human"
+    | "request_human_help"
+    | "report_progress" => ADDS,
+    "add_extension_to_group" | "start_network_capture" => hints(false, false, true, false),
+    "update_profile"
+    | "delete_profile"
+    | "bulk_update_profiles"
+    | "update_group"
+    | "delete_group"
+    | "assign_profiles_to_group"
+    | "update_proxy"
+    | "delete_proxy"
+    | "delete_vpn"
+    | "update_profile_fingerprint"
+    | "update_profile_proxy_bypass_rules"
+    | "update_profile_dns_blocklist"
+    | "update_extension"
+    | "update_extension_group"
+    | "remove_extension_from_group"
+    | "delete_extension"
+    | "delete_extension_group"
+    | "assign_extension_group_to_profile"
+    | "remove_sync_follower"
+    | "set_cookie_bot_schedule"
+    | "delete_cookie_bot_schedule"
+    | "cancel_cookie_bot_run"
+    | "stop_network_capture"
+    | "close_tab" => CHANGES,
+    "distribute_proxies" | "import_profile_cookies" => hints(false, true, false, false),
+    "rotate_proxy_ip" => hints(false, true, false, true),
+    "run_actions"
+    | "press_key"
+    | "evaluate_javascript"
+    | "click_element"
+    | "type_text"
+    | "click_by_index"
+    | "type_by_index"
+    | "click_locator"
+    | "press_and_hold"
+    | "type_locator"
+    | "select_option"
+    | "file_upload" => ACTS_ON_PAGE,
+    "run_profile" | "batch_run_profiles" | "navigate" | "open_tab" | "scroll" | "go_back"
+    | "run_profile_remote" | "run_cookie_bot_now" | "extract_structured" | "send_feedback" => {
+      BROWSES
+    }
+    "connect_vpn" => hints(false, false, true, true),
+    "kill_profile"
+    | "batch_stop_profiles"
+    | "switch_tab"
+    | "stop_remote_session"
+    | "stop_sync_session"
+    | "disconnect_vpn" => STOPS,
+    _ => return None,
+  })
+}
+
+/// `list_profiles` as a person reads it: "List profiles".
+fn tool_title(name: &str) -> String {
+  let words: Vec<String> = name
+    .split('_')
+    .enumerate()
+    .map(|(i, word)| match word {
+      "ip" => "IP".to_string(),
+      "vpn" => "VPN".to_string(),
+      "dns" => "DNS".to_string(),
+      "javascript" => "JavaScript".to_string(),
+      _ if i == 0 => {
+        let mut chars = word.chars();
+        chars
+          .next()
+          .map(|first| first.to_uppercase().chain(chars).collect())
+          .unwrap_or_default()
+      }
+      _ => word.to_string(),
+    })
+    .collect();
+  words.join(" ")
+}
+
+/// The `title` and `annotations` of a tool in `tools/list`. Every hint is
+/// explicit: MCP directories require them. A tool missing from the table is
+/// described at its worst.
+fn tool_annotations(name: &str) -> serde_json::Value {
+  let hints = tool_hints(name).unwrap_or(hints(false, true, false, true));
+  serde_json::json!({
+    "title": tool_title(name),
+    "readOnlyHint": hints.read_only,
+    "destructiveHint": hints.destructive,
+    "idempotentHint": hints.idempotent,
+    "openWorldHint": hints.open_world,
+  })
+}
 
 #[derive(Debug, Serialize)]
 pub struct McpResponse {
@@ -999,6 +1192,40 @@ pub(crate) struct AgentClick {
   pub engine: Engine,
   /// Whether a page load followed the click.
   pub navigated: bool,
+}
+
+/// The body of `POST /agent/hold`. The MCP tool `press_and_hold` takes the
+/// same fields, and also `index` or `element_id`.
+#[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+pub(crate) struct AgentHoldRequest {
+  /// How to name the element. Give this or `selector`, not both.
+  #[serde(default)]
+  pub locator: Option<LocatorDescription>,
+  /// CSS selector of the element. Give this or `locator`, not both.
+  #[serde(default)]
+  pub selector: Option<String>,
+  /// How long to keep the button down: a whole number from 100 to 30000
+  /// milliseconds. Default 3000.
+  #[serde(default, alias = "durationMs")]
+  pub duration_ms: Option<f64>,
+  /// "left" (default), "middle" or "right".
+  #[serde(default)]
+  pub button: Option<String>,
+}
+
+/// What `press_and_hold` did.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub(crate) struct AgentHold {
+  pub held: bool,
+  /// The element a locator settled on. Absent when another way named it.
+  #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+  pub matched: Option<LocatorCandidate>,
+  pub engine: Engine,
+  /// Whether a page load followed the release.
+  pub navigated: bool,
+  pub button: String,
+  /// How long the button was down, in milliseconds.
+  pub held_ms: u64,
 }
 
 /// The body of `type_locator`.
@@ -2957,6 +3184,254 @@ pub(crate) async fn agent_click_locator(
   })
 }
 
+/// A hold's duration and button, checked: the duration a whole number of
+/// milliseconds in bounds (the default when absent), the button one a hold
+/// can keep down.
+pub(crate) fn hold_settings(
+  duration_ms: Option<f64>,
+  button: Option<&str>,
+) -> Result<(u64, &'static str), AgentError> {
+  use crate::human_hold::{DEFAULT_HOLD_MS, MAX_HOLD_MS, MIN_HOLD_MS};
+  let duration = match duration_ms {
+    None => DEFAULT_HOLD_MS,
+    Some(ms) if ms.fract() == 0.0 && (MIN_HOLD_MS as f64..=MAX_HOLD_MS as f64).contains(&ms) => {
+      ms as u64
+    }
+    Some(_) => {
+      return Err(AgentError::InvalidArgument(format!(
+        "duration_ms must be a whole number from {MIN_HOLD_MS} to {MAX_HOLD_MS}"
+      )))
+    }
+  };
+  let button = match button.unwrap_or("left") {
+    "left" => "left",
+    "middle" => "middle",
+    "right" => "right",
+    _ => {
+      return Err(AgentError::InvalidArgument(
+        "button must be left, middle or right".to_string(),
+      ))
+    }
+  };
+  Ok((duration, button))
+}
+
+/// The Fitts width the held moves glide with: a hand already on its target.
+const HELD_GLIDE_WIDTH: f64 = 40.0;
+
+/// Sleep until `ms` after `since`.
+async fn sleep_until(since: tokio::time::Instant, ms: u64) {
+  tokio::time::sleep_until(since + Duration::from_millis(ms)).await;
+}
+
+/// Where to press a held element: where a hand would click it, as for a
+/// click. With no box in the page, or in a frame, the DOM decides, which
+/// needs the node a locator settled on.
+async fn hold_point(
+  session: &mut WayfernSession,
+  object: &str,
+  backend_node_id: Option<i64>,
+) -> Result<ViewportTarget, AgentError> {
+  match (aim_at(session, object).await?, backend_node_id) {
+    (Aim::At(point) | Aim::Covered(point, _), _) => Ok(point),
+    (Aim::Hidden | Aim::Frame, Some(id)) => Ok(wayfern_cdp::viewport_target(session, id).await?),
+    (Aim::Hidden, None) => Err(not_visible()),
+    (Aim::Frame, None) => Err(AgentError::BadRequest(
+      "The element is inside a frame; name it with a locator.".to_string(),
+    )),
+  }
+}
+
+/// Press at `point`, where the pointer already is, keep the button down as
+/// `plan` says and let go, all as CDP mouse events. A held move that stays on
+/// the pixel of the event before sends nothing, as a still mouse does.
+/// Returns whether a page load followed, and how long the button was down.
+async fn dispatch_hold(
+  session: &mut WayfernSession,
+  point: ViewportTarget,
+  button: &str,
+  plan: &crate::human_hold::HoldPlan,
+) -> Result<(bool, u64), AgentError> {
+  let mask = crate::human_hold::buttons_mask(button);
+  // Trusted events land on the device-pixel grid; whole CSS pixels are on
+  // it at every scale.
+  let mut at = (point.x.round(), point.y.round());
+  session
+    .call(
+      "Input.dispatchMouseEvent",
+      serde_json::json!({
+        "type": "mousePressed", "x": at.0, "y": at.1, "button": button, "buttons": mask, "clickCount": 1,
+      }),
+    )
+    .await?;
+  let pressed = tokio::time::Instant::now();
+  let kept = async {
+    for step in &plan.moves {
+      sleep_until(pressed, step.at_ms).await;
+      let to = ((point.x + step.dx).round(), (point.y + step.dy).round());
+      if to == at {
+        continue;
+      }
+      session
+        .call(
+          "Input.dispatchMouseEvent",
+          serde_json::json!({
+            "type": "mouseMoved", "x": to.0, "y": to.1, "button": button, "buttons": mask,
+          }),
+        )
+        .await?;
+      at = to;
+    }
+    sleep_until(pressed, plan.hold_ms).await;
+    Ok::<(), WayfernError>(())
+  }
+  .await;
+  let held_ms = pressed.elapsed().as_millis() as u64;
+  // Let go on every path: a button left down stays down for the page.
+  let release = serde_json::json!({
+    "type": "mouseReleased", "x": at.0, "y": at.1, "button": button, "buttons": 0, "clickCount": 1,
+  });
+  let let_go = session
+    .call_then_await_navigation("Input.dispatchMouseEvent", release, CLICK_LOAD_TIMEOUT)
+    .await;
+  kept?;
+  let (_, navigated) = let_go?;
+  Ok((navigated, held_ms))
+}
+
+/// Glide to `point`, clasp, glide a little while the button is down as
+/// `plan` says, and unclasp, on an open session with `Page.enable` on. A
+/// browser built before the clasp gets the press, the moves and the release
+/// as CDP mouse events at the point the pointer glided to. Returns the
+/// engine that held the button, whether a page load followed, and how long
+/// the button was down.
+async fn vellum_hold_in(
+  session: &mut WayfernSession,
+  point: ViewportTarget,
+  viewport: (f64, f64),
+  button: &'static str,
+  plan: crate::human_hold::HoldPlan,
+) -> Result<(Engine, bool, u64), AgentError> {
+  let origin = wayfern_cdp::glide_origin(&point, viewport);
+  let width = Some(point.width.min(point.height));
+  vellum::with_pointer(session, origin.0, origin.1, |s, p| {
+    Box::pin(async move {
+      vellum::glide(s, p, point.x, point.y, width).await?;
+      tokio::time::sleep(Duration::from_millis(plan.settle_ms)).await;
+      match vellum::clasp(s, p, Some(button)).await {
+        Ok(()) => {}
+        Err(e) if vellum::is_missing(&e, "Vellum.clasp") => {
+          let (navigated, held_ms) = dispatch_hold(s, point, button, &plan).await?;
+          return Ok((Engine::Fallback, navigated, held_ms));
+        }
+        Err(e) => return Err(e.into()),
+      }
+      let pressed = tokio::time::Instant::now();
+      let kept = async {
+        for step in &plan.moves {
+          sleep_until(pressed, step.at_ms).await;
+          vellum::glide(
+            s,
+            p,
+            point.x + step.dx,
+            point.y + step.dy,
+            Some(HELD_GLIDE_WIDTH),
+          )
+          .await?;
+        }
+        sleep_until(pressed, plan.hold_ms).await;
+        Ok::<(), WayfernError>(())
+      }
+      .await;
+      let held_ms = pressed.elapsed().as_millis() as u64;
+      // Let go on every path: a button left down stays down for the page.
+      let let_go = vellum::unclasp_awaiting_load(s, p, CLICK_LOAD_TIMEOUT).await;
+      kept?;
+      Ok::<_, AgentError>((Engine::Wayfern, let_go?, held_ms))
+    })
+  })
+  .await
+}
+
+/// Press the element `element` names, keep the button down for about
+/// `duration_ms` with the small movements a held hand makes, and let go.
+///
+/// The hold lasts a little longer than asked, never less, and the pointer
+/// never rests perfectly still: press-and-hold checks read both as a script.
+async fn agent_press_and_hold(
+  ctx: &AgentContext,
+  element: &ElementRef,
+  duration_ms: u64,
+  button: &'static str,
+) -> Result<AgentHold, AgentError> {
+  let plan = crate::human_hold::random_plan(duration_ms);
+  let mut session = WayfernSession::open(&ctx.target).await?;
+  let outcome = async {
+    session.call("Page.enable", serde_json::json!({})).await?;
+    let (object, located) = form_element(&mut session, ctx.engine, element).await?;
+    let backend_node_id = located.as_ref().map(|l| l.backend_node_id);
+    let point = hold_point(&mut session, &object, backend_node_id).await?;
+    let viewport = wayfern_cdp::layout_viewport(&mut session).await?;
+    let point = clamp_to_viewport(point, viewport);
+    let held = if ctx.engine.is_wayfern() {
+      vellum_hold_in(&mut session, point, viewport, button, plan).await?
+    } else {
+      session
+        .call(
+          "Input.dispatchMouseEvent",
+          serde_json::json!({ "type": "mouseMoved", "x": point.x.round(), "y": point.y.round() }),
+        )
+        .await?;
+      tokio::time::sleep(Duration::from_millis(plan.settle_ms)).await;
+      let (navigated, held_ms) = dispatch_hold(&mut session, point, button, &plan).await?;
+      (Engine::Fallback, navigated, held_ms)
+    };
+    Ok::<_, AgentError>((located, held))
+  }
+  .await;
+  let _ = session
+    .call(
+      "Runtime.releaseObjectGroup",
+      serde_json::json!({ "objectGroup": FORM_GROUP }),
+    )
+    .await;
+  let _ = session.call("Page.disable", serde_json::json!({})).await;
+  session.close().await;
+  let (located, (engine, navigated, held_ms)) = outcome?;
+  Ok(AgentHold {
+    held: true,
+    matched: located.map(|l| l.matched),
+    engine,
+    navigated,
+    button: button.to_string(),
+    held_ms,
+  })
+}
+
+/// `POST /agent/hold`: the element named one way, by locator or selector,
+/// then [`agent_press_and_hold`].
+pub(crate) async fn agent_hold(
+  ctx: &AgentContext,
+  request: &AgentHoldRequest,
+) -> Result<AgentHold, AgentError> {
+  let (duration_ms, button) = hold_settings(request.duration_ms, request.button.as_deref())?;
+  let element = match (&request.locator, request.selector.as_deref()) {
+    (Some(locator), None) => {
+      validate_locator(locator)?;
+      ElementRef::Locator(canonical_locator(locator))
+    }
+    (None, Some(selector)) if !selector.trim().is_empty() => {
+      ElementRef::Selector(selector.to_string())
+    }
+    _ => {
+      return Err(AgentError::InvalidArgument(
+        "Name the element one way: locator or selector".to_string(),
+      ))
+    }
+  };
+  agent_press_and_hold(ctx, &element, duration_ms, button).await
+}
+
 /// Resolve a locator and type into it.
 ///
 /// `max_seconds` is the caller's typing budget; the refusal for a text that
@@ -4257,6 +4732,7 @@ impl McpServer {
         | "perceive_page"
         | "resolve_locator"
         | "click_locator"
+        | "press_and_hold"
         | "type_locator"
         | "extract_structured"
         | "pick_element"
@@ -6200,6 +6676,27 @@ impl McpServer {
         }),
       },
       McpTool {
+        name: "press_and_hold".to_string(),
+        description: "Press and hold an element, for a press-and-hold check: the pointer moves onto it as for a click, the button stays down for duration_ms while the pointer makes the small movements of a real hand, then it lets go. Name the element by selector, locator, or index from get_interactive_elements. Returns held_ms, how long the button was down (a little more than asked), and whether a page load followed.".to_string(),
+        input_schema: form_tool_schema(
+          "element to hold",
+          serde_json::json!({
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 30000,
+              "description": "How long to keep the button down, in milliseconds (default: 3000)"
+            },
+            "button": {
+              "type": "string",
+              "enum": ["left", "middle", "right"],
+              "description": "Mouse button (default: left)"
+            }
+          }),
+          &[],
+        ),
+      },
+      McpTool {
         name: "type_locator".to_string(),
         description: "Resolve a locator to exactly one field, focus it with a real click and type text into it one key at a time. On Wayfern 152 the keys are paced by the profile's own typing rhythm, with a few seed-determined typos corrected along the way when typos is on; on older builds the same human-typing model as type_text is used. The typed text replaces what the field holds unless clear_first is false. The field is read back afterwards: a field that does not hold the text fails with TYPE_NOT_APPLIED (data.reason not_focused or value, data.value what it holds), never a success. An autocomplete keeps the typed text only until you pick an option.".to_string(),
         input_schema: serde_json::json!({
@@ -6626,7 +7123,9 @@ impl McpServer {
       },
       "serverInfo": {
         "name": SERVER_NAME,
+        "title": SERVER_TITLE,
         "version": SERVER_VERSION,
+        "websiteUrl": SERVER_WEBSITE,
       },
       "instructions": instructions
     });
@@ -6720,10 +7219,13 @@ impl McpServer {
       .filter(|tool| toolsets.is_none_or(|selection| selection.includes_tool(&tool.name)))
       .map(|tool| {
         let output_schema = crate::mcp_views::output_schema_for(&tool.name);
+        let annotations = tool_annotations(&tool.name);
         let mut value = serde_json::to_value(tool).unwrap_or_default();
         if let Some(schema) = output_schema {
           value["outputSchema"] = schema;
         }
+        value["title"] = annotations["title"].clone();
+        value["annotations"] = annotations;
         value
       })
       .collect();
@@ -7217,6 +7719,14 @@ impl McpServer {
         )
         .await?;
         self.handle_click_locator(arguments).await
+      }
+      "press_and_hold" => {
+        Self::require_capability(
+          "Browser automation",
+          CLOUD_AUTH.can_use_browser_automation().await,
+        )
+        .await?;
+        self.handle_press_and_hold(caller, arguments).await
       }
       "type_locator" => {
         Self::require_capability(
@@ -11786,6 +12296,30 @@ impl McpServer {
     Self::json_content(&clicked)
   }
 
+  async fn handle_press_and_hold(
+    &self,
+    caller: McpCaller<'_>,
+    arguments: &serde_json::Value,
+  ) -> Result<serde_json::Value, McpError> {
+    let profile_id = Self::require_str(arguments, "profile_id")?;
+    let duration_ms = match arguments.get("duration_ms") {
+      None | Some(serde_json::Value::Null) => None,
+      // Anything but a number fails the bounds check with the same words.
+      Some(value) => Some(value.as_f64().unwrap_or(f64::NAN)),
+    };
+    let (duration_ms, button) = hold_settings(
+      duration_ms,
+      arguments.get("button").and_then(|v| v.as_str()),
+    )
+    .map_err(AgentError::into_mcp)?;
+    let element = self.form_element_ref(caller, profile_id, arguments).await?;
+    let ctx = self.agent_context(profile_id).await?;
+    let held = agent_press_and_hold(&ctx, &element, duration_ms, button)
+      .await
+      .map_err(AgentError::into_mcp)?;
+    Self::json_content(&held)
+  }
+
   async fn handle_type_locator(
     &self,
     arguments: &serde_json::Value,
@@ -13085,6 +13619,44 @@ mod tests {
     );
   }
   #[test]
+  fn every_tool_has_explicit_annotations() {
+    for tool in McpServer::new().get_tools() {
+      let hints = tool_hints(&tool.name);
+      assert!(hints.is_some(), "{} has no annotations", tool.name);
+      let hints = hints.unwrap();
+      assert!(
+        !(hints.read_only && hints.destructive),
+        "{} reads only, so it cannot destroy",
+        tool.name
+      );
+      let annotations = tool_annotations(&tool.name);
+      for hint in [
+        "readOnlyHint",
+        "destructiveHint",
+        "idempotentHint",
+        "openWorldHint",
+      ] {
+        assert!(annotations[hint].is_boolean(), "{} {hint}", tool.name);
+      }
+    }
+    assert_eq!(tool_title("rotate_proxy_ip"), "Rotate proxy IP");
+    assert_eq!(tool_title("evaluate_javascript"), "Evaluate JavaScript");
+    assert_eq!(tool_title("list_profiles"), "List profiles");
+  }
+
+  #[tokio::test]
+  async fn tools_list_carries_titles_and_annotations() {
+    let server = McpServer::new();
+    let listed = server.handle_tools_list(None).await.unwrap();
+    let tools = listed["tools"].as_array().unwrap();
+    let navigate = tools.iter().find(|t| t["name"] == "navigate").unwrap();
+    assert_eq!(navigate["title"], "Navigate");
+    assert_eq!(navigate["annotations"]["openWorldHint"], true);
+    let list = tools.iter().find(|t| t["name"] == "list_profiles").unwrap();
+    assert_eq!(list["annotations"]["readOnlyHint"], true);
+  }
+
+  #[test]
   fn a_stale_plan_token_says_to_restart_and_how_long_the_browser_ran() {
     let message = stale_plan_token_message(Some(204_189));
     assert!(message.contains("56 h"), "{message}");
@@ -13217,7 +13789,7 @@ mod tests {
     // tool was added or removed on purpose.
     assert_eq!(
       tools.len(),
-      114,
+      115,
       "the tool list is a published contract; update this number deliberately"
     );
 
@@ -13307,6 +13879,7 @@ mod tests {
     assert!(tool_names.contains(&"perceive_page"));
     assert!(tool_names.contains(&"resolve_locator"));
     assert!(tool_names.contains(&"click_locator"));
+    assert!(tool_names.contains(&"press_and_hold"));
     assert!(tool_names.contains(&"type_locator"));
     assert!(tool_names.contains(&"select_option"));
     assert!(tool_names.contains(&"file_upload"));
@@ -15071,6 +15644,209 @@ mod tests {
       },
       target,
     )
+  }
+
+  /// The params of every frame sent with `method`, in order.
+  fn params_of(
+    frames: &crate::wayfern_cdp::test_support::Frames,
+    method: &str,
+  ) -> Vec<serde_json::Value> {
+    frames
+      .lock()
+      .unwrap()
+      .iter()
+      .filter(|f| f["method"] == method)
+      .map(|f| f["params"].clone())
+      .collect()
+  }
+
+  /// The CDP press, held moves and release of a hold at (140, 215): whole
+  /// pixels, the held button's mask while it is down, no move to the pixel of
+  /// the event before, and the release at the last position. Answers how many
+  /// held moves there were.
+  fn assert_dispatched_hold(mouse: &[serde_json::Value], button: &str, mask: u64) -> usize {
+    let press = mouse
+      .iter()
+      .position(|e| e["type"] == "mousePressed")
+      .expect("a press");
+    let release = mouse.len() - 1;
+    assert_eq!(mouse[release]["type"], "mouseReleased");
+    assert_eq!(mouse[press]["x"], 140.0);
+    assert_eq!(mouse[press]["y"], 215.0);
+    assert_eq!(mouse[press]["button"], button);
+    assert_eq!(mouse[press]["buttons"], mask);
+    let mut previous = (140.0, 215.0);
+    for moved in &mouse[press + 1..release] {
+      assert_eq!(moved["type"], "mouseMoved");
+      assert_eq!(moved["buttons"], mask);
+      let (x, y) = (moved["x"].as_f64().unwrap(), moved["y"].as_f64().unwrap());
+      assert_eq!((x.fract(), y.fract()), (0.0, 0.0));
+      assert!(
+        (x - 140.0).abs() <= 2.0 && (y - 215.0).abs() <= 2.0,
+        "{moved}"
+      );
+      assert_ne!((x, y), previous);
+      previous = (x, y);
+    }
+    assert_eq!(mouse[release]["x"].as_f64(), Some(previous.0));
+    assert_eq!(mouse[release]["y"].as_f64(), Some(previous.1));
+    assert_eq!(mouse[release]["buttons"], 0);
+    release - press - 1
+  }
+
+  #[tokio::test]
+  async fn a_152_profile_holds_with_a_clasp_and_small_glides_while_the_button_is_down() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    let element = ElementRef::Locator(LocatorDescription {
+      role: Some("button".to_string()),
+      name: Some("Press and hold".to_string()),
+      ..Default::default()
+    });
+    let (target, frames) = fake_browser(Fake::Cooperative).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    let held = agent_press_and_hold(&ctx, &element, 1200, "left")
+      .await
+      .expect("a cooperative browser completes the hold");
+    assert!(held.held);
+    assert_eq!(held.engine, Engine::Wayfern);
+    // Never shorter than asked, and not an exact length.
+    assert!((1224..3000).contains(&held.held_ms), "{}", held.held_ms);
+    let sent = methods(&frames);
+    let vellum: Vec<&str> = sent
+      .iter()
+      .filter(|m| m.starts_with("Vellum."))
+      .map(String::as_str)
+      .collect();
+    let clasp = vellum.iter().position(|m| *m == "Vellum.clasp").unwrap();
+    assert_eq!(
+      vellum[..=clasp],
+      ["Vellum.acquire", "Vellum.glide", "Vellum.clasp"]
+    );
+    assert_eq!(
+      vellum[vellum.len() - 2..],
+      ["Vellum.unclasp", "Vellum.release"]
+    );
+    let held_moves = &vellum[clasp + 1..vellum.len() - 2];
+    assert!(!held_moves.is_empty());
+    assert!(held_moves.iter().all(|m| *m == "Vellum.glide"));
+    assert!(!sent.iter().any(|m| m == "Input.dispatchMouseEvent"));
+    assert_eq!(
+      params_of(&frames, "Vellum.clasp"),
+      vec![serde_json::json!({ "pointer": "0000000000000001", "button": "left" })]
+    );
+    // Every held move stays within a pixel and a half of the press point,
+    // and none goes where the pointer already is.
+    let glides = params_of(&frames, "Vellum.glide");
+    let mut previous = (140.0, 215.0);
+    for glide in &glides[1..] {
+      let (x, y) = (glide["x"].as_f64().unwrap(), glide["y"].as_f64().unwrap());
+      assert!((x - 140.0).hypot(y - 215.0) <= 1.41, "{glide}");
+      assert!((x - previous.0).hypot(y - previous.1) >= 0.29, "{glide}");
+      previous = (x, y);
+    }
+    let wire = serde_json::to_value(&held).unwrap();
+    assert_eq!(wire["match"]["backendNodeId"], 7);
+    assert_eq!(wire["engine"], "wayfern");
+    assert_eq!(wire["button"], "left");
+    assert_eq!(sent.last().map(String::as_str), Some("Page.disable"));
+  }
+
+  #[tokio::test]
+  async fn a_hold_falls_back_to_dispatched_events_without_a_clasp_or_on_an_older_build() {
+    use crate::wayfern_cdp::test_support::{fake_browser, methods, Fake};
+
+    // A Wayfern built before the clasp: the pointer still glides there, then
+    // the press, the held moves and the release are trusted mouse events.
+    let (target, frames) = fake_browser(Fake::NoClasp).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    let element = ElementRef::Locator(LocatorDescription {
+      role: Some("button".to_string()),
+      name: Some("Save".to_string()),
+      ..Default::default()
+    });
+    let held = agent_press_and_hold(&ctx, &element, 2500, "right")
+      .await
+      .unwrap();
+    assert_eq!(held.engine, Engine::Fallback);
+    assert!(held.held_ms >= 2550);
+    let sent = methods(&frames);
+    assert!(sent.iter().any(|m| m == "Vellum.glide"));
+    assert!(!sent.iter().any(|m| m == "Vellum.unclasp"));
+    assert_eq!(
+      sent
+        .iter()
+        .rfind(|m| m.starts_with("Vellum."))
+        .map(String::as_str),
+      Some("Vellum.release")
+    );
+    let mouse = params_of(&frames, "Input.dispatchMouseEvent");
+    let no_clasp_moves = assert_dispatched_hold(&mouse, "right", 2);
+
+    // An older build: no Vellum at all.
+    let (target, frames) = fake_browser(Fake::Cooperative).await;
+    let ctx = agent_context_for("151.0.7922.76", target);
+    let held = agent_press_and_hold(&ctx, &element, 2500, "left")
+      .await
+      .unwrap();
+    assert_eq!(held.engine, Engine::Fallback);
+    let sent = methods(&frames);
+    assert!(!sent.iter().any(|m| m.starts_with("Vellum.")));
+    let mouse = params_of(&frames, "Input.dispatchMouseEvent");
+    assert_eq!(mouse[0]["type"], "mouseMoved");
+    assert!(mouse[0].get("buttons").is_none());
+    let old_moves = assert_dispatched_hold(&mouse[1..], "left", 1);
+    // The pointer moves while held on at least one of the two holds; a move
+    // that rounds to the pixel it is on sends nothing, by design.
+    assert!(no_clasp_moves + old_moves >= 1);
+  }
+
+  #[test]
+  fn a_hold_takes_a_bounded_whole_duration_and_a_button_it_can_keep_down() {
+    assert_eq!(hold_settings(None, None).unwrap(), (3000, "left"));
+    assert_eq!(
+      hold_settings(Some(100.0), Some("right")).unwrap(),
+      (100, "right")
+    );
+    assert_eq!(
+      hold_settings(Some(30000.0), Some("middle")).unwrap(),
+      (30000, "middle")
+    );
+    for ms in [99.0, 30001.0, 1500.5, f64::NAN] {
+      let error = hold_settings(Some(ms), None).unwrap_err().into_mcp();
+      assert_eq!(error.code, -32602, "{ms}");
+      assert_eq!(
+        error.message,
+        "duration_ms must be a whole number from 100 to 30000"
+      );
+    }
+    assert!(hold_settings(None, Some("back")).is_err());
+  }
+
+  #[tokio::test]
+  async fn the_rest_hold_names_its_element_exactly_one_way() {
+    use crate::wayfern_cdp::test_support::{fake_browser, Fake};
+    let (target, _frames) = fake_browser(Fake::Cooperative).await;
+    let ctx = agent_context_for("152.0.7977.64", target);
+    for body in [
+      serde_json::json!({}),
+      serde_json::json!({ "selector": "  " }),
+      serde_json::json!({ "selector": "#a", "locator": { "role": "button" } }),
+    ] {
+      let request: AgentHoldRequest = serde_json::from_value(body.clone()).unwrap();
+      assert!(
+        matches!(
+          agent_hold(&ctx, &request).await,
+          Err(AgentError::InvalidArgument(_))
+        ),
+        "{body}"
+      );
+    }
+    let request: AgentHoldRequest = serde_json::from_value(
+      serde_json::json!({ "locator": { "name": "Save" }, "durationMs": 100 }),
+    )
+    .unwrap();
+    assert!(agent_hold(&ctx, &request).await.unwrap().held_ms >= 102);
   }
 
   #[tokio::test]
