@@ -2693,6 +2693,8 @@
     "profileNotProtected": "Profil parola korumalı değil",
     "profileAlreadyProtected": "Profil zaten parola korumalı",
     "profileRunning": "Profil çalışırken bu işlem gerçekleştirilemez",
+    "manualSessionActive": "Bu profil manuel pencere olarak açık. Manuel pencereler otomasyonsuz çalışır: pencerede doğrudan çalışın ya da önce profili uygulamada durdurun.",
+    "manualLaunchNeedsAutomation": "Bu profilin cihazı yalnızca otomasyonla uygulanır, bu yüzden manuel pencere olarak açılamaz. Otomasyon API'sinden başlatın ya da başlatma kimlikli bir profil kullanın.",
     "profileEphemeral": "Geçici profiller parolayla korunamaz — verileri çıkışta silinir.",
     "profileMissingSalt": "Profilin şifreleme tuzu (salt) eksik",
     "profileLocked": "Profil kilitli. Önce parolayı girin.",

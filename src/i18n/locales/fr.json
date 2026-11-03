@@ -2713,6 +2713,8 @@
     "profileNotProtected": "Le profil n'est pas protégé par mot de passe",
     "profileAlreadyProtected": "Le profil est déjà protégé par mot de passe",
     "profileRunning": "Impossible d'effectuer cette action pendant que le profil est en cours d'exécution",
+    "manualSessionActive": "Ce profil est ouvert dans une fenêtre manuelle. Les fenêtres manuelles fonctionnent sans automatisation : travaillez directement dans la fenêtre ou arrêtez d'abord le profil dans l'application.",
+    "manualLaunchNeedsAutomation": "L'appareil de ce profil ne s'applique que via l'automatisation ; il ne peut donc pas s'ouvrir dans une fenêtre manuelle. Lancez-le via l'API d'automatisation ou utilisez un profil avec une identité de lancement.",
     "profileEphemeral": "Les profils éphémères ne peuvent pas être protégés par mot de passe — leurs données s'effacent à la fermeture.",
     "profileMissingSalt": "Le sel de chiffrement du profil est manquant",
     "profileLocked": "Le profil est verrouillé. Entrez d'abord le mot de passe.",

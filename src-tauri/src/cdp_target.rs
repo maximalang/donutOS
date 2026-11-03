@@ -201,6 +201,18 @@ pub async fn resolve(profile: &BrowserProfile) -> Result<CdpTarget, ResolveError
     if let Some(ws_url) = local_page_ws_url(profile, Patience::Immediate).await {
       return Ok(CdpTarget::Local { ws_url });
     }
+    // A manual window is not a drivable browser and never becomes one: say so
+    // now instead of burning the launch-wait budget retrying a port that will
+    // never exist, and before the remote fallback gets a chance to answer for
+    // a browser that is right here.
+    if crate::wayfern_manager::WayfernManager::instance()
+      .manual_session(profile)
+      .await
+    {
+      return Err(ResolveError::NotRunning(
+        crate::wayfern_manager::manual_session_message(&profile.name),
+      ));
+    }
   }
 
   if let Some(session) =

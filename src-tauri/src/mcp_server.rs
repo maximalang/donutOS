@@ -4814,7 +4814,7 @@ impl McpServer {
       },
       McpTool {
         name: "run_profile".to_string(),
-        description: "Launch a browser profile with an optional URL. A profile that is already running is taken over as it is, with no restart. Requires an active Pro subscription.".to_string(),
+        description: "Launch a browser profile with an optional URL. A profile that is already running is taken over as it is, with no restart. A profile open as a manual window (person-launched) is refused with 'manual session active' and is never restarted; wait for it to be stopped from the app UI. Requires an active Pro subscription.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -4836,7 +4836,7 @@ impl McpServer {
       },
       McpTool {
         name: "kill_profile".to_string(),
-        description: "Stop a running browser profile. Requires an active Pro subscription.".to_string(),
+        description: "Stop a running browser profile. A profile open as a manual window (person-launched) is refused with 'manual session active' and is never closed by automation; the person stops it from the app UI. Requires an active Pro subscription.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -7967,7 +7967,9 @@ impl McpServer {
     }
 
     // A browser the person already opened is taken over as it is, never
-    // restarted: the tools reach it on its DevTools port.
+    // restarted: the tools reach it on its DevTools port. A MANUAL window is
+    // theirs alone — no port exists and none may be opened for it, so the
+    // call reports the busy session instead of touching the window.
     if let Some(port) = crate::browser_tabs::local_port(profile).await {
       if let Some(url) = url {
         crate::browser_tabs::open(profile, url)
@@ -7987,6 +7989,15 @@ impl McpServer {
           )
         }]
       }));
+    } else if crate::wayfern_manager::WayfernManager::instance()
+      .manual_session(profile)
+      .await
+    {
+      return Err(McpError {
+        code: -32000,
+        message: crate::wayfern_manager::manual_session_message(&profile.name),
+        data: None,
+      });
     }
 
     // Team lock check
@@ -8114,6 +8125,20 @@ impl McpServer {
         .clone()
     };
 
+    // kill_profile-guard: a manual window belongs to the person at the
+    // machine. Automation never closes it; the call reports the busy session
+    // so the caller can wait for the person to stop it from the app UI.
+    if crate::wayfern_manager::WayfernManager::instance()
+      .manual_session(profile)
+      .await
+    {
+      return Err(McpError {
+        code: -32000,
+        message: crate::wayfern_manager::manual_session_message(&profile.name),
+        data: None,
+      });
+    }
+
     // Kill the browser
     crate::browser_runner::BrowserRunner::instance()
       .kill_browser_process(app_handle.clone(), profile)
@@ -8203,6 +8228,18 @@ impl McpServer {
         ));
         continue;
       }
+      // kill_profile-guard, batch form: a manual window is reported busy and
+      // skipped, never launched over and never touched.
+      if crate::wayfern_manager::WayfernManager::instance()
+        .manual_session(profile)
+        .await
+      {
+        lines.push(format!(
+          "{}: manual session active (open in a window; stop it from the app UI first)",
+          profile.name
+        ));
+        continue;
+      }
       if let Err(e) = crate::team_lock::acquire_team_lock_if_needed(profile).await {
         lines.push(format!("{profile_id}: {e}"));
         continue;
@@ -8283,6 +8320,18 @@ impl McpServer {
         lines.push(format!("{profile_id}: not found"));
         continue;
       };
+      // kill_profile-guard, batch form: a manual window is never closed by
+      // automation, only reported as busy.
+      if crate::wayfern_manager::WayfernManager::instance()
+        .manual_session(profile)
+        .await
+      {
+        lines.push(format!(
+          "{}: manual session active (open in a window; stop it from the app UI)",
+          profile.name
+        ));
+        continue;
+      }
       match crate::browser_runner::BrowserRunner::instance()
         .kill_browser_process(app_handle.clone(), profile)
         .await

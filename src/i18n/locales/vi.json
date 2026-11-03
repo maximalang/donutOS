@@ -2693,6 +2693,8 @@
     "profileNotProtected": "Profile không được bảo vệ bằng mật khẩu",
     "profileAlreadyProtected": "Profile đã được bảo vệ bằng mật khẩu",
     "profileRunning": "Không thể thực hiện hành động này khi profile đang chạy",
+    "manualSessionActive": "Hồ sơ này đang mở dưới dạng cửa sổ thủ công. Cửa sổ thủ công chạy không tự động hóa: hãy thao tác trực tiếp trong cửa sổ hoặc dừng hồ sơ trong ứng dụng trước.",
+    "manualLaunchNeedsAutomation": "Thiết bị của hồ sơ này chỉ được áp dụng qua tự động hóa nên không thể mở dưới dạng cửa sổ thủ công. Hãy chạy qua API tự động hóa hoặc dùng hồ sơ có danh tính khởi chạy.",
     "profileEphemeral": "Profile tạm thời không thể đặt mật khẩu — dữ liệu sẽ bị xóa khi thoát.",
     "profileMissingSalt": "Profile thiếu salt mã hóa",
     "profileLocked": "Profile đã bị khóa. Hãy nhập mật khẩu trước.",

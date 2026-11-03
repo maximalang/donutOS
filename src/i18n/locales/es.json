@@ -2713,6 +2713,8 @@
     "profileNotProtected": "El perfil no está protegido por contraseña",
     "profileAlreadyProtected": "El perfil ya está protegido por contraseña",
     "profileRunning": "No se puede realizar esta acción mientras el perfil está en ejecución",
+    "manualSessionActive": "Este perfil está abierto como ventana manual. Las ventanas manuales funcionan sin automatización: trabaje en la propia ventana o detenga antes el perfil en la aplicación.",
+    "manualLaunchNeedsAutomation": "El dispositivo de este perfil solo se aplica mediante automatización, por lo que no puede abrirse como ventana manual. Inícielo mediante la API de automatización o use un perfil con identidad de lanzamiento.",
     "profileEphemeral": "Los perfiles efímeros no pueden tener contraseña — sus datos se borran al salir.",
     "profileMissingSalt": "Al perfil le falta su sal de cifrado",
     "profileLocked": "El perfil está bloqueado. Introduce la contraseña primero.",

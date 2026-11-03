@@ -2693,6 +2693,8 @@
     "profileNotProtected": "配置文件未受密码保护",
     "profileAlreadyProtected": "配置文件已受密码保护",
     "profileRunning": "配置文件运行时无法执行此操作",
+    "manualSessionActive": "此配置文件已作为手动窗口打开。手动窗口不接入自动化：请直接在窗口中操作，或先在应用中停止该配置文件。",
+    "manualLaunchNeedsAutomation": "此配置文件的设备只能通过自动化应用，因此无法作为手动窗口打开。请通过自动化 API 启动，或使用带启动身份的配置文件。",
     "profileEphemeral": "临时配置文件无法设置密码 — 退出时数据会被清除。",
     "profileMissingSalt": "配置文件缺少加密盐",
     "profileLocked": "配置文件已锁定。请先输入密码。",

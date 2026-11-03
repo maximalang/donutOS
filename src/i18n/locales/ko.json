@@ -2693,6 +2693,8 @@
     "profileNotProtected": "프로필이 비밀번호로 보호되지 않습니다",
     "profileAlreadyProtected": "프로필이 이미 비밀번호로 보호되어 있습니다",
     "profileRunning": "프로필이 실행 중인 동안에는 이 작업을 수행할 수 없습니다",
+    "manualSessionActive": "이 프로필은 수동 창으로 열려 있습니다. 수동 창은 자동화 없이 동작합니다. 창에서 직접 작업하거나 먼저 앱에서 프로필을 중지하세요.",
+    "manualLaunchNeedsAutomation": "이 프로필의 디바이스는 자동화로만 적용되므로 수동 창으로 열 수 없습니다. 자동화 API로 실행하거나 실행 신원이 있는 프로필을 사용하세요.",
     "profileEphemeral": "임시 프로필은 비밀번호로 보호할 수 없습니다 — 종료 시 데이터가 삭제됩니다.",
     "profileMissingSalt": "프로필에 암호화 솔트가 없습니다",
     "profileLocked": "프로필이 잠겨 있습니다. 먼저 비밀번호를 입력하세요.",

@@ -2693,6 +2693,8 @@
     "profileNotProtected": "Profile is not password protected",
     "profileAlreadyProtected": "Profile is already password protected",
     "profileRunning": "Cannot perform this action while the profile is running",
+    "manualSessionActive": "This profile is open as a manual window. Manual windows run without automation: work in the window itself, or stop the profile in the app first.",
+    "manualLaunchNeedsAutomation": "This profile's device can only be applied through automation, so it cannot open as a manual window. Launch it via the automation API, or use a profile with a launch identity.",
     "profileEphemeral": "Ephemeral profiles cannot be password-protected — their data wipes on quit.",
     "profileMissingSalt": "Profile is missing its encryption salt",
     "profileLocked": "Profile is locked. Enter the password first.",

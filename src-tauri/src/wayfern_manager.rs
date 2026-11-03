@@ -443,6 +443,56 @@ pub enum LaunchKind {
   Automation,
 }
 
+/// The DevTools switches a launch opens its debugging socket with. `None` is
+/// a manual window: since engine 155 the vendor's background entitlement
+/// check arms a session timer on the first CDP attach and exits the browser
+/// within minutes, while a browser that is merely *listening* stays up
+/// (forensics t_9c964bb0, phase G: port open, zero attaches, alive ≥480 s).
+/// Manual windows therefore attach to nothing at all.
+fn devtools_switches(port: Option<u16>) -> Vec<String> {
+  match port {
+    Some(port) => vec![
+      format!("--remote-debugging-port={port}"),
+      "--remote-debugging-address=127.0.0.1".to_string(),
+    ],
+    None => Vec::new(),
+  }
+}
+
+/// Whether an Interactive launch of this profile would need a post-launch CDP
+/// apply to carry its device. The launch document is the only channel a
+/// manual window has: without it a fingerprint (always) or an identity (on a
+/// pre-152 engine, or without a timezone) could only be committed by
+/// attaching, which a manual window must not do. Such a launch is refused
+/// before the window opens rather than killed after it.
+pub fn manual_launch_needs_cdp(config: &WayfernConfig, version: &str, kind: LaunchKind) -> bool {
+  if kind != LaunchKind::Interactive {
+    return false;
+  }
+  let identity_id = config
+    .identity_id
+    .as_deref()
+    .map(str::trim)
+    .filter(|id| !id.is_empty());
+  if config.fingerprint.is_none() && identity_id.is_none() {
+    return false; // no device to commit
+  }
+  // A stored fingerprint never rides the command line, on any engine.
+  if config.fingerprint.is_some() {
+    return true;
+  }
+  // An identity does, from 152 on — and the document requires a timezone,
+  // exactly as `launch_identity_document` builds it.
+  if !supports_wayfern_152(version) {
+    return true;
+  }
+  let location = WayfernManager::stored_object(config.location.as_deref());
+  WayfernManager::geo_params(&location)
+    .get("timezone")
+    .and_then(serde_json::Value::as_str)
+    .is_none_or(str::is_empty)
+}
+
 /// Whether this launch reopens the last session, or why it does not.
 ///
 /// `identity_at_launch` says the device is committed before the first
@@ -489,6 +539,16 @@ pub fn session_restore_verdict(
     );
   }
   Ok(())
+}
+
+/// The one sentence every automation surface answers a manual window with.
+/// "manual session active" leads it verbatim: agents match on it to wait.
+pub fn manual_session_message(profile_name: &str) -> String {
+  format!(
+    "manual session active: profile '{profile_name}' is open as a manual window. \
+     Manual windows run without an automation channel and are never driven, \
+     restarted or stopped by automation; stop it from the app UI first."
+  )
 }
 
 /// What a launch opens: the URL it was given, or else, for a person's own
@@ -1445,6 +1505,10 @@ struct WayfernInstance {
   profile_path: Option<String>,
   url: Option<String>,
   cdp_port: Option<u16>,
+  /// How this browser was started. A manual (`Interactive`) instance owns no
+  /// DevTools port and must never be driven or stopped by automation — see
+  /// `manual_session_for_path`.
+  kind: LaunchKind,
   /// What the browser said about Wayfern on stderr, for diagnostics. Read
   /// through `browser_log_lines`, which the WebRTC and persona launch checks
   /// consult; nothing else needs it yet.
@@ -3020,9 +3084,35 @@ impl WayfernManager {
       .get_browser_executable_path(profile)
       .map_err(|e| format!("Failed to get Wayfern executable path: {e}"))?;
 
-    let port = match remote_debugging_port {
-      Some(p) => p,
-      None => Self::find_free_port().await?,
+    // A manual window cannot carry a device that only a CDP apply can commit;
+    // refusing here means no window ever opens, instead of one that is killed
+    // the moment its missing device is noticed.
+    if manual_launch_needs_cdp(config, &profile.version, kind) {
+      log::warn!(
+        "Manual launch refused: the device needs a CDP apply profile={}",
+        profile.id
+      );
+      return Err(crate::backend_error("MANUAL_LAUNCH_NEEDS_AUTOMATION").into());
+    }
+
+    // A manual window opens no DevTools port at all: engine 155 arms its
+    // session enforcement on the first CDP *attach*, so an Interactive launch
+    // never attaches and never listens either (forensics t_9c964bb0). An
+    // automation launch always has a port to be driven on.
+    let port = match kind {
+      LaunchKind::Interactive => {
+        if remote_debugging_port.is_some() {
+          log::debug!(
+            "Interactive launch ignores a requested DevTools port profile={}",
+            profile.id
+          );
+        }
+        None
+      }
+      LaunchKind::Automation => match remote_debugging_port {
+        Some(p) => Some(p),
+        None => Some(Self::find_free_port().await?),
+      },
     };
 
     // Diagnostic: verify critical profile files and test cookie decryption
@@ -3096,8 +3186,6 @@ impl WayfernManager {
     }
 
     let mut args = vec![
-      format!("--remote-debugging-port={port}"),
-      "--remote-debugging-address=127.0.0.1".to_string(),
       format!("--user-data-dir={profile_path}"),
       "--no-first-run".to_string(),
       "--no-default-browser-check".to_string(),
@@ -3121,6 +3209,7 @@ impl WayfernManager {
       "--use-mock-keychain".to_string(),
       "--password-store=basic".to_string(),
     ];
+    args.extend(devtools_switches(port));
 
     if headless {
       args.push("--headless=new".to_string());
@@ -3441,6 +3530,22 @@ impl WayfernManager {
     ));
 
     apply_launch_args(&mut args, &custom_launch_args);
+    if port.is_none() {
+      // A manual window has no CDP channel to open pages over, so they ride
+      // the command line; the engine opens each as a tab of its first window.
+      // With `--restore-last-session` the restored tabs come back alongside
+      // them, exactly as the CDP path's `open_url_on_port` would have done.
+      for page in &pages {
+        args.push((*page).to_string());
+      }
+      if pages.len() > 1 {
+        log::debug!(
+          "Manual launch opens {} pages on the command line profile={}",
+          pages.len(),
+          profile.id
+        );
+      }
+    }
     let mut command = TokioCommand::new(&executable_path);
     command
       .args(&args)
@@ -3476,24 +3581,31 @@ impl WayfernManager {
       );
     }
 
-    let page_targets = match self
-      .wait_for_cdp_ready_while_running(port, &mut child, &log_tap)
-      .await
-    {
-      Ok(targets) => targets,
-      Err(e) => {
-        if let Some(pid) = process_id {
-          if crate::proxy_storage::is_process_running(pid) {
-            log::warn!(
-              "Browser killed during launch profile={} pid={pid} reason=cdp_not_ready",
-              profile.id
-            );
+    let page_targets = match port {
+      Some(port) => match self
+        .wait_for_cdp_ready_while_running(port, &mut child, &log_tap)
+        .await
+      {
+        Ok(targets) => targets,
+        Err(e) => {
+          if let Some(pid) = process_id {
+            if crate::proxy_storage::is_process_running(pid) {
+              log::warn!(
+                "Browser killed during launch profile={} pid={pid} reason=cdp_not_ready",
+                profile.id
+              );
+            }
+            kill_browser_process(pid);
           }
-          kill_browser_process(pid);
+          let (launch_result, _) =
+            Self::store_launch_result(profile, config, result_file.as_deref());
+          return Err(Self::with_refused_claim(e, launch_result.as_ref()));
         }
-        let (launch_result, _) = Self::store_launch_result(profile, config, result_file.as_deref());
-        return Err(Self::with_refused_claim(e, launch_result.as_ref()));
-      }
+      },
+      // A manual window never attaches: nothing to wait for, no targets to
+      // drive. The engine's stderr (through the tap) stays the only channel
+      // watched, and the window is left to the person who opened it.
+      None => Vec::new(),
     };
     drop(child);
 
@@ -3538,82 +3650,129 @@ impl WayfernManager {
       && config.identity_id.is_some()
       && config.fingerprint.is_some();
     if let Some(document) = verify_document.as_ref() {
-      // The identity travelled on the command line. The browser never fails
-      // its own launch over it (a refusal only logs), so the launcher checks,
-      // and a browser running on the wrong device is closed rather than
-      // handed to the user with the app still showing the profile's device.
-      let mut observed: Option<serde_json::Value> = None;
-      let mut last_error: Option<String> = None;
-      for target in &page_targets {
-        if let Some(ws_url) = &target.websocket_debugger_url {
-          match self
-            .send_cdp_command(ws_url, "Wayfern.getIdentity", json!({}))
-            .await
-          {
-            Ok(result) => {
-              observed = Some(result);
-              break;
+      if page_targets.is_empty() {
+        // Manual window: there is no CDP to observe the identity over, so the
+        // engine's own stderr verdict is the whole check. A refusal (or
+        // dropped overrides under a plan) still closes this window right
+        // away — it would be running on the wrong device — but a silent tap
+        // only means "not verified", never "wrong".
+        if !log_tap.has_identity_verdict() {
+          tokio::time::sleep(Duration::from_millis(300)).await;
+        }
+        match Self::launch_identity_verdict(document, None, None, &log_tap) {
+          Ok(how) => {
+            log::debug!(
+              "Launch identity confirmed profile={} how=\"{how}\"",
+              profile.id
+            );
+          }
+          Err(reason) => {
+            let refused = log_tap.identity_refusal().is_some()
+              || (log_tap.dropped_overrides()
+                && crate::cloud_auth::CLOUD_AUTH
+                  .can_use_cross_os_fingerprints()
+                  .await);
+            if refused {
+              log::warn!(
+                "Browser killed during launch profile={} pid={process_id:?} reason=identity_not_applied",
+                profile.id
+              );
+              if let Some(pid) = process_id {
+                kill_browser_process(pid);
+              }
+              return Err(
+                wayfern_failure(
+                  &reason,
+                  "WAYFERN_IDENTITY_REFUSED",
+                  document["operatingSystem"].as_str(),
+                )
+                .into(),
+              );
             }
-            Err(e) => last_error = Some(e.to_string()),
+            log::info!(
+              "Identity not verified: a manual window has no CDP channel profile={} reason=\"{reason}\"",
+              profile.id
+            );
           }
         }
-      }
-      // The browser wrote its verdict to stderr before it opened the
-      // debugging port; the tap may still be a line behind the socket.
-      if !log_tap.has_identity_verdict() {
-        tokio::time::sleep(Duration::from_millis(300)).await;
-      }
-      match Self::launch_identity_verdict(
-        document,
-        observed.as_ref(),
-        last_error.as_deref(),
-        &log_tap,
-      ) {
-        Ok(confirmation) => {
-          if log_tap.dropped_overrides()
-            && crate::cloud_auth::CLOUD_AUTH
-              .can_use_cross_os_fingerprints()
+      } else {
+        // The identity travelled on the command line. The browser never fails
+        // its own launch over it (a refusal only logs), so the launcher checks,
+        // and a browser running on the wrong device is closed rather than
+        // handed to the user with the app still showing the profile's device.
+        let mut observed: Option<serde_json::Value> = None;
+        let mut last_error: Option<String> = None;
+        for target in &page_targets {
+          if let Some(ws_url) = &target.websocket_debugger_url {
+            match self
+              .send_cdp_command(ws_url, "Wayfern.getIdentity", json!({}))
               .await
-          {
-            log::warn!(
+            {
+              Ok(result) => {
+                observed = Some(result);
+                break;
+              }
+              Err(e) => last_error = Some(e.to_string()),
+            }
+          }
+        }
+        // The browser wrote its verdict to stderr before it opened the
+        // debugging port; the tap may still be a line behind the socket.
+        if !log_tap.has_identity_verdict() {
+          tokio::time::sleep(Duration::from_millis(300)).await;
+        }
+        match Self::launch_identity_verdict(
+          document,
+          observed.as_ref(),
+          last_error.as_deref(),
+          &log_tap,
+        ) {
+          Ok(confirmation) => {
+            if log_tap.dropped_overrides()
+              && crate::cloud_auth::CLOUD_AUTH
+                .can_use_cross_os_fingerprints()
+                .await
+            {
+              log::warn!(
               "Browser killed during launch profile={} pid={process_id:?} reason=fingerprint_edits_dropped",
               profile.id
             );
-            if let Some(pid) = process_id {
-              kill_browser_process(pid);
+              if let Some(pid) = process_id {
+                kill_browser_process(pid);
+              }
+              return Err(crate::backend_error("WAYFERN_PLAN_CHECK_UNAVAILABLE").into());
             }
-            return Err(crate::backend_error("WAYFERN_PLAN_CHECK_UNAVAILABLE").into());
+            log::debug!(
+              "Launch identity confirmed profile={} how=\"{confirmation}\"",
+              profile.id
+            );
+            // The only place an identity-backed profile's screen is known: the
+            // device is derived by the browser, so nothing on disk carries it.
+            if let Some(device) = observed
+              .as_ref()
+              .and_then(|value| value.get("identity"))
+              .map(ToString::to_string)
+            {
+              Self::warn_on_screen_over_host(&device, profile, _app_handle);
+            }
           }
-          log::debug!(
-            "Launch identity confirmed profile={} how=\"{confirmation}\"",
-            profile.id
-          );
-          // The only place an identity-backed profile's screen is known: the
-          // device is derived by the browser, so nothing on disk carries it.
-          if let Some(device) = observed
-            .as_ref()
-            .and_then(|value| value.get("identity"))
-            .map(ToString::to_string)
-          {
-            Self::warn_on_screen_over_host(&device, profile, _app_handle);
-          }
-        }
-        Err(reason) => {
-          log::warn!(
+          Err(reason) => {
+            log::warn!(
             "Browser killed during launch profile={} pid={process_id:?} reason=identity_not_applied",
             profile.id
           );
-          if let Some(pid) = process_id {
-            kill_browser_process(pid);
+            if let Some(pid) = process_id {
+              kill_browser_process(pid);
+            }
+            return Err(
+              wayfern_failure(
+                &reason,
+                "WAYFERN_IDENTITY_REFUSED",
+                document["operatingSystem"].as_str(),
+              )
+              .into(),
+            );
           }
-          return Err(
-            wayfern_failure(
-              &reason,
-              "WAYFERN_IDENTITY_REFUSED",
-              document["operatingSystem"].as_str(),
-            )
-            .into(),
-          );
         }
       }
     } else if identity_only || identity_with_view {
@@ -3788,59 +3947,67 @@ impl WayfernManager {
 
     // Geolocation is handled internally by the browser binary.
 
-    for (index, page) in pages.iter().enumerate() {
-      // The first page takes the window's first tab. Every other page, and
-      // any page next to tabs the browser reopened (those are the user's),
-      // gets a tab of its own.
-      let navigate_first_tab = index == 0 && !restore_session;
-      let target = page_targets
-        .first()
-        .and_then(|t| t.websocket_debugger_url.as_ref());
-      match (navigate_first_tab, target) {
-        (true, Some(ws_url)) => {
-          if let Err(e) = self
-            .send_cdp_command(ws_url, "Page.navigate", json!({ "url": page }))
-            .await
-          {
-            log::warn!(
-              "Launch URL navigation failed profile={} err=\"{}\"",
-              profile.id,
-              crate::log_redaction::text(&e.to_string())
-            );
+    // A manual window has no page targets and already opened its pages from
+    // the command line; everything in here is CDP.
+    if !page_targets.is_empty() {
+      for (index, page) in pages.iter().enumerate() {
+        // The first page takes the window's first tab. Every other page, and
+        // any page next to tabs the browser reopened (those are the user's),
+        // gets a tab of its own.
+        let navigate_first_tab = index == 0 && !restore_session;
+        let target = page_targets
+          .first()
+          .and_then(|t| t.websocket_debugger_url.as_ref());
+        match (navigate_first_tab, target) {
+          (true, Some(ws_url)) => {
+            if let Err(e) = self
+              .send_cdp_command(ws_url, "Page.navigate", json!({ "url": page }))
+              .await
+            {
+              log::warn!(
+                "Launch URL navigation failed profile={} err=\"{}\"",
+                profile.id,
+                crate::log_redaction::text(&e.to_string())
+              );
+            }
           }
-        }
-        (true, None) => {}
-        (false, _) => {
-          if let Err(e) = self.open_url_on_port(port, page).await {
-            log::warn!(
-              "Launch URL tab open failed profile={} err=\"{}\"",
-              profile.id,
-              crate::log_redaction::text(&e.to_string())
-            );
+          (true, None) => {}
+          (false, _) => {
+            // Unreachable without a port: an empty `page_targets` skips this
+            // whole block. Still answered rather than unwrapped.
+            if let Some(port) = port {
+              if let Err(e) = self.open_url_on_port(port, page).await {
+                log::warn!(
+                  "Launch URL tab open failed profile={} err=\"{}\"",
+                  profile.id,
+                  crate::log_redaction::text(&e.to_string())
+                );
+              }
+            }
           }
         }
       }
-    }
 
-    for target in &page_targets {
-      if let Some(ws_url) = &target.websocket_debugger_url {
-        let _ = self
-          .send_cdp_command(ws_url, "Emulation.clearDeviceMetricsOverride", json!({}))
-          .await;
-        let _ = self
-          .send_cdp_command(
-            ws_url,
-            "Emulation.setFocusEmulationEnabled",
-            json!({ "enabled": false }),
-          )
-          .await;
-        let _ = self
-          .send_cdp_command(
-            ws_url,
-            "Emulation.setEmulatedMedia",
-            json!({ "media": "", "features": [] }),
-          )
-          .await;
+      for target in &page_targets {
+        if let Some(ws_url) = &target.websocket_debugger_url {
+          let _ = self
+            .send_cdp_command(ws_url, "Emulation.clearDeviceMetricsOverride", json!({}))
+            .await;
+          let _ = self
+            .send_cdp_command(
+              ws_url,
+              "Emulation.setFocusEmulationEnabled",
+              json!({ "enabled": false }),
+            )
+            .await;
+          let _ = self
+            .send_cdp_command(
+              ws_url,
+              "Emulation.setEmulatedMedia",
+              json!({ "media": "", "features": [] }),
+            )
+            .await;
+        }
       }
     }
 
@@ -3849,7 +4016,8 @@ impl WayfernManager {
       process_id,
       profile_path: Some(profile_path.to_string()),
       url: url.map(|s| s.to_string()),
-      cdp_port: Some(port),
+      cdp_port: port,
+      kind,
       log_tap,
     };
 
@@ -3861,7 +4029,7 @@ impl WayfernManager {
       processId: process_id,
       profilePath: Some(profile_path.to_string()),
       url: url.map(|s| s.to_string()),
-      cdp_port: Some(port),
+      cdp_port: port,
       stored_profile,
     })
   }
@@ -3962,7 +4130,7 @@ impl WayfernManager {
       .canonicalize()
       .unwrap_or_else(|_| std::path::Path::new(profile_path).to_path_buf());
 
-    let port = inner
+    let instance = inner
       .instances
       .values()
       .find(|i| {
@@ -3976,7 +4144,16 @@ impl WayfernManager {
           })
           .unwrap_or(false)
       })
-      .and_then(|i| i.cdp_port)
+      .ok_or("Wayfern instance (with CDP port) not found for profile")?;
+    if instance.kind == LaunchKind::Interactive {
+      log::info!(
+        "URL open refused: a manual window has no automation channel profile={}",
+        profile_id_in_path(profile_path)
+      );
+      return Err(crate::backend_error("MANUAL_SESSION_ACTIVE").into());
+    }
+    let port = instance
+      .cdp_port
       .ok_or("Wayfern instance (with CDP port) not found for profile")?;
     drop(inner);
     self.open_url_on_port(port, url).await
@@ -4039,6 +4216,29 @@ impl WayfernManager {
     self.get_cdp_port(&path.to_string_lossy()).await
   }
 
+  /// Whether the browser running for `profile` was opened by a person. A
+  /// manual window owns no automation channel: it must not be driven, restarted
+  /// or stopped by automation, only reported as busy.
+  pub async fn manual_session(&self, profile: &BrowserProfile) -> bool {
+    let profiles_dir = crate::profile::ProfileManager::instance().get_profiles_dir();
+    let path = crate::ephemeral_dirs::get_effective_profile_path(profile, &profiles_dir);
+    self.manual_session_for_path(&path.to_string_lossy()).await
+  }
+
+  /// `manual_session` by the path the browser runs from. Reconciles dead
+  /// processes the same way `find_wayfern_by_profile` does, so a window that
+  /// died a minute ago is not reported as busy.
+  pub async fn manual_session_for_path(&self, profile_path: &str) -> bool {
+    let Some(found) = self.find_wayfern_by_profile(profile_path).await else {
+      return false;
+    };
+    let inner = self.inner.lock().await;
+    inner
+      .instances
+      .get(&found.id)
+      .is_some_and(|instance| instance.kind == LaunchKind::Interactive)
+  }
+
   /// A free loopback port for an open-engine DevTools socket.
   pub fn find_free_port_sync() -> u16 {
     let listener = std::net::TcpListener::bind("127.0.0.1:0")
@@ -4055,14 +4255,16 @@ impl WayfernManager {
     &self,
     profile_path: &str,
     process_id: u32,
-    cdp_port: u16,
+    cdp_port: Option<u16>,
+    kind: LaunchKind,
   ) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     let instance = WayfernInstance {
       process_id: Some(process_id),
       profile_path: Some(profile_path.to_string()),
       url: None,
-      cdp_port: Some(cdp_port),
+      cdp_port,
+      kind,
       log_tap: BrowserLogTap::default(),
     };
     let mut inner = self.inner.lock().await;
@@ -4181,6 +4383,16 @@ impl WayfernManager {
       );
 
       let instance_id = format!("recovered_{}", pid);
+      // A browser with a DevTools port in its command line is drivable, so an
+      // adopted one counts as automation's to take over — the pre-152-era
+      // behaviour. One without a port can only be a manual window (this is
+      // how a manual window survives an app restart), and automation must
+      // leave it alone.
+      let adopted_kind = if cdp_port.is_some() {
+        LaunchKind::Automation
+      } else {
+        LaunchKind::Interactive
+      };
       inner.instances.insert(
         instance_id.clone(),
         WayfernInstance {
@@ -4188,6 +4400,7 @@ impl WayfernManager {
           profile_path: Some(found_profile_path.clone()),
           url: None,
           cdp_port,
+          kind: adopted_kind,
           log_tap: BrowserLogTap::default(),
         },
       );
@@ -5244,6 +5457,134 @@ mod tests {
   }
 
   #[test]
+  fn a_manual_window_opens_no_devtools_socket() {
+    assert!(
+      devtools_switches(None).is_empty(),
+      "a manual window must not listen on a DevTools port"
+    );
+    assert_eq!(
+      devtools_switches(Some(9223)),
+      vec![
+        "--remote-debugging-port=9223".to_string(),
+        "--remote-debugging-address=127.0.0.1".to_string(),
+      ]
+    );
+  }
+
+  #[test]
+  fn manual_launch_needs_cdp_only_when_the_device_cannot_ride_the_command_line() {
+    let engine_155 = "155.0.8059.79";
+    let engine_151 = "151.2.0.0";
+    let berlin = WayfernConfig {
+      identity_id: Some("identity-1".into()),
+      location: Some(r#"{ "timezone": "Europe/Berlin" }"#.into()),
+      ..Default::default()
+    };
+    // A plain profile has no device to commit: manual launch fine.
+    assert!(!manual_launch_needs_cdp(
+      &WayfernConfig::default(),
+      engine_155,
+      LaunchKind::Interactive
+    ));
+    // An identity rides the launch document on 152+, but not on 151, and
+    // not without a timezone for the document to carry.
+    assert!(!manual_launch_needs_cdp(
+      &berlin,
+      engine_155,
+      LaunchKind::Interactive
+    ));
+    assert!(manual_launch_needs_cdp(
+      &berlin,
+      engine_151,
+      LaunchKind::Interactive
+    ));
+    assert!(manual_launch_needs_cdp(
+      &WayfernConfig {
+        identity_id: Some("identity-1".into()),
+        ..Default::default()
+      },
+      engine_155,
+      LaunchKind::Interactive
+    ));
+    // A stored fingerprint never rides the command line, on any engine.
+    assert!(manual_launch_needs_cdp(
+      &WayfernConfig {
+        fingerprint: Some(r#"{ "timezone": "Europe/Berlin" }"#.into()),
+        ..Default::default()
+      },
+      engine_155,
+      LaunchKind::Interactive
+    ));
+    // Automation attaches by design, so it never needs this refusal.
+    assert!(!manual_launch_needs_cdp(
+      &WayfernConfig {
+        fingerprint: Some("{}".into()),
+        ..Default::default()
+      },
+      engine_155,
+      LaunchKind::Automation
+    ));
+  }
+
+  #[tokio::test]
+  async fn a_running_manual_instance_is_a_manual_session_and_a_dead_one_is_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let manual_path = dir.path().join("manual");
+    let automation_path = dir.path().join("automation");
+    let dead_path = dir.path().join("dead");
+    for path in [&manual_path, &automation_path, &dead_path] {
+      std::fs::create_dir_all(path).unwrap();
+    }
+    let manual = manual_path.to_string_lossy().to_string();
+    let automation = automation_path.to_string_lossy().to_string();
+    let dead = dead_path.to_string_lossy().to_string();
+
+    let manager = WayfernManager::instance();
+    let manual_id = manager
+      .register_open_engine_instance(&manual, std::process::id(), None, LaunchKind::Interactive)
+      .await;
+    let automation_id = manager
+      .register_open_engine_instance(
+        &automation,
+        std::process::id(),
+        Some(49153),
+        LaunchKind::Automation,
+      )
+      .await;
+
+    // The manual window is busy for automation and offers no port to drive.
+    assert!(manager.manual_session_for_path(&manual).await);
+    assert_eq!(manager.get_cdp_port(&manual).await, None);
+    // The automation instance offers its port and is not a manual session.
+    assert!(!manager.manual_session_for_path(&automation).await);
+    assert_eq!(manager.get_cdp_port(&automation).await, Some(49153));
+
+    // A dead process reconciles away instead of reading as busy. The pid is
+    // deliberately not this process's and not one Windows hands out.
+    let dead_id = manager
+      .register_open_engine_instance(&dead, 4_000_000, None, LaunchKind::Interactive)
+      .await;
+    assert!(!manager.manual_session_for_path(&dead).await);
+    let mut inner = manager.inner.lock().await;
+    assert!(
+      !inner.instances.contains_key(&dead_id),
+      "the dead instance must be reconciled away, not kept"
+    );
+    inner.instances.remove(&manual_id);
+    inner.instances.remove(&automation_id);
+  }
+
+  #[test]
+  fn the_manual_session_message_names_the_state_first() {
+    let message = manual_session_message("funpay");
+    assert!(
+      message.starts_with("manual session active"),
+      "agents match on the leading phrase: {message}"
+    );
+    assert!(message.contains("funpay"));
+  }
+
+  #[test]
   fn the_webrtc_mode_reads_the_new_field_then_the_legacy_flag() {
     assert_eq!(
       WebRtcMode::from_config(&WayfernConfig::default()),
@@ -6252,6 +6593,7 @@ mod tests {
         profile_path: Some(ram_dir.to_string_lossy().into_owned()),
         url: None,
         cdp_port: Some(9333),
+        kind: LaunchKind::Automation,
         log_tap: BrowserLogTap::default(),
       },
     );

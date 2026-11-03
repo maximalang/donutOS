@@ -792,6 +792,7 @@ impl BrowserRunner {
             &extension_paths,
             remote_debugging_port,
             headless,
+            kind,
           )
           .await?
       } else {
@@ -947,6 +948,8 @@ impl BrowserRunner {
       }
       if kind == crate::wayfern_manager::LaunchKind::Automation {
         launched.push_str(" kind=automation");
+      } else {
+        launched.push_str(" kind=manual");
       }
       if fingerprint_generated {
         launched.push_str(" fingerprint=generated");
@@ -1040,6 +1043,7 @@ impl BrowserRunner {
     extension_paths: &[String],
     remote_debugging_port: Option<u16>,
     headless: bool,
+    kind: crate::wayfern_manager::LaunchKind,
   ) -> Result<crate::wayfern_manager::WayfernLaunchResult, Box<dyn std::error::Error + Send + Sync>>
   {
     use crate::browser::{create_browser, BrowserType};
@@ -1056,13 +1060,22 @@ impl BrowserRunner {
         .into()
       },
     )?;
-    let port = remote_debugging_port.unwrap_or_else(WayfernManager::find_free_port_sync);
+    // A manual window opens no DevTools socket here either: an Interactive
+    // instance is the person's (`manual_session`), and a listening port would
+    // let `run_profile` take the window over through `local_port` — exactly
+    // what the guard exists to refuse. The URL already rides the command line.
+    let port = match kind {
+      crate::wayfern_manager::LaunchKind::Automation => {
+        Some(remote_debugging_port.unwrap_or_else(WayfernManager::find_free_port_sync))
+      }
+      crate::wayfern_manager::LaunchKind::Interactive => None,
+    };
     let mut args = engine
       .create_launch_args(
         profile_path_str,
         None,
         url.map(|s| s.to_string()),
-        Some(port),
+        port,
         headless,
       )
       .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
@@ -1099,10 +1112,10 @@ impl BrowserRunner {
     // the async launch flow, and a nested runtime block would panic the task
     // and abort the launch without a single log line.
     let instance_id = WayfernManager::instance()
-      .register_open_engine_instance(profile_path_str, pid, port)
+      .register_open_engine_instance(profile_path_str, pid, port, kind)
       .await;
     log::info!(
-      "Chromium launched profile={} pid={} port={} headless={}",
+      "Chromium launched profile={} pid={} port={:?} headless={}",
       profile.id,
       pid,
       port,
@@ -1114,7 +1127,7 @@ impl BrowserRunner {
       processId: Some(pid),
       profilePath: Some(profile_path_str.to_string()),
       url: url.map(|s| s.to_string()),
-      cdp_port: Some(port),
+      cdp_port: port,
     })
   }
 

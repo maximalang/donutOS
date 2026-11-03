@@ -119,9 +119,20 @@ pub fn selected_socket(profile_id: &str, targets: &[Value]) -> Option<String> {
 }
 
 async fn port_of(profile: &BrowserProfile) -> Result<u16, String> {
-  local_port(profile)
+  if let Some(port) = local_port(profile).await {
+    return Ok(port);
+  }
+  // A manual window is running but owns no port and can never grow one; the
+  // caller must hear "busy with a person's session", not "not running".
+  if crate::wayfern_manager::WayfernManager::instance()
+    .manual_session(profile)
     .await
-    .ok_or_else(|| code("BROWSER_NOT_RUNNING"))
+  {
+    return Err(crate::wayfern_manager::manual_session_message(
+      &profile.name,
+    ));
+  }
+  Err(code("BROWSER_NOT_RUNNING"))
 }
 
 pub async fn list(profile: &BrowserProfile) -> Result<Vec<BrowserTab>, String> {

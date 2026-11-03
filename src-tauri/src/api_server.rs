@@ -4088,6 +4088,17 @@ async fn run_profile(
       headless,
       attached: true,
     }));
+  } else if crate::wayfern_manager::WayfernManager::instance()
+    .manual_session(profile)
+    .await
+  {
+    // A manual window is the person's and never grows a port to be driven on:
+    // the occupancy answer the MCP surface gives, 409 so an automation client
+    // does not retry-loop against a window that stays up.
+    return Err((
+      StatusCode::CONFLICT,
+      crate::wayfern_manager::manual_session_message(&profile.name),
+    ));
   }
 
   // Team lock check. Routed through the shared mapper so a profile held by the
@@ -5285,6 +5296,18 @@ async fn kill_profile(
     .ok_or((StatusCode::NOT_FOUND, "profile not found".to_string()))?;
 
   let browser_runner = crate::browser_runner::BrowserRunner::instance();
+  // Occupancy semantics for a manual window: the browser is the person's, so
+  // the stop is refused instead of performed. 409 — not 500 — so an agent
+  // does not retry-loop against a browser that stays up.
+  if crate::wayfern_manager::WayfernManager::instance()
+    .manual_session(profile)
+    .await
+  {
+    return Err((
+      StatusCode::CONFLICT,
+      crate::wayfern_manager::manual_session_message(&profile.name),
+    ));
+  }
   browser_runner
     .kill_browser_process(state.app_handle.clone(), profile)
     .await
@@ -5435,6 +5458,16 @@ async fn launch_batch_profile(
     remote_debugging_port: None,
     error: Some(error.to_string()),
   };
+  // kill_profile-guard, launch side: a manual window is the person's, so the
+  // batch reports it busy instead of launching automation over it.
+  if crate::wayfern_manager::WayfernManager::instance()
+    .manual_session(&profile)
+    .await
+  {
+    return fail(&crate::wayfern_manager::manual_session_message(
+      &profile.name,
+    ));
+  }
   if crate::team_lock::acquire_team_lock_if_needed(&profile)
     .await
     .is_err()
@@ -5544,6 +5577,22 @@ async fn batch_stop_profiles(
       });
       continue;
     };
+
+    // kill_profile-guard, batch form: a manual window is reported busy, never
+    // closed by automation.
+    if crate::wayfern_manager::WayfernManager::instance()
+      .manual_session(profile)
+      .await
+    {
+      results.push(BatchStopResult {
+        profile_id: profile_id.clone(),
+        ok: false,
+        error: Some(crate::wayfern_manager::manual_session_message(
+          &profile.name,
+        )),
+      });
+      continue;
+    }
 
     match browser_runner
       .kill_browser_process(state.app_handle.clone(), profile)

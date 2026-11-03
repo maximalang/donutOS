@@ -2693,6 +2693,8 @@
     "profileNotProtected": "Das Profil ist nicht passwortgeschützt",
     "profileAlreadyProtected": "Das Profil ist bereits passwortgeschützt",
     "profileRunning": "Diese Aktion ist nicht möglich, solange das Profil läuft",
+    "manualSessionActive": "Dieses Profil ist als manuelles Fenster geöffnet. Manuelle Fenster laufen ohne Automatisierung: arbeiten Sie direkt im Fenster oder stoppen Sie das Profil zuerst in der App.",
+    "manualLaunchNeedsAutomation": "Das Gerät dieses Profils wird nur über Automatisierung angewendet, daher kann es nicht als manuelles Fenster geöffnet werden. Starten Sie es über die Automatisierungs-API oder verwenden Sie ein Profil mit Launch-Identität.",
     "profileEphemeral": "Flüchtige Profile können nicht mit einem Passwort geschützt werden, da ihre Daten beim Beenden gelöscht werden.",
     "profileMissingSalt": "Dem Profil fehlt sein Verschlüsselungs-Salt",
     "profileLocked": "Das Profil ist gesperrt. Geben Sie zuerst das Passwort ein.",

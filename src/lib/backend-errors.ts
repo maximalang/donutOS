@@ -14,6 +14,8 @@ export type BackendErrorCode =
   | "PROFILE_NOT_PROTECTED"
   | "PROFILE_ALREADY_PROTECTED"
   | "PROFILE_RUNNING"
+  | "MANUAL_SESSION_ACTIVE"
+  | "MANUAL_LAUNCH_NEEDS_AUTOMATION"
   | "PROFILE_PAIRED_TWICE"
   | "URL_SCHEME_NOT_ALLOWED"
   | "TOOL_IS_LOCAL_ONLY"
@@ -470,6 +472,10 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.urlSchemeNotAllowed");
     case "PROFILE_RUNNING":
       return t("backendErrors.profileRunning");
+    case "MANUAL_SESSION_ACTIVE":
+      return t("backendErrors.manualSessionActive");
+    case "MANUAL_LAUNCH_NEEDS_AUTOMATION":
+      return t("backendErrors.manualLaunchNeedsAutomation");
     case "PROFILE_PAIRED_TWICE":
       return t("backendErrors.profilePairedTwice");
     case "PROFILE_EPHEMERAL":

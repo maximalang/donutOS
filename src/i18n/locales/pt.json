@@ -2713,6 +2713,8 @@
     "profileNotProtected": "O perfil não está protegido por senha",
     "profileAlreadyProtected": "O perfil já está protegido por senha",
     "profileRunning": "Não é possível realizar esta ação enquanto o perfil está em execução",
+    "manualSessionActive": "Este perfil está aberto como uma janela manual. Janelas manuais funcionam sem automação: trabalhe na própria janela ou pare o perfil no aplicativo primeiro.",
+    "manualLaunchNeedsAutomation": "O dispositivo deste perfil só é aplicado pela automação, então ele não pode abrir como janela manual. Inicie-o pela API de automação ou use um perfil com identidade de lançamento.",
     "profileEphemeral": "Perfis efêmeros não podem ser protegidos por senha — seus dados são apagados ao sair.",
     "profileMissingSalt": "O perfil está sem o sal de criptografia",
     "profileLocked": "O perfil está bloqueado. Digite a senha primeiro.",
