@@ -20,7 +20,7 @@ static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 const SCHEMES: [&str; 4] = ["http", "https", "socks5", "socks5h"];
 const LOOPBACK: &str = "localhost,127.0.0.1,::1";
-const TEST_URL: &str = "https://donutbrowser.com/wayfern.json";
+const TEST_URL: &str = "https://example.com/";
 const TEST_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// The proxy URL, normalized, or `APP_PROXY_INVALID`.
@@ -150,8 +150,8 @@ pub fn load() {
   }
 }
 
-/// Whether a request through `proxy` reaches Donut's servers.
-async fn reaches_donut(proxy: &str) -> Result<(), String> {
+/// Whether a request through `proxy` reaches the neutral connectivity probe.
+async fn probe_proxy_connectivity(proxy: &str) -> Result<(), String> {
   let client = with_proxy(reqwest::Client::builder(), proxy)
     .timeout(TEST_TIMEOUT)
     .build()
@@ -185,7 +185,7 @@ pub async fn get_app_proxy() -> Option<String> {
   current().map(|proxy| redacted(&proxy))
 }
 
-/// Set the proxy, after checking that Donut's servers answer through it, or
+/// Set the proxy, after checking a neutral connectivity endpoint through it, or
 /// clear it with `None`.
 #[tauri::command]
 pub async fn set_app_proxy(proxy: Option<String>) -> Result<Option<String>, String> {
@@ -205,7 +205,7 @@ pub async fn set_app_proxy(proxy: Option<String>) -> Result<Option<String>, Stri
   };
 
   let proxy = parse(&proxy)?;
-  reaches_donut(&proxy).await?;
+  probe_proxy_connectivity(&proxy).await?;
   crate::vault::seal(&store_file(), &STORE_HEADER, &proxy)
     .map_err(|e| crate::backend_error_with_detail("INTERNAL_ERROR", e))?;
   log::info!("App proxy set proxy={}", redacted(&proxy));
@@ -216,6 +216,11 @@ pub async fn set_app_proxy(proxy: Option<String>) -> Result<Option<String>, Stri
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn proxy_connectivity_probe_uses_a_neutral_host() {
+    assert_eq!(TEST_URL, "https://example.com/");
+  }
 
   #[test]
   fn a_proxy_url_needs_a_known_scheme_a_host_and_nothing_else() {

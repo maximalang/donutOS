@@ -1196,7 +1196,7 @@ const TagsCell = React.memo<{
         <div className="h-6 w-full cursor-pointer">
           <Tooltip>
             <TooltipTrigger asChild>{ButtonContent}</TooltipTrigger>
-            {hiddenCount > 0 && (
+            {effectiveTags.length > 0 && (
               <TooltipContent className="max-w-[320px]">
                 <div className="flex flex-wrap gap-1">
                   {effectiveTags.map((t) => (

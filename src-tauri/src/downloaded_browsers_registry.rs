@@ -63,6 +63,10 @@ fn note_unsupported_browser(browser: &str) {
   );
 }
 
+fn should_auto_recover_missing_engine(browser: &str) -> bool {
+  !cfg!(feature = "free") || browser != "wayfern"
+}
+
 impl DownloadedBrowsersRegistry {
   fn new() -> Self {
     Self {
@@ -944,6 +948,14 @@ impl DownloadedBrowsersRegistry {
     let mut downloaded = Vec::new();
 
     for (profile_name, browser, version) in missing_binaries {
+      if !should_auto_recover_missing_engine(&browser) {
+        log::warn!(
+          "Startup recovery skipped missing Wayfern engine version={} in free build; profile remains pinned",
+          version
+        );
+        continue;
+      }
+
       // A failed download logs itself.
       if crate::downloader::download_browser(app_handle.clone(), browser.clone(), version.clone())
         .await
@@ -1104,6 +1116,15 @@ static DOWNLOADED_BROWSERS_REGISTRY: std::sync::LazyLock<DownloadedBrowsersRegis
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn missing_engine_auto_recovery_respects_free_build_policy() {
+    assert!(should_auto_recover_missing_engine("chromium"));
+    assert_eq!(
+      should_auto_recover_missing_engine("wayfern"),
+      !cfg!(feature = "free")
+    );
+  }
 
   #[test]
   fn a_trashed_profile_still_counts_as_a_reason_to_keep_its_browser() {

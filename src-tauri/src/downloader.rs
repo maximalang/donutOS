@@ -719,6 +719,43 @@ impl Downloader {
   }
 
   /// Download a browser binary, verify it, and register it in the downloaded browsers registry
+  #[cfg(feature = "free")]
+  async fn ensure_wayfern_engine_ready(
+    &self,
+    engine_dir: &std::path::Path,
+    version: &str,
+    smoke_even_if_unchanged: bool,
+  ) -> Result<(), String> {
+    let major = version
+      .split('.')
+      .next()
+      .and_then(|value| value.parse::<u32>().ok())
+      .unwrap_or(u32::MAX);
+    if major >= 155 && version != "155.0.8059.79" {
+      return Err(format!("unsupported Wayfern session-cap layout: {version}"));
+    }
+    let dll = engine_dir.join("chrome.dll");
+    let ttl = crate::engine_patch::patch_session_ttl(&dll, version).map_err(|e| e.to_string())?;
+    if version.starts_with("155.") && ttl.is_none() {
+      return Err("the required 155 session-cap patch was not applied".to_string());
+    }
+    let gate = crate::engine_patch::patch_chrome_dll(&dll).map_err(|e| e.to_string())?;
+    let ttl_changed = ttl
+      .as_ref()
+      .is_some_and(|reports| reports.iter().any(|report| !report.already_patched));
+    if smoke_even_if_unchanged || !gate.already_patched || ttl_changed {
+      crate::engine_patch::verify_gate_open(engine_dir).await?;
+    }
+    log::info!(
+      "Wayfern engine ready version={} gate_already={} ttl_branches={} smoke={}",
+      version,
+      gate.already_patched,
+      ttl.as_ref().map_or(0, |reports| reports.len()),
+      smoke_even_if_unchanged || !gate.already_patched || ttl_changed
+    );
+    Ok(())
+  }
+
   pub async fn download_browser_full(
     &self,
     app_handle: &tauri::AppHandle,
@@ -788,6 +825,14 @@ impl Downloader {
       let actually_exists = browser.is_version_downloaded(&version, &binaries_dir);
 
       if actually_exists {
+        #[cfg(feature = "free")]
+        if browser_str == "wayfern" {
+          let engine_dir = binaries_dir.join(&browser_str).join(&version);
+          self
+            .ensure_wayfern_engine_ready(&engine_dir, &version, false)
+            .await
+            .map_err(|e| format!("Wayfern engine verification failed: {e}"))?;
+        }
         return Ok(version);
       } else {
         // Registry says it's downloaded but files don't exist - clean up registry
@@ -994,6 +1039,24 @@ impl Downloader {
       let _ = events::emit("download-progress", &progress);
 
       return Err(error_details.into());
+    }
+
+    #[cfg(feature = "free")]
+    if browser_str == "wayfern" {
+      if let Err(why) = self
+        .ensure_wayfern_engine_ready(&browser_dir, &version, true)
+        .await
+      {
+        let _ = self.registry.remove_browser(&browser_str, &version);
+        let _ = self.registry.save();
+        let error = format!("Wayfern engine patch/smoke failed: {why}");
+        let _ = events::emit(
+          "download-progress",
+          &DownloadProgress::failed(&browser_str, &version, Some(error.clone())),
+        );
+        log::error!("{error}");
+        return Err(error.into());
+      }
     }
 
     // Mark completion in registry - only now add to registry after verification
@@ -1233,67 +1296,8 @@ pub async fn download_browser(
   let browser = Plain(&browser_str).to_string();
   let requested = Plain(&version).to_string();
 
-  // The local build runs PATCHED Wayfern binaries (docs/engine-patches.md):
-  // a fresh vendor build is unpatched and silently refuses CDP automation.
-  // So a Wayfern install here is download → patch → live smoke, and a
-  // version that fails any rung is removed again rather than left installed
-  // broken. Chromium needs no patch and downloads as is.
-  #[cfg(feature = "free")]
-  if browser_str == "wayfern" {
-    downloader
-      .download_browser_full(&app_handle, browser_str.clone(), version.clone())
-      .await
-      .map_err(|e| {
-        log::error!(
-          "Wayfern download failed version={requested} err=\"{}\"",
-          crate::log_redaction::text(&e.to_string())
-        );
-        crate::wrap_backend_error(e, "Failed to download browser")
-      })?;
-    let dll = crate::engine_patch::chrome_dll_of(&crate::app_dirs::binaries_dir(), &version);
-    match crate::engine_patch::patch_chrome_dll(&dll) {
-      Ok(report) => {
-        log::info!(
-          "Wayfern engine patched after download version={version} offset={:#x} already={} method={}",
-          report.gate_offset,
-          report.already_patched,
-          report.method
-        );
-        // The patch is only half the proof: the engine must actually
-        // automate. A fresh version whose gate moved or doubled fails
-        // here and is removed, so engine updates stay safe to attempt.
-        if let Some(engine_dir) = dll.parent().map(std::path::Path::to_path_buf) {
-          if let Err(why) = crate::engine_patch::verify_gate_open(&engine_dir).await {
-            let _ = std::fs::remove_dir_all(&engine_dir);
-            log::error!("Wayfern smoke failed after patch version={version} err=\"{why}\"");
-            return Err(format!(
-              "{{\"code\":\"ENGINE_SMOKE_FAILED\",\"detail\":\"{why}\"}}"
-            ));
-          }
-        }
-        return Ok(format!(
-          "downloaded, patched ({}) and smoke-verified wayfern {version} (gate at {:#x}, was {:02x?})",
-          report.method, report.gate_offset, report.original
-        ));
-      }
-      Err(why) => {
-        let dir = dll.parent().map(std::path::Path::to_path_buf);
-        if let Some(dir) = dir {
-          if let Err(e) = std::fs::remove_dir_all(&dir) {
-            log::warn!(
-              "Failed to remove unpatchable engine dir {}: {e}",
-              dir.display()
-            );
-          }
-        }
-        log::error!("Wayfern engine patch refused version={version} err=\"{why}\"");
-        return Err(format!(
-          "{{\"code\":\"ENGINE_PATCH_FAILED\",\"detail\":\"{why}\"}}"
-        ));
-      }
-    }
-  }
-
+  // Wayfern patching and its single smoke run occur inside download_browser_full
+  // before registry completion or profile migration.
   downloader
     .download_browser_full(&app_handle, browser_str, version)
     .await

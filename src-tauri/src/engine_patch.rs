@@ -19,10 +19,12 @@
 //! whose code still matches the classic form.
 //!
 //! Only when exactly one site is found does anything get patched, and the
-//! patch is never trusted on faith: after it, `verify_gate_open` launches the
-//! engine headless and evaluates through CDP, which is the behaviour the gate
-//! exists to block. A new engine version either passes that ladder or is
-//! removed untouched, which is what makes engine updates safe to attempt.
+//! refusal patch is verified by `verify_gate_open`, which launches the engine
+//! headless and evaluates through CDP. Wayfern 155.0.8059.79 has an additional,
+//! version-pinned session-cap patch: both plan branches must match the known
+//! shared 300-second deadline before either is changed. Unknown 155+ layouts
+//! fail closed. Failed versions remain on disk with their `.orig` backup but
+//! are never promoted into the downloaded-engine registry.
 
 use std::path::{Path, PathBuf};
 
@@ -39,6 +41,9 @@ pub enum PatchError {
   /// The gate matched more than once; patching blind could corrupt.
   /// The file is untouched.
   Ambiguous(usize),
+  /// The version-pinned Wayfern session-cap signature is not the expected one.
+  /// The file is untouched.
+  SessionTtlSignatureNotFound,
   /// The bytes changed under us between reading and writing.
   ChangedOnDisk,
 }
@@ -55,6 +60,10 @@ impl std::fmt::Display for PatchError {
       PatchError::Ambiguous(n) => write!(
         f,
         "the automation gate matched {n} sites; refusing to patch blind"
+      ),
+      PatchError::SessionTtlSignatureNotFound => write!(
+        f,
+        "the Wayfern 155 session-cap signature was not found; refusing to patch this engine"
       ),
       PatchError::ChangedOnDisk => write!(f, "chrome.dll changed while being patched"),
     }
@@ -361,6 +370,287 @@ fn find_gate(
 /// Whether the branch at `branch` is already forced (je/jne → jmp).
 fn branch_is_forced(buf: &[u8], branch: usize) -> bool {
   buf[branch] == 0xE9
+}
+
+/// The paid-plan bypass for Wayfern 155's five-minute automation cap.
+///
+/// This is deliberately pinned to the known 155.0.8059.79 binary layout. Its
+/// two free-plan branches add 300 seconds to a shared deadline; the paid-plan
+/// branches skip that addition and store the pre-existing deadline. We force
+/// only those two verified branches. Unknown 155+ builds fail closed; older
+/// engines have no such cap and are left untouched.
+const WAYFERN_155_TTL_BRANCHES: [usize; 2] = [0x4B9_CA45, 0x4B9_F0E1];
+const WAYFERN_155_TTL_GLOBAL_RVA: u32 = 0x1D86_E308;
+const WAYFERN_155_TTL_BASE_VERSION: &str = "155.0.8059.79";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionBranchForm {
+  Short,
+  Near,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SessionTtlBranch {
+  offset: usize,
+  form: SessionBranchForm,
+  already_patched: bool,
+  original: [u8; 6],
+}
+
+fn has_bytes(buf: &[u8], offset: usize, expected: &[u8]) -> bool {
+  offset
+    .checked_add(expected.len())
+    .and_then(|end| buf.get(offset..end))
+    == Some(expected)
+}
+
+fn offset_for_rva(rva: u32, sections: &[Section]) -> Option<usize> {
+  sections.iter().find_map(|section| {
+    let delta = rva.checked_sub(section.va)? as usize;
+    (delta < section.raw.len()).then_some(section.raw.start + delta)
+  })
+}
+
+fn rip_store_rva(buf: &[u8], offset: usize, sections: &[Section]) -> Option<u32> {
+  if !has_bytes(buf, offset, &[0x4C, 0x89, 0x2D]) && !has_bytes(buf, offset, &[0x48, 0x89, 0x0D]) {
+    return None;
+  }
+  let disp = i32::from_le_bytes(buf.get(offset + 3..offset + 7)?.try_into().ok()?);
+  let site_rva = va_of(offset, sections)? as i64;
+  u32::try_from(site_rva + 7 + i64::from(disp)).ok()
+}
+
+fn decode_session_branch(
+  buf: &[u8],
+  cmp: usize,
+  sections: &[Section],
+) -> Option<(SessionTtlBranch, usize)> {
+  if !has_bytes(buf, cmp, &[0x83, 0xFF, 0x02]) {
+    return None;
+  }
+  let offset = cmp.checked_add(3)?;
+  let (form, width, rel, already_patched) = match buf.get(offset..offset + 6)? {
+    [0x0F, 0x84, a, b, c, d] => (
+      SessionBranchForm::Near,
+      6i64,
+      i32::from_le_bytes([*a, *b, *c, *d]),
+      false,
+    ),
+    [0xE9, a, b, c, d, 0x90] => (
+      SessionBranchForm::Near,
+      5i64,
+      i32::from_le_bytes([*a, *b, *c, *d]),
+      true,
+    ),
+    [0x74, rel, ..] => (SessionBranchForm::Short, 2i64, i32::from(*rel as i8), false),
+    [0xEB, rel, ..] => (SessionBranchForm::Short, 2i64, i32::from(*rel as i8), true),
+    _ => return None,
+  };
+  let branch_rva = va_of(offset, sections)? as i64;
+  let target_rva = u32::try_from(branch_rva + width + i64::from(rel)).ok()?;
+  let target_offset = offset_for_rva(target_rva, sections)?;
+  let mut original = [0u8; 6];
+  original.copy_from_slice(buf.get(offset..offset + 6)?);
+  Some((
+    SessionTtlBranch {
+      offset,
+      form,
+      already_patched,
+      original,
+    },
+    target_offset,
+  ))
+}
+
+/// The paid branch either stores the existing deadline directly or loads it
+/// from the alternate field and jumps to the same deadline-store block.
+fn paid_deadline_path(buf: &[u8], target: usize, deadline_rva: u32, sections: &[Section]) -> bool {
+  if rip_store_rva(buf, target, sections) == Some(deadline_rva) {
+    return true;
+  }
+  if !has_bytes(buf, target, &[0x48, 0x8B, 0x4E, 0x08, 0xEB]) {
+    return false;
+  }
+  let Some(rel) = buf.get(target + 5).copied() else {
+    return false;
+  };
+  let join = (target as i64) + 6 + i64::from(rel as i8);
+  let Ok(join) = usize::try_from(join) else {
+    return false;
+  };
+  has_bytes(buf, join, &[0x31, 0xC0, 0x83, 0xFF, 0x02, 0x0F, 0x95, 0xC0])
+    && rip_store_rva(buf, join + 8, sections) == Some(deadline_rva)
+}
+
+fn session_ttl_sites(
+  buf: &[u8],
+  version: &str,
+  sections: &[Section],
+) -> Result<Option<Vec<SessionTtlBranch>>, PatchError> {
+  let major = version
+    .split('.')
+    .next()
+    .and_then(|v| v.parse::<u32>().ok());
+  match major {
+    Some(major) if major < 155 => return Ok(None),
+    Some(155) if version == WAYFERN_155_TTL_BASE_VERSION => {}
+    _ => return Err(PatchError::SessionTtlSignatureNotFound),
+  }
+
+  let arm_one = 0x4B9_CB44usize;
+  let store_one = 0x4B9_CB51usize;
+  let arm_two = 0x4B9_F177usize;
+  let store_two = 0x4B9_F191usize;
+  if buf.len() <= store_two + 7
+    || !has_bytes(
+      buf,
+      arm_one - 5,
+      &[
+        0xF2, 0x48, 0x0F, 0x2C, 0xC0, 0x48, 0x05, 0x2C, 0x01, 0x00, 0x00, 0x4C, 0x39, 0xE8, 0x4C,
+        0x0F, 0x4C, 0xE8,
+      ],
+    )
+    || !has_bytes(buf, store_one, &[0x4C, 0x89, 0x2D])
+    || !has_bytes(buf, arm_two - 5, &[0xF2, 0x48, 0x0F, 0x2C, 0xC8])
+    || !has_bytes(buf, arm_two, &[0x48, 0x81, 0xC1, 0x2C, 0x01, 0x00, 0x00])
+    || !has_bytes(buf, arm_two + 7, &[0x48, 0x8B, 0x46, 0x08])
+    || !has_bytes(buf, arm_two + 11, &[0x48, 0x39, 0xC1])
+    || !has_bytes(buf, arm_two + 14, &[0x48, 0x0F, 0x4D, 0xC8])
+    || !has_bytes(
+      buf,
+      arm_two + 18,
+      &[0x31, 0xC0, 0x83, 0xFF, 0x02, 0x0F, 0x95, 0xC0],
+    )
+    || !has_bytes(buf, store_two, &[0x48, 0x89, 0x0D])
+  {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  }
+  let Some(global_one) = rip_store_rva(buf, store_one, sections) else {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  };
+  let Some(global_two) = rip_store_rva(buf, store_two, sections) else {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  };
+  if global_one != global_two || global_one != WAYFERN_155_TTL_GLOBAL_RVA {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  }
+
+  let mut sites = Vec::with_capacity(2);
+  for (cmp, expected_target) in [
+    (0x4B9_CA42usize, store_one),
+    (0x4B9_F0DEusize, 0x4B9_F129usize),
+  ] {
+    let Some((site, target)) = decode_session_branch(buf, cmp, sections) else {
+      return Err(PatchError::SessionTtlSignatureNotFound);
+    };
+    if target != expected_target || !paid_deadline_path(buf, target, global_one, sections) {
+      return Err(PatchError::SessionTtlSignatureNotFound);
+    }
+    sites.push(site);
+  }
+  let found_offsets = sites.iter().map(|site| site.offset).collect::<Vec<_>>();
+  if sites.len() != WAYFERN_155_TTL_BRANCHES.len()
+    || found_offsets.as_slice() != WAYFERN_155_TTL_BRANCHES.as_slice()
+  {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  }
+  Ok(Some(sites))
+}
+
+fn force_session_branch(buf: &mut [u8], site: SessionTtlBranch) -> Result<(), PatchError> {
+  if site.already_patched {
+    return Ok(());
+  }
+  match site.form {
+    SessionBranchForm::Short if buf.get(site.offset) == Some(&0x74) => {
+      buf[site.offset] = 0xEB;
+    }
+    SessionBranchForm::Near if has_bytes(buf, site.offset, &[0x0F, 0x84]) => {
+      let rel = i32::from_le_bytes(
+        buf
+          .get(site.offset + 2..site.offset + 6)
+          .ok_or(PatchError::SessionTtlSignatureNotFound)?
+          .try_into()
+          .map_err(|_| PatchError::SessionTtlSignatureNotFound)?,
+      );
+      let rel = rel
+        .checked_add(1)
+        .ok_or(PatchError::SessionTtlSignatureNotFound)?;
+      buf[site.offset] = 0xE9;
+      buf[site.offset + 1..site.offset + 5].copy_from_slice(&rel.to_le_bytes());
+      buf[site.offset + 5] = 0x90;
+    }
+    _ => return Err(PatchError::SessionTtlSignatureNotFound),
+  }
+  Ok(())
+}
+
+/// Apply the verified 155.0.8059.79 plan branches as one atomic file update.
+/// The sibling `.dll.orig` remains the original binary; no engine directory is
+/// removed or overwritten without its backup.
+pub fn patch_session_ttl(
+  dll: &Path,
+  version: &str,
+) -> Result<Option<Vec<PatchReport>>, PatchError> {
+  let buf = std::fs::read(dll).map_err(|e| PatchError::Unreadable(e.to_string()))?;
+  let sections = image_sections(&buf)?;
+  let Some(sites) = session_ttl_sites(&buf, version, &sections)? else {
+    return Ok(None);
+  };
+  let mut patched = buf.clone();
+  let mut reports = Vec::with_capacity(sites.len());
+  let mut changed = false;
+  for site in sites {
+    let mut report = PatchReport {
+      gate_offset: site.offset,
+      original: site.original,
+      already_patched: site.already_patched,
+      method: "session-ttl-plan-branch-155",
+    };
+    if !site.already_patched {
+      force_session_branch(&mut patched, site)?;
+      changed = true;
+      report.already_patched = false;
+    }
+    reports.push(report);
+  }
+  let patched_sections = image_sections(&patched)?;
+  let patched_sites = session_ttl_sites(&patched, version, &patched_sections)?
+    .ok_or(PatchError::SessionTtlSignatureNotFound)?;
+  if !patched_sites.iter().all(|site| site.already_patched) {
+    return Err(PatchError::SessionTtlSignatureNotFound);
+  }
+  if !changed {
+    return Ok(Some(reports));
+  }
+  let backup = dll.with_extension("dll.orig");
+  if !backup.exists() {
+    std::fs::write(&backup, &buf).map_err(|e| PatchError::Unreadable(e.to_string()))?;
+  }
+  let staged = dll.with_extension("dll.session");
+  std::fs::write(&staged, &patched).map_err(|e| PatchError::Unreadable(e.to_string()))?;
+  std::fs::rename(&staged, dll).map_err(|_| PatchError::ChangedOnDisk)?;
+  for report in &reports {
+    if !report.already_patched {
+      log::info!(
+        "Engine session TTL plan branch forced file={} offset={:#x} original={:02x?}",
+        dll.display(),
+        report.gate_offset,
+        report.original
+      );
+    }
+  }
+  Ok(Some(reports))
+}
+
+/// `Some(true)` means both known 155 session-cap branches are forced.
+pub fn session_ttl_forced(dll: &Path, version: &str) -> Result<Option<bool>, PatchError> {
+  let buf = std::fs::read(dll).map_err(|e| PatchError::Unreadable(e.to_string()))?;
+  let sections = image_sections(&buf)?;
+  Ok(
+    session_ttl_sites(&buf, version, &sections)?
+      .map(|sites| sites.iter().all(|site| site.already_patched)),
+  )
 }
 
 /// Read the dll, find the one gate site, and force its branch. Writes only
@@ -730,6 +1020,46 @@ mod tests {
   }
 
   #[test]
+  fn short_session_plan_branch_becomes_an_unconditional_jump() {
+    let mut code = [0x74, 0x46, 0x90, 0x90, 0x90, 0x90];
+    let site = SessionTtlBranch {
+      offset: 0,
+      form: SessionBranchForm::Short,
+      already_patched: false,
+      original: code,
+    };
+    let original_target = 2 + i32::from(code[1] as i8);
+    force_session_branch(&mut code, site).expect("force short branch");
+    assert_eq!(code[0], 0xEB);
+    assert_eq!(2 + i32::from(code[1] as i8), original_target);
+    let already = SessionTtlBranch {
+      already_patched: true,
+      ..site
+    };
+    let before = code;
+    force_session_branch(&mut code, already).expect("idempotent short branch");
+    assert_eq!(code, before);
+  }
+
+  #[test]
+  fn near_session_plan_branch_keeps_its_original_target() {
+    let mut code = [0x0F, 0x84, 0x06, 0x01, 0x00, 0x00];
+    let site = SessionTtlBranch {
+      offset: 0,
+      form: SessionBranchForm::Near,
+      already_patched: false,
+      original: code,
+    };
+    let original_rel = i32::from_le_bytes(code[2..6].try_into().unwrap());
+    let original_target = 6 + original_rel;
+    force_session_branch(&mut code, site).expect("force near branch");
+    assert_eq!(code[0], 0xE9);
+    assert_eq!(code[5], 0x90);
+    let patched_rel = i32::from_le_bytes(code[1..5].try_into().unwrap());
+    assert_eq!(5 + patched_rel, original_target);
+  }
+
+  #[test]
   fn the_signature_finds_the_gate() {
     let code = gate_code(false);
     assert_eq!(gate_sites(&code, 0..code.len()), vec![130]);
@@ -898,5 +1228,55 @@ mod tests {
     verify_gate_open(Path::new(&dir))
       .await
       .expect("the patched engine must automate");
+  }
+
+  /// Read the vendor's original 155 binary, patch only a scratch copy, and
+  /// verify both TTL branches are forced and idempotent.
+  #[test]
+  #[ignore = "copies a real 503 MB engine; set WAYFERN_155_ORIG"]
+  fn the_real_155_session_cap_matches_and_patches_only_the_two_known_branches() {
+    let source = PathBuf::from(std::env::var("WAYFERN_155_ORIG").expect("set WAYFERN_155_ORIG"));
+    let source_bytes = std::fs::read(&source).expect("original engine readable");
+    let sections = image_sections(&source_bytes).unwrap();
+    let sites = session_ttl_sites(&source_bytes, WAYFERN_155_TTL_BASE_VERSION, &sections)
+      .unwrap()
+      .expect("155 session cap found");
+    assert_eq!(sites.len(), WAYFERN_155_TTL_BRANCHES.len());
+    assert_eq!(sites[0].offset, WAYFERN_155_TTL_BRANCHES[0]);
+    assert_eq!(sites[1].offset, WAYFERN_155_TTL_BRANCHES[1]);
+    assert!(sites.iter().all(|site| !site.already_patched));
+
+    let dir = std::env::temp_dir().join(format!("wayfern-155-ttl-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let dll = dir.join("chrome.dll");
+    std::fs::write(&dll, source_bytes).unwrap();
+    let reports = patch_session_ttl(&dll, WAYFERN_155_TTL_BASE_VERSION)
+      .unwrap()
+      .expect("patch supported 155 engine");
+    assert_eq!(reports.len(), 2);
+    assert!(reports.iter().all(|report| !report.already_patched));
+    assert_eq!(
+      session_ttl_forced(&dll, WAYFERN_155_TTL_BASE_VERSION).unwrap(),
+      Some(true)
+    );
+    let again = patch_session_ttl(&dll, WAYFERN_155_TTL_BASE_VERSION)
+      .unwrap()
+      .expect("second patch call");
+    assert!(again.iter().all(|report| report.already_patched));
+    std::fs::remove_dir_all(&dir).ok();
+  }
+
+  #[test]
+  fn unverified_155_rebuilds_and_future_layouts_fail_closed() {
+    for version in ["155.0.8059.79-2", "156.0.1.1"] {
+      assert!(matches!(
+        session_ttl_sites(&[], version, &[]),
+        Err(PatchError::SessionTtlSignatureNotFound)
+      ));
+    }
+    assert!(matches!(
+      session_ttl_sites(&[], "154.0.8037.57", &[]),
+      Ok(None)
+    ));
   }
 }

@@ -493,21 +493,48 @@ impl AutoUpdater {
     Ok(pending_versions)
   }
 
+  fn pending_update_for_profile(
+    state: &AutoUpdateState,
+    browser: &str,
+    current_version: &str,
+  ) -> Option<UpdateNotification> {
+    #[cfg(feature = "free")]
+    {
+      // A legacy queued update must not move a pinned local profile on stop.
+      let _ = (state, browser, current_version);
+      None
+    }
+    #[cfg(not(feature = "free"))]
+    {
+      state
+        .pending_updates
+        .iter()
+        .find(|update| update.browser == browser && update.current_version == current_version)
+        .cloned()
+    }
+  }
+
   /// Get pending update for a specific browser version if it exists
   pub fn get_pending_update(
     &self,
     browser: &str,
     current_version: &str,
   ) -> Result<Option<UpdateNotification>, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    let state = {
+      // Do not apply a stale pending update carried over from an older build.
+      // The free product pins each profile to its selected engine.
+      let _ = self;
+      AutoUpdateState::default()
+    };
+    #[cfg(not(feature = "free"))]
     let state = self.load_auto_update_state()?;
 
-    for update in &state.pending_updates {
-      if update.browser == browser && update.current_version == current_version {
-        return Ok(Some(update.clone()));
-      }
-    }
-
-    Ok(None)
+    Ok(Self::pending_update_for_profile(
+      &state,
+      browser,
+      current_version,
+    ))
   }
 
   /// Get the latest installed version for a browser from the downloaded browsers registry
@@ -747,6 +774,31 @@ mod tests {
     assert_eq!(profile_update_step(false, old, old), Keep);
     // A newer Chromium version still wins over a rebuild of the older one.
     assert_eq!(profile_update_step(false, rebuilt, "156.0.7000.1"), MoveNow);
+  }
+
+  #[test]
+  fn legacy_pending_updates_follow_the_build_policy() {
+    let legacy = UpdateNotification {
+      id: "legacy-wayfern-update".to_string(),
+      browser: "wayfern".to_string(),
+      current_version: "154.0.8037.57".to_string(),
+      new_version: "155.0.8059.79".to_string(),
+      affected_profiles: vec!["profile".to_string()],
+      timestamp: 0,
+    };
+    let state = AutoUpdateState {
+      pending_updates: vec![legacy],
+      ..AutoUpdateState::default()
+    };
+    let pending = AutoUpdater::pending_update_for_profile(&state, "wayfern", "154.0.8037.57");
+
+    #[cfg(feature = "free")]
+    assert!(pending.is_none());
+    #[cfg(not(feature = "free"))]
+    assert_eq!(
+      pending.map(|update| update.id.as_str()),
+      Some("legacy-wayfern-update")
+    );
   }
 
   fn create_test_profile(name: &str, browser: &str, version: &str) -> BrowserProfile {

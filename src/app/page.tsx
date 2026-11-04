@@ -2631,13 +2631,10 @@ export default function Home() {
     // Check for startup URLs (when app was launched as default browser)
     void checkCurrentUrl();
 
-    // Set up periodic update checks (every 30 minutes). The free build's
-    // engines are pinned: a background engine check can never install
-    // anything, so the interval stays off and the manual check is the only
-    // trigger. This is also what stops the hourly wayfern version fetch and
-    // the pinned-chromium "Unsupported browser" streak in signed-out idle.
+    // Only signed builds poll for browser updates. The local product keeps
+    // engines pinned and updates only through an explicit engine action.
     const updateInterval =
-      freeBuildKnown() && !freeBuild
+      !buildReady || localBuild
         ? null
         : setInterval(
             () => {
@@ -2651,7 +2648,7 @@ export default function Home() {
       void checkMissingBinaries();
     }
 
-    // Proactively download Wayfern if not already available
+    // Ensure the product's default engine is installed (pinned Chromium in free builds).
     if (!profilesLoading) {
       void invoke("ensure_active_browsers_downloaded").catch((err: unknown) => {
         console.error("Failed to auto-download browsers:", err);
@@ -2672,7 +2669,8 @@ export default function Home() {
     checkMissingBinaries,
     profilesLoading,
     profiles.length,
-    freeBuild,
+    buildReady,
+    localBuild,
   ]);
 
   // E2E encryption listeners — surface password-required prompts and rollover

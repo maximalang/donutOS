@@ -90,7 +90,7 @@ import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { translateBackendError } from "@/lib/backend-errors";
 import { getOSDisplayName, getOSIcon } from "@/lib/browser-utils";
 import { DNS_BLOCKLIST_LEVELS } from "@/lib/dns-blocklist-levels";
-import { isLocalProductBuild } from "@/lib/entitlements";
+import { detectFreeBuild } from "@/lib/free-build";
 import { MOTION_DURATION, MOTION_EASE_OUT, MOTION_SPRING } from "@/lib/motion";
 import { startPagesFromText } from "@/lib/start-pages";
 import { notifySystem } from "@/lib/system-notify";
@@ -317,9 +317,11 @@ export function CreateProfileDialog({
       const request = ++versionRequestRef.current;
       setIsLoadingReleaseTypes(true);
       setReleaseTypesError(false);
-      // The local build pins Wayfern to installed (patched) binaries — there
-      // is no manifest to consult and downloads are refused.
-      if (engine === "wayfern" && isLocalProductBuild()) {
+      // Resolve the build flavor before a cold-start can request the Wayfern
+      // manifest while the synchronous free-build cache is still unknown.
+      const freeBuild = engine === "wayfern" ? await detectFreeBuild() : false;
+      if (request !== versionRequestRef.current) return;
+      if (engine === "wayfern" && freeBuild) {
         try {
           const downloaded = await loadDownloadedVersions("wayfern");
           if (versionRequestRef.current === request) {

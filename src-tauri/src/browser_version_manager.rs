@@ -201,6 +201,13 @@ impl BrowserVersionManager {
     &self,
     browser: &str,
   ) -> Result<BrowserReleaseTypes, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "free")]
+    if browser == "wayfern" {
+      return Err(
+        "Wayfern release metadata is disabled in free builds; use installed engines".into(),
+      );
+    }
+
     if browser == "chromium" {
       // The open engine ships from a pinned Chrome for Testing build: the
       // stable channel is exactly that version, offline-safe.
@@ -580,6 +587,18 @@ mod tests {
       releases.stable,
       Some(BrowserVersionManager::CHROMIUM_PINNED_VERSION.to_string())
     );
+  }
+
+  #[cfg(feature = "free")]
+  #[tokio::test]
+  async fn wayfern_release_types_are_not_fetched_in_free_build() {
+    let result = BrowserVersionManager::instance()
+      .get_browser_release_types("wayfern")
+      .await;
+    let error = result
+      .err()
+      .expect("free builds must not fetch Wayfern metadata");
+    assert!(error.to_string().contains("disabled in free builds"));
   }
 
   #[test]

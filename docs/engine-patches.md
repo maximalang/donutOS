@@ -2,8 +2,11 @@
 
 Both shipped engines contain an entitlement gate that refuses CDP automation
 (`get_page_content`, `evaluate_javascript`, …) without a paid Donut plan.
-Patches below keep the engines fully functional and stable; each is verified
-live (navigate + get_page_content + evaluate_javascript on example.com).
+The entitlement-gate patches below have live-smoke evidence (navigate plus
+`get_page_content` and `evaluate_javascript`). The separate 155 session-cap
+patch is version-pinned and statically read back; it is not considered stable
+until a live automation session exceeds the five-minute boundary and passes the
+required soak.
 
 ## 151.0.7922.76 — gate stub (deployed, proven since 19.10)
 
@@ -60,9 +63,34 @@ sites with the branch pattern).
   (`version_updater.rs`), so an unpatched engine can no longer arrive
   silently.
 
-- The free build now ships the **anchor auto-patcher** described below
-  (`src-tauri/src/engine_patch.rs`): download → patch → live smoke, and a
-  version that fails any rung is removed, never installed broken.
+- The free build ships the **anchor auto-patcher** below (`src-tauri/src/engine_patch.rs`).
+  A Wayfern engine is patched and smoke-tested before a new download is
+  promoted or profiles are migrated. Failures preserve the engine and `.orig`
+  backup; a new version is not registered, and an existing registered version
+  is never deleted. Already-patched engines get static readback, not a repeated
+  live smoke.
+
+## 155.0.8059.79 — five-minute automation cap
+
+The binary also caps the automation deadline for the free plan at 300 seconds.
+Static disassembly of the original `chrome.dll.orig` found two `cmp edi,2; je`
+plan branches guarding `now + 0x12c` calculations. Both write the same deadline
+RVA `0x1d86e308`; the paid-plan branch skips the addition. The pinned patch
+forces only those two branches:
+
+- File offsets: `0x4b9ca45` (`0f 84 06 01 00 00` → `e9 07 01 00 00 90`) and
+  `0x4b9f0e1` (`74 46` → `eb 46`).
+- The patcher validates the two timer-arm byte sequences, shared deadline, and
+  both no-cap branch targets before writing. Any other 155+ engine version,
+  including an unverified rebuild suffix such as `155.0.8059.79-2`, fails
+  closed; versions older than 155 have no TTL patch.
+- Readback is idempotent. On an installed 155 engine both branches must be
+  forced before it is accepted. The original engine remains in `chrome.dll.orig`.
+
+The current production `155.0.8059.79/chrome.dll` has these two branch edits;
+the source integration now applies them before an engine is registered or
+profiles are migrated. The ignored real-binary test is
+`the_real_155_session_cap_matches_and_patches_only_the_two_known_branches`.
 
 ## Auto-patching v2 — anchor discovery + live smoke (`engine_patch.rs`)
 
@@ -79,14 +107,15 @@ through a ladder, and only a version that clears every rung stays installed:
    are not gates: no enclosing branch, no site.
 2. **Uniqueness.** Exactly one site or nothing happens. Zero anchored sites
    falls back to the classic 154/155 byte signature; several sites is an
-   ambiguity and the version is removed (`ENGINE_PATCH_FAILED`).
+   ambiguity and the version is not registered (`ENGINE_PATCH_FAILED`). Files
+   and backups are retained for diagnosis; the app does not delete the engine.
 3. **Force.** `je rel32` → `jmp rel32` + nop (displacement +1), original six
    bytes kept as `chrome.dll.orig`. Idempotent: a forced branch is
    recognized, not re-patched.
 4. **Live smoke (`verify_gate_open`).** The patched engine is launched
    headless on a throwaway profile and `Runtime.evaluate 6*7` must answer 42
    over CDP — the exact surface the gate exists to block. Anything else —
-   refused evaluate, stalled socket, a second check — removes the version
+   refused evaluate or stalled socket — refuses registry promotion
    (`ENGINE_SMOKE_FAILED`).
 
 Proof on the real engines: the anchor lands on `0x3fdeb5b` (154) and
@@ -98,7 +127,7 @@ and `WAYFERN_SMOKE`).
 
 What still needs a human: a version that rewords the refusal opening *and*
 recompiles the shape into something new fails the ladder honestly and is
-removed. The hunt scripts and the `.orig` beside every install are the
+left unregistered. The hunt scripts and `.orig` beside every install are the
 starting point for a new anchor; the patcher never patches blind.
 
 ## Engine policy (free build)
@@ -106,8 +135,9 @@ starting point for a new anchor; the patcher never patches blind.
 - **Wayfern (antidetect, primary): pinned, update on demand only.** No
   periodic auto-update: every new version must pass the patch ladder (anchor →
   uniqueness → force → smoke), so an update is a deliberate act (download
-  command → patch → smoke), never a background one. The vendor version
-  refresh stays disabled.
+  command → patch → smoke), never a background one. Explicit engine actions
+  may refresh the manifest through `api_client`; startup and periodic checks do
+  not.
 - **Chromium (open engine, now with antidetect): fingerprint-chromium.** The
   free build downloads fingerprint-chromium 148.0.7778.215 (BSD-3) from its
   public GitHub release instead of plain Chrome-for-Testing — pinned version
@@ -119,18 +149,22 @@ starting point for a new anchor; the patcher never patches blind.
   and fresh profiles per seed, GPU strings per seed, codecs present, CDP
   unmetered). Known gaps: AudioContext is not per-seed, fonts are not masked.
   v150 stays unpinned (canvas noising did not fire on it).
-- **Unpatchable or smoke-failing Wayfern versions never register**: the
-  patcher's refusal removes the directory, so a broken engine cannot be
-  selected by accident.
+- **Unpatchable or smoke-failing Wayfern versions never register**. The engine
+  directory and `.orig` are retained for diagnosis; a failed patch never
+  deletes an existing registered version.
 
 ## Rules
 
-- Engines never update in the background: the free build pins everything
-  (auto_updater / registry migration & cleanup are no-ops under
-  `--features free`). A Wayfern install runs the patch ladder and is
-  removed when the gate is not found or the smoke fails — an unpatched
-  engine never registers. Updates are deliberate, on demand, and verified
-  (see Engine policy).
+- Engines never update in the background: the free build pins profiles and
+  keeps installed binaries (`--features free` disables periodic checks,
+  automatic profile migration, and unused-binary removal). Legacy pending
+  updates are ignored. A Wayfern install runs the patch ladder before registry
+  promotion; if the gate or smoke fails, its files remain unregistered for
+  diagnosis. Updates are deliberate, on demand, and verified (see Engine
+  policy).
+- Startup repair may restore the pinned open Chromium engine, but never fetches
+  a Wayfern manifest or auto-downloads a missing Wayfern engine in the free
+  build; Wayfern catalog/download requests require an explicit engine action.
 - After patching, keep `chrome.dll.orig` next to the patched dll.
 - `scripts/hunt_gate.py` (scratch copy) automates locating the gate in new
   builds: plaintext-string xref first, masked-signature scan second.
