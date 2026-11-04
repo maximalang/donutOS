@@ -123,6 +123,10 @@ import {
   showUndoToast,
 } from "@/lib/toast-utils";
 import { playUiSound } from "@/lib/ui-sounds";
+import {
+  createWindowResizeWarningQueue,
+  type WindowResizeWarningQueue,
+} from "@/lib/window-resize-warning-queue";
 import type {
   BrowserProfile,
   ConsistencyResult,
@@ -558,9 +562,17 @@ export default function Home() {
     useState<PasswordDialogMode>("set");
   const pendingLaunchAfterUnlockRef = useRef<BrowserProfile | null>(null);
   const [windowResizeWarningOpen, setWindowResizeWarningOpen] = useState(false);
-  const windowResizeWarningResolver = useRef<
-    ((proceed: boolean) => void) | null
-  >(null);
+  // Waiters for the one-time resize warning, one per parked launch. A single
+  // shared resolver ref used to be overwritten by the second park (bulk run,
+  // or a second Launch click before the dialog is answered), leaving the
+  // first promise unsettled forever and its profile pinned in launching.
+  // Every waiter now settles with the same dialog answer.
+  const windowResizeWarningQueueRef = useRef<WindowResizeWarningQueue | null>(
+    null,
+  );
+  if (windowResizeWarningQueueRef.current === null) {
+    windowResizeWarningQueueRef.current = createWindowResizeWarningQueue();
+  }
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [currentPermissionType, setCurrentPermissionType] =
     useState<PermissionType>("microphone");
@@ -1665,10 +1677,9 @@ export default function Home() {
             "get_window_resize_warning_dismissed",
           );
           if (!dismissed) {
-            const proceed = await new Promise<boolean>((resolve) => {
-              windowResizeWarningResolver.current = resolve;
-              setWindowResizeWarningOpen(true);
-            });
+            const proceedPromise = windowResizeWarningQueueRef.current?.park();
+            setWindowResizeWarningOpen(true);
+            const proceed = await proceedPromise;
             if (!proceed) {
               return { status: "cancelled" };
             }
@@ -3693,8 +3704,7 @@ export default function Home() {
           isOpen={windowResizeWarningOpen}
           onResult={(proceed) => {
             setWindowResizeWarningOpen(false);
-            windowResizeWarningResolver.current?.(proceed);
-            windowResizeWarningResolver.current = null;
+            windowResizeWarningQueueRef.current?.answer(proceed);
           }}
         />
 
