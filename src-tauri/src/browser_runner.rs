@@ -896,9 +896,23 @@ impl BrowserRunner {
       if let Some(worker_id) = xray_launch_guard.worker_id.as_deref() {
         if !crate::xray_worker_runner::set_browser_pid(worker_id, process_id) {
           if profile.browser == "chromium" {
-            let _ = std::process::Command::new("taskkill")
-              .args(["/PID", &process_id.to_string(), "/T", "/F"])
-              .status();
+            // Console taskkill from the windowless GUI flashes a visible terminal
+            // (same class as the exit-cleanup fix); every other taskkill in the
+            // tree already carries this flag.
+            #[cfg(target_os = "windows")]
+            {
+              use std::os::windows::process::CommandExt;
+              let _ = std::process::Command::new("taskkill")
+                .args(["/PID", &process_id.to_string(), "/T", "/F"])
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                .status();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+              let _ = std::process::Command::new("taskkill")
+                .args(["/PID", &process_id.to_string(), "/T", "/F"])
+                .status();
+            }
           } else if let Err(error) = self.wayfern_manager.stop_wayfern(&wayfern_result.id).await {
             log::warn!(
               "Browser stop after launch error failed profile={} step=xray_owner err=\"{error}\"",
@@ -1373,6 +1387,19 @@ impl BrowserRunner {
       // The open engine keeps no session registry: the recorded PID is the
       // truth. Stop the tree, run the same worker cleanup, clear the PID.
       if let Some(pid) = profile.process_id.filter(|pid| *pid != 0) {
+        // Console taskkill from the windowless GUI flashes a visible terminal on
+        // every chromium profile stop; same flag the exit-cleanup fix carries.
+        #[cfg(target_os = "windows")]
+        let killed = {
+          use std::os::windows::process::CommandExt;
+          std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+        };
+        #[cfg(not(target_os = "windows"))]
         let killed = std::process::Command::new("taskkill")
           .args(["/PID", &pid.to_string(), "/T", "/F"])
           .status()
