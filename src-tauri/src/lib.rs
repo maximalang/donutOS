@@ -545,9 +545,14 @@ fn kill_own_webview_children() {
     if targets.is_empty() {
       return;
     }
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
     for pid in &targets {
+      // taskkill.exe is a console app. DonutOS has no console, so without this
+      // flag Windows Terminal flashes a new visible terminal for every webview.
       let _ = std::process::Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
         .status();
     }
     log::info!(
