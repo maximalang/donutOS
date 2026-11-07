@@ -371,6 +371,14 @@ export function CreateProfileDialog({
 
   useEffect(() => {
     if (!isOpen) return;
+    // Seed the downloaded-versions map for BOTH engines before anything
+    // derives the default from it. The map starts empty and
+    // loadReleaseTypes() only refreshes the currently selected engine, so
+    // without this preload the default locks onto chromium on the first
+    // render and the engine selector (shown only when both engines are
+    // known installed) never appears, even with Wayfern installed.
+    void loadDownloadedVersions("wayfern");
+    void loadDownloadedVersions("chromium");
     void loadReleaseTypes(engine);
     void invoke<{ id: string; name: string; extension_ids: string[] }[]>(
       "list_extension_groups",
@@ -387,7 +395,7 @@ export function CreateProfileDialog({
     return () => {
       versionRequestRef.current += 1;
     };
-  }, [isOpen, loadReleaseTypes, engine]);
+  }, [isOpen, loadReleaseTypes, loadDownloadedVersions, engine]);
 
   const latestVersion = releaseTypes.stable;
   const creatableVersion =
